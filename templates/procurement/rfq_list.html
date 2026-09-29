@@ -1,0 +1,21 @@
+{% extends 'base.html' %}{% block title %}Requests for Quotation{% endblock %}{% block content %}
+<div class="d-flex justify-content-between align-items-center my-4"><h1 class="h3">Requests for Quotation</h1></div>
+<div class="card"><div class="table-responsive"><table class="table table-hover mb-0">
+  <thead><tr><th>RFQ</th><th>PR</th><th>Project</th><th>Status</th><th>Vendors</th><th>Quotes</th><th></th></tr></thead>
+  <tbody>
+    {% for rfq in rfqs %}
+    <tr>
+      <td>{{ rfq.rfq_number }}</td>
+      <td><a href="{% url 'procurement:pr_detail' rfq.pr.pk %}">{{ rfq.pr.pr_number }}</a></td>
+      <td>{{ rfq.pr.project }}</td>
+      <td><span class="badge bg-secondary">{{ rfq.get_status_display }}</span></td>
+      <td>{{ rfq.invited_vendors.count }}</td>
+      <td>{{ rfq.quotes.count }}</td>
+      <td class="text-end"><a class="btn btn-sm btn-outline-primary" href="{% url 'procurement:rfq_detail' rfq.pk %}">View</a></td>
+    </tr>
+    {% empty %}
+    <tr><td colspan="7" class="text-center text-muted py-4">No RFQs found.</td></tr>
+    {% endfor %}
+  </tbody>
+</table></div></div>
+{% endblock %}

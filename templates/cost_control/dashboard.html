@@ -1,0 +1,430 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Cost Control Dashboard - One Stop ERP{% endblock %}
+
+{% block extra_css %}
+<style>
+    .metric-card {
+        background: white;
+        border-radius: 10px;
+        padding: 20px;
+        margin-bottom: 20px;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+        border-left: 4px solid #667eea;
+    }
+    
+    .metric-card.warning {
+        border-left-color: #ffc107;
+    }
+    
+    .metric-card.danger {
+        border-left-color: #dc3545;
+    }
+    
+    .metric-card.success {
+        border-left-color: #198754;
+    }
+    
+    .metric-label {
+        color: #666;
+        font-size: 0.9rem;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+    }
+    
+    .metric-value {
+        font-size: 2rem;
+        font-weight: bold;
+        color: #333;
+        margin: 10px 0;
+    }
+    
+    .metric-change {
+        font-size: 0.85rem;
+        color: #999;
+    }
+    
+    .metric-change.positive {
+        color: #198754;
+    }
+    
+    .metric-change.negative {
+        color: #dc3545;
+    }
+    
+    .chart-container {
+        background: white;
+        border-radius: 10px;
+        padding: 20px;
+        margin-bottom: 20px;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+    }
+    
+    .chart-title {
+        font-size: 1.2rem;
+        font-weight: bold;
+        margin-bottom: 15px;
+        color: #333;
+    }
+    
+    .section-title {
+        font-size: 1.5rem;
+        font-weight: bold;
+        margin-top: 30px;
+        margin-bottom: 20px;
+        color: #333;
+        border-left: 4px solid #667eea;
+        padding-left: 15px;
+    }
+    
+    .alert-item {
+        padding: 12px;
+        border-radius: 5px;
+        margin-bottom: 10px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    
+    .alert-item.critical {
+        background-color: #f8d7da;
+        border-left: 4px solid #dc3545;
+    }
+    
+    .alert-item.high {
+        background-color: #fff3cd;
+        border-left: 4px solid #ffc107;
+    }
+    
+    .alert-item.medium {
+        background-color: #cfe2ff;
+        border-left: 4px solid #0d6efd;
+    }
+    
+    .alert-item.low {
+        background-color: #d1e7dd;
+        border-left: 4px solid #198754;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Page Header -->
+    <div class="row mb-4">
+        <div class="col-md-8">
+            <h1 class="mb-0">
+                <i class="fas fa-chart-line"></i> Cost Control Dashboard
+            </h1>
+            <p class="text-muted">Monitor project budgets and costs in real-time</p>
+        </div>
+        <div class="col-md-4 text-end">
+            <a href="{% url 'cost_control:manual_pdf' %}" class="btn btn-outline-secondary me-2" target="_blank"><i class="bi bi-book"></i> User Guide</a>
+            {% if project %}
+            <form method="get" class="d-inline">
+                <select name="project" class="form-select d-inline-block w-auto" onchange="this.form.submit()">
+                    <option value="">Select Project...</option>
+                    {% for p in projects %}
+                    <option value="{{ p.id }}" {% if p.id == project.id %}selected{% endif %}>{{ p.name }}</option>
+                    {% endfor %}
+                </select>
+            </form>
+            {% else %}
+            <form method="get">
+                <select name="project" class="form-select" onchange="this.form.submit()">
+                    <option value="">Select Project...</option>
+                    {% for p in projects %}
+                    <option value="{{ p.id }}">{{ p.name }}</option>
+                    {% endfor %}
+                </select>
+            </form>
+            {% endif %}
+        </div>
+    </div>
+
+    {% if project %}
+    {% if unassigned.committed or unassigned.actual %}
+    <div class="alert alert-warning">
+        <i class="fas fa-exclamation-triangle"></i>
+        <strong>Not assigned to a BOQ item:</strong> {{ unassigned.committed|floatformat:"2g" }} ordered, {{ unassigned.actual|floatformat:"2g" }} received &mdash;
+        real spending that can't be compared with a budget until a BOQ item is chosen on those requisition / order lines.
+    </div>
+    {% endif %}
+
+    <!-- Key Metrics -->
+    <div class="row">
+        <div class="col-md-3">
+            <div class="metric-card">
+                <div class="metric-label">Budget</div>
+                <div class="metric-value">${{ totals.budget|floatformat:"2g" }}</div>
+                <div class="metric-change">
+                    {% if totals.contract %}Contract ${{ totals.contract|floatformat:"2g" }} &middot; planned margin ${{ totals.planned_margin|floatformat:"2g" }}{% else %}Value-weighted progress {{ summary.weighted_progress }}%{% endif %}
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="metric-card {% if totals.committed > totals.budget %}danger{% endif %}">
+                <div class="metric-label">Committed</div>
+                <div class="metric-value">${{ totals.committed|floatformat:"2g" }}</div>
+                <div class="metric-change">Ordered from suppliers &middot; ${{ totals.uncommitted|floatformat:"2g" }} of the budget still free</div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="metric-card {% if total_variance < 0 %}danger{% else %}success{% endif %}">
+                <div class="metric-label">Actual vs Earned</div>
+                <div class="metric-value">${{ total_actual|floatformat:"2g" }}</div>
+                <div class="metric-change {% if total_variance < 0 %}negative{% else %}positive{% endif %}">
+                    Earned ${{ totals.earned|floatformat:"2g" }}
+                    &middot; {% if total_variance < 0 %}over cost by ${{ total_variance|floatformat:"2g" }}{% else %}under cost by ${{ total_variance|floatformat:"2g" }}{% endif %}
+                    {% if totals.cpi %}&middot; CPI {{ totals.cpi }}{% endif %}
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="metric-card {% if totals.vac < 0 %}danger{% else %}success{% endif %}">
+                <div class="metric-label">Forecast at completion</div>
+                <div class="metric-value">${{ totals.eac|floatformat:"2g" }}</div>
+                <div class="metric-change {% if totals.vac < 0 %}negative{% else %}positive{% endif %}">
+                    ${{ totals.vac|floatformat:"2g" }} vs budget{% if totals.forecast_margin is not None %} &middot; margin ${{ totals.forecast_margin|floatformat:"2g" }}{% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="row">
+        <div class="col-md-12">
+            <div class="metric-card">
+                <div class="metric-label">Lines by cost status</div>
+                <div class="metric-value" style="font-size:1.2rem">
+                    <span class="badge bg-success">{{ on_budget_count }}</span> on track / not started
+                    <span class="badge bg-danger ms-3">{{ over_budget_count }}</span> over cost or over-ordered
+                    <span class="badge bg-info text-dark ms-3">{{ under_budget_count }}</span> under cost
+                </div>
+                <div class="metric-change"><a href="{% url 'cost_control:budget_list' %}?project={{ project.id }}">Open the line-by-line comparison</a></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Charts Section -->
+    <div class="row mt-4">
+        <div class="col-lg-6">
+            <div class="chart-container">
+                <div class="chart-title">Budget, Committed, Earned and Actual</div>
+                <canvas id="budgetVsActualChart"></canvas>
+            </div>
+        </div>
+        <div class="col-lg-6">
+            <div class="chart-container">
+                <div class="chart-title">Budget Status Distribution</div>
+                <canvas id="budgetStatusChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <!-- Alerts Section -->
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="section-title">
+                <i class="fas fa-exclamation-triangle"></i> Active Alerts ({{ active_alerts }})
+            </div>
+            {% if active_alerts > 0 %}
+            <div class="row">
+                {% for alert in recent_alerts %}
+                <div class="col-md-6">
+                    <div class="alert-item {{ alert.severity }}">
+                        <div>
+                            <strong>{{ alert.get_alert_type_display }}</strong>
+                            <small class="d-block">{{ alert.message }}</small>
+                        </div>
+                        <div>
+                            {% if alert.severity == 'critical' %}
+                            <span class="badge bg-danger">{{ alert.get_severity_display }}</span>
+                            {% elif alert.severity == 'high' %}
+                            <span class="badge bg-warning text-dark">{{ alert.get_severity_display }}</span>
+                            {% elif alert.severity == 'medium' %}
+                            <span class="badge bg-primary">{{ alert.get_severity_display }}</span>
+                            {% else %}
+                            <span class="badge bg-success">{{ alert.get_severity_display }}</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="alert alert-success">
+                <i class="fas fa-check-circle"></i> All budgets are within acceptable limits
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Recent Reports -->
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="section-title">
+                <i class="fas fa-file-alt"></i> Recent Cost Reports
+            </div>
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Report Type</th>
+                            <th>Period</th>
+                            <th>Total Budgeted</th>
+                            <th>Total Actual</th>
+                            <th>Variance</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for report in recent_reports %}
+                        <tr>
+                            <td>{{ report.get_report_type_display }}</td>
+                            <td>{{ report.period_start }} to {{ report.period_end }}</td>
+                            <td>${{ report.total_budgeted|floatformat:2 }}</td>
+                            <td>${{ report.total_actual|floatformat:2 }}</td>
+                            <td>
+                                <span class="badge {% if report.total_variance > 0 %}bg-danger{% else %}bg-success{% endif %}">
+                                    ${{ report.total_variance|floatformat:2 }}
+                                    ({{ report.variance_percentage|floatformat:2 }}%)
+                                </span>
+                            </td>
+                            <td>
+                                <a href="{% url 'cost_control:report_detail' report.pk %}" class="btn btn-sm btn-info">
+                                    <i class="fas fa-eye"></i> View
+                                </a>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="6" class="text-center text-muted py-4">
+                                No cost reports generated yet
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    {% else %}
+    <!-- No Project Selected -->
+    <div class="alert alert-info">
+        <i class="fas fa-info-circle"></i> Please select a project to view cost control dashboard
+    </div>
+    {% endif %}
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+{% if project %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
+<script>
+    function renderChartError(canvasId, message) {
+        const canvas = document.getElementById(canvasId);
+        if (!canvas) return;
+        const container = canvas.closest('.chart-container');
+        if (container) {
+            const error = document.createElement('div');
+            error.className = 'alert alert-warning mt-3 mb-0';
+            error.textContent = message;
+            container.appendChild(error);
+        }
+    }
+
+    // Budget vs Actual Chart
+    fetch(`{% url 'cost_control:api_budget_vs_actual' %}?project_id={{ project.id }}`)
+        .then(response => {
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+            return response.json();
+        })
+        .then(data => {
+            const canvas = document.getElementById('budgetVsActualChart');
+            if (!canvas) return;
+            new Chart(canvas.getContext('2d'), {
+                type: 'bar',
+                data: {
+                    labels: data.labels,
+                    datasets: [
+                        {
+                            label: 'Budgeted',
+                            data: data.budgeted,
+                            backgroundColor: 'rgba(102, 126, 234, 0.5)',
+                            borderColor: 'rgba(102, 126, 234, 1)',
+                            borderWidth: 1
+                        },
+                        {
+                            label: 'Committed',
+                            data: data.committed,
+                            backgroundColor: 'rgba(255, 193, 7, 0.5)',
+                            borderColor: 'rgba(255, 193, 7, 1)',
+                            borderWidth: 1
+                        },
+                        {
+                            label: 'Earned',
+                            data: data.earned,
+                            backgroundColor: 'rgba(25, 135, 84, 0.5)',
+                            borderColor: 'rgba(25, 135, 84, 1)',
+                            borderWidth: 1
+                        },
+                        {
+                            label: 'Actual',
+                            data: data.actual,
+                            backgroundColor: 'rgba(245, 87, 108, 0.5)',
+                            borderColor: 'rgba(245, 87, 108, 1)',
+                            borderWidth: 1
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    plugins: { legend: { position: 'top' } },
+                    scales: { y: { beginAtZero: true } }
+                }
+            });
+        })
+        .catch(() => renderChartError('budgetVsActualChart', 'Unable to load budget comparison data.'));
+
+    // Budget Status Chart
+    fetch(`{% url 'cost_control:api_variance_analysis' %}?project_id={{ project.id }}`)
+        .then(response => {
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+            return response.json();
+        })
+        .then(data => {
+            const canvas = document.getElementById('budgetStatusChart');
+            if (!canvas) return;
+            new Chart(canvas.getContext('2d'), {
+                type: 'doughnut',
+                data: {
+                    labels: ['On track', 'Over cost', 'Under cost'],
+                    datasets: [{
+                        data: [data.on_budget, data.over_budget, data.under_budget],
+                        backgroundColor: [
+                            'rgba(25, 135, 84, 0.5)',
+                            'rgba(220, 53, 69, 0.5)',
+                            'rgba(13, 110, 253, 0.5)'
+                        ],
+                        borderColor: [
+                            'rgba(25, 135, 84, 1)',
+                            'rgba(220, 53, 69, 1)',
+                            'rgba(13, 110, 253, 1)'
+                        ],
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    plugins: { legend: { position: 'bottom' } }
+                }
+            });
+        })
+        .catch(() => renderChartError('budgetStatusChart', 'Unable to load variance analysis data.'));
+</script>
+{% endif %}
+{% endblock %}

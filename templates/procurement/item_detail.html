@@ -1,0 +1,22 @@
+{% extends 'base.html' %}{% block title %}Item Details{% endblock %}{% block content %}
+<div class="d-flex justify-content-between align-items-center my-4"><h1 class="h3">Item Details</h1><div><a class="btn btn-outline-secondary" href="{% url 'procurement:item_list' %}">Back</a> <a class="btn btn-primary" href="{% url 'procurement:item_update' item.pk %}">Edit</a></div></div>
+<div class="card mb-3"><div class="card-body"><div class="row g-4"><div class="col-md-3"><strong>Full Code</strong><div>{{ item.full_code }}</div></div><div class="col-md-6"><strong>Description</strong><div>{{ item.description }}</div></div><div class="col-md-3"><strong>Unit</strong><div>{{ item.get_unit_display|default:'—' }}</div></div><div class="col-md-6"><strong>Status</strong><div>{{ item.get_status_display }}</div></div><div class="col-md-6"><strong>Standard</strong><div>{{ item.standard|default:'—' }}</div></div></div></div></div>
+<div class="card mb-3"><div class="card-body">
+  <strong class="d-block mb-2">Classification</strong>
+  <div class="row g-3">
+    {% for step in classification_trail %}
+    <div class="col-md-3">
+      <div class="text-muted small">{{ step.level }}</div>
+      <div>
+        {% if step.name %}{{ step.code }} - {{ step.name }}{% else %}{{ step.code }} <span class="text-muted">(not in reference list)</span>{% endif %}
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+</div></div>
+<div class="card"><div class="card-body text-center">
+  <strong class="d-block mb-2">Barcode</strong>
+  <img src="{% url 'procurement:item_barcode_png' item.pk %}" alt="Barcode {{ item.barcode_value }}" style="max-width:100%;">
+  <div class="mt-2"><a href="{% url 'procurement:item_label_pdf' item.pk %}" class="btn btn-sm btn-outline-primary" target="_blank"><i class="bi bi-printer"></i> Print Label</a></div>
+</div></div>
+{% endblock %}

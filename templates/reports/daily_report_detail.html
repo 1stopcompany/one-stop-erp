@@ -1,0 +1,2548 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Daily Report {{ report.report_number }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col-md-8">
+            <h1 class="h3 mb-2">
+                <i class="fas fa-calendar-day"></i> {{ report.report_number }}
+            </h1>
+            <p class="text-muted">
+                <i class="fas fa-calendar"></i> {{ report.report_date|date:"d F Y" }} | 
+                <i class="fas fa-building"></i> {{ report.project.name }}
+            </p>
+        </div>
+        <div class="col-md-4 text-end">
+            <!-- Status Badge -->
+            {% if report.status == 'draft' %}
+                <span class="badge bg-secondary fs-6">Draft</span>
+            {% elif report.status == 'submitted' %}
+                <span class="badge bg-warning fs-6">Submitted</span>
+            {% elif report.status == 'engineering_approved' %}
+                <span class="badge bg-info fs-6">Approved by Engineering Manager</span>
+            {% elif report.status == 'approved' %}
+                <span class="badge bg-success fs-6">Approved</span>
+            {% elif report.status == 'rejected' %}
+                <span class="badge bg-danger fs-6">Rejected</span>
+            {% elif report.status == 'archived' %}
+                <span class="badge bg-dark fs-6">Archived</span>
+            {% endif %}
+        </div>
+    </div>
+
+    {% if report.status == 'rejected' and report.rejection_reason %}
+    <div class="alert alert-danger"><strong>Rejection reason:</strong> {{ report.rejection_reason }}</div>
+    {% endif %}
+
+    <!-- Alert Messages -->
+    <div id="alertContainer"></div>
+
+    <!-- Action Buttons -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="btn-group" role="group">
+                {% if report.status == 'draft' and request.user == report.site_engineer or report.status == 'draft' and request.user.is_admin %}
+                <a href="{% url 'reports:daily_report_update' report.pk %}" class="btn btn-warning">
+                    <i class="fas fa-edit"></i> Edit
+                </a>
+                {% endif %}
+                {% if report.status == 'draft' %}
+                    {% if request.user == report.site_engineer or request.user.is_admin %}
+                    <form method="post" action="{% url 'reports:submit_daily_report' report.pk %}" class="d-inline">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-info">
+                            <i class="fas fa-paper-plane"></i> Submit for Approval
+                        </button>
+                    </form>
+                    {% endif %}
+                {% endif %}
+
+                {% if report.status == 'submitted' %}
+                    {% if request.user.is_engineering_manager or request.user.is_admin %}
+                    <a href="{% url 'reports:review_daily_report' report.pk %}" class="btn btn-info">
+                        <i class="fas fa-search"></i> Review
+                    </a>
+                    {% endif %}
+                {% endif %}
+
+                {% if report.status == 'engineering_approved' %}
+                    {% if request.user.is_general_manager or request.user.is_admin %}
+                    <a href="{% url 'reports:approve_daily_report' report.pk %}" class="btn btn-success">
+                        <i class="fas fa-check"></i> Final Approve
+                    </a>
+                    {% endif %}
+                {% endif %}
+
+                {% if report.status != 'archived' %}
+                <a href="{% url 'reports:export_daily_pdf' report.pk %}" class="btn btn-danger">
+                    <i class="fas fa-file-pdf"></i> Export PDF
+                </a>
+                {% endif %}
+
+                <a href="{% url 'reports:daily_report_list' %}" class="btn btn-secondary">
+                    <i class="fas fa-arrow-left"></i> Back to List
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Report Information -->
+    <div class="row mb-4">
+        <div class="col-lg-8">
+            <div class="card">
+                <div class="card-header bg-light">
+                    <h5 class="mb-0"><i class="fas fa-info-circle"></i> Report Information</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <p class="text-muted mb-1">Report Number</p>
+                            <p class="fs-5"><strong>{{ report.report_number }}</strong></p>
+                        </div>
+                        <div class="col-md-6">
+                            <p class="text-muted mb-1">Report Date</p>
+                            <p class="fs-5"><strong>{{ report.report_date|date:"d F Y" }}</strong></p>
+                        </div>
+                    </div>
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <p class="text-muted mb-1">Site Engineer</p>
+                            <p class="fs-5"><strong>{{ report.site_engineer.get_full_name }}</strong></p>
+                        </div>
+                        <div class="col-md-6">
+                            <p class="text-muted mb-1">Project</p>
+                            <p class="fs-5"><strong>{{ report.project.name }}</strong></p>
+                        </div>
+                    </div>
+                    {% if report.weather_conditions %}
+                    <div class="mb-3">
+                        <p class="text-muted mb-1"><i class="fas fa-cloud"></i> Weather Conditions</p>
+                        <p>{{ report.weather_conditions }}</p>
+                    </div>
+                    {% endif %}
+                    <div class="mb-3">
+                        <div class="d-flex justify-content-between align-items-center mb-1">
+                            <p class="text-muted mb-0"><i class="fas fa-sticky-note"></i> Remarks</p>
+                            {% if report.status == 'draft' and request.user == report.site_engineer or report.status == 'draft' and request.user.is_admin %}
+                            <button type="button" class="btn btn-sm btn-outline-warning" onclick="openEditRemarks('{{ report.remarks|default:""|escapejs }}')">
+                                <i class="fas fa-edit"></i> Edit
+                            </button>
+                            {% endif %}
+                        </div>
+                        <p style="white-space: pre-line;">{{ report.remarks|default:"—" }}</p>
+                    </div>
+                    <div class="mb-3">
+                        <div class="d-flex justify-content-between align-items-center mb-1">
+                            <p class="text-muted mb-0"><i class="fas fa-user-clock"></i> Work Hours Note (Staff / Workers)</p>
+                            {% if report.status == 'draft' and request.user == report.site_engineer or report.status == 'draft' and request.user.is_admin %}
+                            <button type="button" class="btn btn-sm btn-outline-warning" onclick="openEditWorkHoursNote('{{ report.work_hours_note|default:""|escapejs }}')">
+                                <i class="fas fa-edit"></i> Edit
+                            </button>
+                            {% endif %}
+                        </div>
+                        <p style="white-space: pre-line;">{{ report.work_hours_note|default:"—" }}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Metadata -->
+        <div class="col-lg-4">
+            <div class="card">
+                <div class="card-header bg-light">
+                    <h5 class="mb-0"><i class="fas fa-history"></i> Metadata</h5>
+                </div>
+                <div class="card-body">
+                    <p class="text-muted mb-1">Status</p>
+                    <p class="mb-3">
+                        {% if report.status == 'draft' %}
+                            <span class="badge bg-secondary">Draft</span>
+                        {% elif report.status == 'submitted' %}
+                            <span class="badge bg-warning">Submitted</span>
+                        {% elif report.status == 'engineering_approved' %}
+                            <span class="badge bg-info">Approved by Engineering Manager</span>
+                        {% elif report.status == 'approved' %}
+                            <span class="badge bg-success">Approved</span>
+                        {% elif report.status == 'rejected' %}
+                            <span class="badge bg-danger">Rejected</span>
+                        {% elif report.status == 'archived' %}
+                            <span class="badge bg-dark">Archived</span>
+                        {% endif %}
+                    </p>
+
+                    <p class="text-muted mb-1">Created</p>
+                    <p class="mb-3">{{ report.created_at|date:"d M Y H:i" }}</p>
+
+                    <p class="text-muted mb-1">Last Updated</p>
+                    <p class="mb-3">{{ report.updated_at|date:"d M Y H:i" }}</p>
+
+                    {% if report.reviewed_by %}
+                    <p class="text-muted mb-1">Reviewed By (Engineering Manager)</p>
+                    <p class="mb-3">{{ report.reviewed_by.get_full_name }} - {{ report.review_date|date:"d M Y H:i" }}</p>
+                    {% endif %}
+
+                    {% if report.approved_by %}
+                    <p class="text-muted mb-1">Approved By (General Manager)</p>
+                    <p class="mb-3">{{ report.approved_by.get_full_name }}</p>
+
+                    <p class="text-muted mb-1">Approval Date</p>
+                    <p>{{ report.approval_date|date:"d M Y H:i" }}</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Report Sections Accordion (Worker Attendance first, per site engineer preference) -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="accordion" id="dailyReportSectionsAccordion">
+
+                <!-- Activity Progress Section (BOQ-linked, with qty/cumulative/%) -->
+                <div class="accordion-item">
+                    <h2 class="accordion-header d-flex align-items-stretch" id="heading-activity-progress">
+                        <button class="accordion-button flex-grow-1" type="button" data-bs-toggle="collapse" data-bs-target="#collapse-activity-progress" aria-expanded="true" aria-controls="collapse-activity-progress">
+                            <i class="fas fa-chart-line me-2"></i> 1. Daily Works / Progress
+                        </button>
+                        <div class="d-flex flex-column border-start section-reorder-controls">
+                            <button type="button" class="btn btn-sm btn-light border-0 py-0 px-2" onclick="moveSectionUp(this)" title="Move section up"><i class="fas fa-chevron-up small"></i></button>
+                            <button type="button" class="btn btn-sm btn-light border-0 py-0 px-2" onclick="moveSectionDown(this)" title="Move section down"><i class="fas fa-chevron-down small"></i></button>
+                        </div>
+                    </h2>
+                    <div id="collapse-activity-progress" class="accordion-collapse collapse show" aria-labelledby="heading-activity-progress" data-bs-parent="#dailyReportSectionsAccordion">
+                        <div class="accordion-body">
+                            {% if report.status == 'draft' and request.user == report.site_engineer or report.status == 'draft' and request.user.is_admin %}
+                            <div class="d-flex justify-content-end mb-2">
+                                <button type="button" class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#addActivityProgressModal">
+                                    <i class="fas fa-plus"></i> Add
+                                </button>
+                            </div>
+                            {% endif %}
+                            {% if report.activity_progress_entries.all %}
+                            <div class="table-responsive">
+                                <table class="table table-sm mb-0">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th>Activity</th>
+                                            <th>Location</th>
+                                            <th>BOQ Sub-item</th>
+                                            <th>Unit</th>
+                                            <th>Total Qty</th>
+                                            <th>Today Qty</th>
+                                            <th>Cumulative</th>
+                                            <th>Progress %</th>
+                                            <th>Status</th>
+                                            <th>Crew(s)</th>
+                                            <th>Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="activityProgressTable">
+                                        {% for item in report.activity_progress_entries.all %}
+                                        <tr id="activity-progress-{{ item.id }}">
+                                            <td>{{ item.activity_description }}</td>
+                                            <td>{{ item.location }}</td>
+                                            <td>{{ item.sub_item|default:"—" }}</td>
+                                            <td>{{ item.unit }}</td>
+                                            <td>{{ item.total_quantity|default:"—" }}</td>
+                                            <td>{{ item.quantity_today }}</td>
+                                            <td>{{ item.quantity_cumulative }}</td>
+                                            <td>{{ item.completion_percentage }}%</td>
+                                            <td>{{ item.get_status_display }}</td>
+                                            <td>
+                                                {% for crew in item.crews.all %}<span class="badge bg-light text-dark border">{{ crew.name }}</span>{% endfor %}
+                                                {% if not item.crews.all %}—{% endif %}
+                                            </td>
+                                            <td>
+                                                {% if report.status == 'draft' and request.user == report.site_engineer or report.status == 'draft' and request.user.is_admin %}
+                                                <button class="btn btn-sm btn-danger" onclick="deleteActivityProgress({{ item.id }})">
+                                                    <i class="fas fa-trash"></i>
+                                                </button>
+                                                {% endif %}
+                                            </td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                            {% else %}
+                            <p class="text-muted text-center py-3">No activity progress recorded</p>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Worker Attendance Section -->
+                <div class="accordion-item">
+                    <h2 class="accordion-header d-flex align-items-stretch" id="heading-worker-attendance">
+                        <button class="accordion-button collapsed flex-grow-1" type="button" data-bs-toggle="collapse" data-bs-target="#collapse-worker-attendance" aria-expanded="false" aria-controls="collapse-worker-attendance">
+                            <i class="fas fa-hard-hat me-2"></i> 2. Manpower & Man-Hours
+                        </button>
+                        <div class="d-flex flex-column border-start section-reorder-controls">
+                            <button type="button" class="btn btn-sm btn-light border-0 py-0 px-2" onclick="moveSectionUp(this)" title="Move section up"><i class="fas fa-chevron-up small"></i></button>
+                            <button type="button" class="btn btn-sm btn-light border-0 py-0 px-2" onclick="moveSectionDown(this)" title="Move section down"><i class="fas fa-chevron-down small"></i></button>
+                        </div>
+                    </h2>
+                    <div id="collapse-worker-attendance" class="accordion-collapse collapse" aria-labelledby="heading-worker-attendance" data-bs-parent="#dailyReportSectionsAccordion">
+                        <div class="accordion-body">
+                            {% if report.status == 'draft' and request.user == report.site_engineer or report.status == 'draft' and request.user.is_admin %}
+                            <div class="d-flex justify-content-end mb-2">
+                                <button type="button" class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#addWorkerAttendanceModal">
+                                    <i class="fas fa-plus"></i> Add
+                                </button>
+                            </div>
+                            {% endif %}
+                            {% if crews %}
+                            <div class="table-responsive mb-3">
+                                <table class="table table-sm table-bordered mb-0" id="crewsTable">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th>Crew</th>
+                                            <th>Linked Activity</th>
+                                            <th>Contractor</th>
+                                            <th>Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for crew in crews %}
+                                        <tr id="crew-{{ crew.id }}">
+                                            <td>{{ crew.name }}</td>
+                                            <td>
+                                                {% if crew.activity %}
+                                                {{ crew.activity.activity_description }}
+                                                {% else %}
+                                                <span class="text-warning">— not linked yet —</span>
+                                                {% endif %}
+                                            </td>
+                                            <td>{{ crew.contractor_name|default:"—" }}</td>
+                                            <td>
+                                                {% if report.status == 'draft' and request.user == report.site_engineer or report.status == 'draft' and request.user.is_admin %}
+                                                <button type="button" class="btn btn-sm btn-outline-warning" onclick="openEditDailyCrew({{ crew.id }}, '{{ crew.name|escapejs }}', '{{ crew.activity_id|default_if_none:'' }}', '{{ crew.agreement_id|default_if_none:'' }}', '{{ crew.contractor_name|escapejs }}')">
+                                                    <i class="fas fa-edit"></i> Edit
+                                                </button>
+                                                <button type="button" class="btn btn-sm btn-danger" onclick="deleteDailyCrew({{ crew.id }})" title="{% if crew.workers.count %}Remove/reassign its {{ crew.workers.count }} worker(s) first{% else %}Delete crew{% endif %}">
+                                                    <i class="fas fa-trash"></i>
+                                                </button>
+                                                {% endif %}
+                                            </td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                            <div class="form-text mb-3">A crew not yet linked to an activity can be fixed here — edit it and pick one from "1. Daily Works / Progress"; every worker already under that crew, and the cost-vs-productivity summary below, pick it up automatically.</div>
+                            {% endif %}
+                            {% if report.worker_attendance.all %}
+                            <div class="table-responsive">
+                                <table class="table table-sm mb-0">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th>Name</th>
+                                            <th>Trade</th>
+                                            <th>Crew</th>
+                                            <th>Contractor</th>
+                                            <th>Activity/Location</th>
+                                            <th>In</th>
+                                            <th>Out</th>
+                                            <th>Break</th>
+                                            <th>OT</th>
+                                            <th>Total Hours</th>
+                                            <th>Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="workerAttendanceTable">
+                                        {% for item in report.worker_attendance.all %}
+                                        <tr id="worker-attendance-{{ item.id }}">
+                                            <td>
+                                                <strong>{{ item.worker_name }}</strong>
+                                                {% if item.employee_id %}
+                                                    {% if item.has_gps_record %}
+                                                    <span class="badge bg-success" title="Confirmed via GPS check-in/out"><i class="fas fa-satellite-dish"></i> GPS</span>
+                                                    {% else %}
+                                                    <span class="badge bg-secondary" title="Linked HR employee, no GPS record yet for this date"><i class="fas fa-link"></i> HR</span>
+                                                    {% endif %}
+                                                {% endif %}
+                                            </td>
+                                            <td>{{ item.labor_classification|default:"—" }}</td>
+                                            <td>{{ item.crew.name|default:"—" }}</td>
+                                            <td>{{ item.contractor_name }}</td>
+                                            <td>{{ item.activity_location }}</td>
+                                            <td>{{ item.time_in|time:"H:i"|default:"—" }}</td>
+                                            <td>{{ item.time_out|time:"H:i"|default:"—" }}</td>
+                                            <td>{{ item.break_hours }}</td>
+                                            <td>{{ item.overtime_hours }}</td>
+                                            <td>{{ item.total_hours }}</td>
+                                            <td>
+                                                {% if report.status == 'draft' and request.user == report.site_engineer or report.status == 'draft' and request.user.is_admin %}
+                                                {% if item.employee_id and item.has_gps_record %}
+                                                <button class="btn btn-sm btn-outline-success" onclick="pullGpsWorkerAttendance({{ item.id }})" title="Pull hours from GPS check-in/out">
+                                                    <i class="fas fa-satellite-dish"></i>
+                                                </button>
+                                                {% endif %}
+                                                <button class="btn btn-sm btn-outline-warning" onclick="openEditWorkerAttendance({{ item.id }}, '{{ item.employee_id|default_if_none:'' }}', '{{ item.worker_name|escapejs }}', '{{ item.labor_classification_id|default_if_none:'' }}', '{{ item.contractor_name|escapejs }}', '{{ item.activity_location|escapejs }}', '{{ item.time_in|time:'H:i'|default:'' }}', '{{ item.time_out|time:'H:i'|default:'' }}', '{{ item.break_hours }}', '{{ item.overtime_hours }}', '{{ item.notes|escapejs }}', '{{ item.daily_worker_id|default_if_none:'' }}')">
+                                                    <i class="fas fa-edit"></i>
+                                                </button>
+                                                <button class="btn btn-sm btn-danger" onclick="deleteWorkerAttendance({{ item.id }})">
+                                                    <i class="fas fa-trash"></i>
+                                                </button>
+                                                {% endif %}
+                                            </td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                    <tfoot>
+                                        <tr class="table-light">
+                                            <td colspan="9" class="text-end"><strong>Daily Total Man-Hours</strong></td>
+                                            <td colspan="2"><strong>{{ report.worker_attendance.all|length }} workers</strong></td>
+                                        </tr>
+                                    </tfoot>
+                                </table>
+                            </div>
+                            {% else %}
+                            <p class="text-muted text-center py-3">No worker attendance recorded</p>
+                            {% endif %}
+
+                            {% if labor_productivity_summary %}
+                            <hr>
+                            <h6 class="text-muted mb-2"><i class="fas fa-coins"></i> Today's Labor Cost vs. Productivity</h6>
+                            <div class="table-responsive">
+                                <table class="table table-sm mb-0">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th>Crew</th>
+                                            <th>Activity</th>
+                                            <th>Man-Hours</th>
+                                            <th>Est. Labor Cost</th>
+                                            <th>Today's Qty</th>
+                                            <th>Est. Cost / Unit</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for row in labor_productivity_summary %}
+                                        <tr>
+                                            <td>{{ row.crew.name|default:"— No Crew —" }}</td>
+                                            <td>{{ row.activity.activity_description|default:"—" }}</td>
+                                            <td>{{ row.hours }}</td>
+                                            <td>${{ row.cost|floatformat:2 }}</td>
+                                            <td>{% if row.quantity_today %}{{ row.quantity_today }} {{ row.unit }}{% else %}—{% endif %}</td>
+                                            <td>{% if row.cost_per_unit %}${{ row.cost_per_unit|floatformat:2 }} / {{ row.unit }}{% else %}—{% endif %}</td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                            <div class="form-text">Estimated same-day cost signal (daily-worker/HR hourly rate × hours) grouped by crew — not a payroll figure.</div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Equipment Section -->
+                <div class="accordion-item">
+                    <h2 class="accordion-header d-flex align-items-stretch" id="heading-equipment">
+                        <button class="accordion-button collapsed flex-grow-1" type="button" data-bs-toggle="collapse" data-bs-target="#collapse-equipment" aria-expanded="false" aria-controls="collapse-equipment">
+                            <i class="fas fa-cogs me-2"></i> Equipment on Site
+                        </button>
+                        <div class="d-flex flex-column border-start section-reorder-controls">
+                            <button type="button" class="btn btn-sm btn-light border-0 py-0 px-2" onclick="moveSectionUp(this)" title="Move section up"><i class="fas fa-chevron-up small"></i></button>
+                            <button type="button" class="btn btn-sm btn-light border-0 py-0 px-2" onclick="moveSectionDown(this)" title="Move section down"><i class="fas fa-chevron-down small"></i></button>
+                        </div>
+                    </h2>
+                    <div id="collapse-equipment" class="accordion-collapse collapse" aria-labelledby="heading-equipment" data-bs-parent="#dailyReportSectionsAccordion">
+                        <div class="accordion-body">
+                            {% if report.status == 'draft' and request.user == report.site_engineer or report.status == 'draft' and request.user.is_admin %}
+                            <div class="d-flex justify-content-end mb-2">
+                                <button type="button" class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#addEquipmentModal">
+                                    <i class="fas fa-plus"></i> Add
+                                </button>
+                            </div>
+                            {% endif %}
+                            {% if equipment %}
+                            <div class="table-responsive">
+                                <table class="table table-sm mb-0">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th>Equipment Name</th>
+                                            <th>Used For (Activity)</th>
+                                            <th>Hours Worked</th>
+                                            <th>Quantity Idle</th>
+                                            <th>Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="equipmentTable">
+                                        {% for item in equipment %}
+                                        <tr id="equipment-{{ item.id }}">
+                                            <td><strong>{{ item.equipment_name }}</strong></td>
+                                            <td>{{ item.activity.activity_description|default:"—" }}</td>
+                                            <td>{{ item.hours_worked }} hrs</td>
+                                            <td>{{ item.quantity_idle }}</td>
+                                            <td>
+                                                {% if report.status == 'draft' and request.user == report.site_engineer or report.status == 'draft' and request.user.is_admin %}
+                                                <button class="btn btn-sm btn-danger" onclick="deleteEquipment({{ item.id }})">
+                                                    <i class="fas fa-trash"></i>
+                                                </button>
+                                                {% endif %}
+                                            </td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                            {% else %}
+                            <p class="text-muted text-center py-3">No equipment recorded</p>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Materials Section -->
+                <div class="accordion-item">
+                    <h2 class="accordion-header d-flex align-items-stretch" id="heading-materials">
+                        <button class="accordion-button collapsed flex-grow-1" type="button" data-bs-toggle="collapse" data-bs-target="#collapse-materials" aria-expanded="false" aria-controls="collapse-materials">
+                            <i class="fas fa-boxes me-2"></i> Materials Used
+                        </button>
+                        <div class="d-flex flex-column border-start section-reorder-controls">
+                            <button type="button" class="btn btn-sm btn-light border-0 py-0 px-2" onclick="moveSectionUp(this)" title="Move section up"><i class="fas fa-chevron-up small"></i></button>
+                            <button type="button" class="btn btn-sm btn-light border-0 py-0 px-2" onclick="moveSectionDown(this)" title="Move section down"><i class="fas fa-chevron-down small"></i></button>
+                        </div>
+                    </h2>
+                    <div id="collapse-materials" class="accordion-collapse collapse" aria-labelledby="heading-materials" data-bs-parent="#dailyReportSectionsAccordion">
+                        <div class="accordion-body">
+                            {% if report.status == 'draft' and request.user == report.site_engineer or report.status == 'draft' and request.user.is_admin %}
+                            <div class="d-flex justify-content-end mb-2">
+                                <button type="button" class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#addMaterialModal">
+                                    <i class="fas fa-plus"></i> Add
+                                </button>
+                            </div>
+                            {% endif %}
+                            {% if materials %}
+                            <div class="table-responsive">
+                                <table class="table table-sm mb-0">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th>Material Name</th>
+                                            <th>Quantity</th>
+                                            <th>Unit</th>
+                                            <th>Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="materialTable">
+                                        {% for item in materials %}
+                                        <tr id="material-{{ item.id }}">
+                                            <td><strong>{{ item.material_description }}</strong></td>
+                                            <td>{{ item.quantity }}</td>
+                                            <td>{{ item.unit }}</td>
+                                            <td>
+                                                {% if report.status == 'draft' and request.user == report.site_engineer or report.status == 'draft' and request.user.is_admin %}
+                                                <button class="btn btn-sm btn-danger" onclick="deleteMaterial({{ item.id }})">
+                                                    <i class="fas fa-trash"></i>
+                                                </button>
+                                                {% endif %}
+                                            </td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                            {% else %}
+                            <p class="text-muted text-center py-3">No materials recorded</p>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Visitors Section -->
+                <div class="accordion-item">
+                    <h2 class="accordion-header d-flex align-items-stretch" id="heading-visitors">
+                        <button class="accordion-button collapsed flex-grow-1" type="button" data-bs-toggle="collapse" data-bs-target="#collapse-visitors" aria-expanded="false" aria-controls="collapse-visitors">
+                            <i class="fas fa-user-tie me-2"></i> Visitors
+                        </button>
+                        <div class="d-flex flex-column border-start section-reorder-controls">
+                            <button type="button" class="btn btn-sm btn-light border-0 py-0 px-2" onclick="moveSectionUp(this)" title="Move section up"><i class="fas fa-chevron-up small"></i></button>
+                            <button type="button" class="btn btn-sm btn-light border-0 py-0 px-2" onclick="moveSectionDown(this)" title="Move section down"><i class="fas fa-chevron-down small"></i></button>
+                        </div>
+                    </h2>
+                    <div id="collapse-visitors" class="accordion-collapse collapse" aria-labelledby="heading-visitors" data-bs-parent="#dailyReportSectionsAccordion">
+                        <div class="accordion-body">
+                            {% if report.status == 'draft' and request.user == report.site_engineer or report.status == 'draft' and request.user.is_admin %}
+                            <div class="d-flex justify-content-end mb-2">
+                                <button type="button" class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#addVisitorModal">
+                                    <i class="fas fa-plus"></i> Add
+                                </button>
+                            </div>
+                            {% endif %}
+                            {% if visitors %}
+                            <div class="table-responsive">
+                                <table class="table table-sm mb-0">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th>Visitor Name</th>
+                                            <th>Representing</th>
+                                            <th>Visit Time</th>
+                                            <th>Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="visitorTable">
+                                        {% for item in visitors %}
+                                        <tr id="visitor-{{ item.id }}">
+                                            <td><strong>{{ item.visitor_name }}</strong></td>
+                                            <td>{{ item.representing }}</td>
+                                            <td>{{ item.visit_time|time:"H:i" }}</td>
+                                            <td>
+                                                {% if report.status == 'draft' and request.user == report.site_engineer or report.status == 'draft' and request.user.is_admin %}
+                                                <button class="btn btn-sm btn-danger" onclick="deleteVisitor({{ item.id }})">
+                                                    <i class="fas fa-trash"></i>
+                                                </button>
+                                                {% endif %}
+                                            </td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                            {% else %}
+                            <p class="text-muted text-center py-3">No visitors recorded</p>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Attachments Section -->
+                <div class="accordion-item">
+                    <h2 class="accordion-header d-flex align-items-stretch" id="heading-attachments">
+                        <button class="accordion-button collapsed flex-grow-1" type="button" data-bs-toggle="collapse" data-bs-target="#collapse-attachments" aria-expanded="false" aria-controls="collapse-attachments">
+                            <i class="fas fa-paperclip me-2"></i> Attachments
+                        </button>
+                        <div class="d-flex flex-column border-start section-reorder-controls">
+                            <button type="button" class="btn btn-sm btn-light border-0 py-0 px-2" onclick="moveSectionUp(this)" title="Move section up"><i class="fas fa-chevron-up small"></i></button>
+                            <button type="button" class="btn btn-sm btn-light border-0 py-0 px-2" onclick="moveSectionDown(this)" title="Move section down"><i class="fas fa-chevron-down small"></i></button>
+                        </div>
+                    </h2>
+                    <div id="collapse-attachments" class="accordion-collapse collapse" aria-labelledby="heading-attachments" data-bs-parent="#dailyReportSectionsAccordion">
+                        <div class="accordion-body">
+                            {% if report.status == 'draft' and request.user == report.site_engineer or report.status == 'draft' and request.user.is_admin %}
+                            <div class="d-flex justify-content-end mb-2">
+                                <button type="button" class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#addAttachmentModal">
+                                    <i class="fas fa-plus"></i> Add
+                                </button>
+                            </div>
+                            {% endif %}
+                            {% if attachments %}
+                            <div class="row" id="attachmentContainer">
+                                {% for item in attachments %}
+                                <div class="col-md-6 col-lg-4 mb-3" id="attachment-{{ item.id }}">
+                                    <div class="card h-100">
+                                        {% if item.attachment_type == 'photo' %}
+                                        <img src="{{ item.file.url }}" class="card-img-top" style="height: 150px; object-fit: cover;" alt="{{ item.description }}">
+                                        {% endif %}
+                                        <div class="card-body">
+                                            <p class="text-muted mb-1">
+                                                {% if item.attachment_type == 'photo' %}
+                                                <i class="fas fa-image"></i> Photo
+                                                {% else %}
+                                                <i class="fas fa-file"></i> {{ item.get_attachment_type_display }}
+                                                {% endif %}
+                                            </p>
+                                            <p class="card-text"><strong>{{ item.description|default:"Untitled" }}</strong></p>
+                                            {% if item.location %}<p class="text-muted small mb-1"><i class="fas fa-map-marker-alt"></i> {{ item.location }}</p>{% endif %}
+                                            <p class="text-muted small">{{ item.created_at|date:"d M Y H:i" }}</p>
+                                            <div class="d-flex flex-wrap gap-1">
+                                                <a href="{{ item.file.url }}" class="btn btn-sm btn-primary" target="_blank">
+                                                    <i class="fas fa-download"></i> Download
+                                                </a>
+                                                {% if report.status == 'draft' and request.user == report.site_engineer or report.status == 'draft' and request.user.is_admin %}
+                                                <button class="btn btn-sm btn-outline-warning" onclick="openEditAttachment({{ item.id }}, '{{ item.description|escapejs }}', '{{ item.location|escapejs }}', '{{ item.attachment_type }}')">
+                                                    <i class="fas fa-edit"></i>
+                                                </button>
+                                                <button class="btn btn-sm btn-danger" onclick="deleteAttachment({{ item.id }})">
+                                                    <i class="fas fa-trash"></i>
+                                                </button>
+                                                {% endif %}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                {% endfor %}
+                            </div>
+                            {% else %}
+                            <p class="text-muted text-center py-3">No attachments</p>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+
+                <!-- QA/QC & HSE Section -->
+                <div class="accordion-item">
+                    <h2 class="accordion-header d-flex align-items-stretch" id="heading-qaqc">
+                        <button class="accordion-button collapsed flex-grow-1" type="button" data-bs-toggle="collapse" data-bs-target="#collapse-qaqc" aria-expanded="false" aria-controls="collapse-qaqc">
+                            <i class="fas fa-shield-alt me-2"></i> 4. Quality & Safety (QA/QC & HSE)
+                        </button>
+                        <div class="d-flex flex-column border-start section-reorder-controls">
+                            <button type="button" class="btn btn-sm btn-light border-0 py-0 px-2" onclick="moveSectionUp(this)" title="Move section up"><i class="fas fa-chevron-up small"></i></button>
+                            <button type="button" class="btn btn-sm btn-light border-0 py-0 px-2" onclick="moveSectionDown(this)" title="Move section down"><i class="fas fa-chevron-down small"></i></button>
+                        </div>
+                    </h2>
+                    <div id="collapse-qaqc" class="accordion-collapse collapse" aria-labelledby="heading-qaqc" data-bs-parent="#dailyReportSectionsAccordion">
+                        <div class="accordion-body">
+                            <form id="qaqcForm">
+                                {% csrf_token %}
+                                <div class="row g-3">
+                                    <div class="col-md-4">
+                                        <label class="form-label">Inspection Status</label>
+                                        <select class="form-select" name="inspection_status">
+                                            <option value="not_applicable" {% if report.qaqc.inspection_status == 'not_applicable' %}selected{% endif %}>N/A</option>
+                                            <option value="passed" {% if report.qaqc.inspection_status == 'passed' %}selected{% endif %}>Passed</option>
+                                            <option value="failed" {% if report.qaqc.inspection_status == 'failed' %}selected{% endif %}>Failed</option>
+                                            <option value="pending" {% if report.qaqc.inspection_status == 'pending' %}selected{% endif %}>Pending</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label class="form-label">IR / MIR / Test Reference</label>
+                                        <input type="text" class="form-control" name="ir_mir_test_reference" value="{{ report.qaqc.ir_mir_test_reference|default:'' }}">
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label class="form-label">PPE / Site Cleanliness</label>
+                                        <input type="text" class="form-control" name="ppe_site_cleanliness_status" value="{{ report.qaqc.ppe_site_cleanliness_status|default:'' }}">
+                                    </div>
+                                    <div class="col-md-3 form-check ms-2">
+                                        <input type="checkbox" class="form-check-input" id="toolboxTalkConducted" name="toolbox_talk_conducted" {% if report.qaqc.toolbox_talk_conducted %}checked{% endif %}>
+                                        <label class="form-check-label" for="toolboxTalkConducted">Toolbox Talk Conducted</label>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label class="form-label">Toolbox Talk Topic</label>
+                                        <input type="text" class="form-control" name="toolbox_talk_topic" value="{{ report.qaqc.toolbox_talk_topic|default:'' }}">
+                                    </div>
+                                    <div class="col-md-2 form-check ms-2">
+                                        <input type="checkbox" class="form-check-input" id="incidentOccurred" name="incident_occurred" {% if report.qaqc.incident_occurred %}checked{% endif %}>
+                                        <label class="form-check-label" for="incidentOccurred">Incident</label>
+                                    </div>
+                                    <div class="col-md-2 form-check ms-2">
+                                        <input type="checkbox" class="form-check-input" id="nearMissOccurred" name="near_miss_occurred" {% if report.qaqc.near_miss_occurred %}checked{% endif %}>
+                                        <label class="form-check-label" for="nearMissOccurred">Near Miss</label>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label class="form-label">NCR / HSE Reference</label>
+                                        <input type="text" class="form-control" name="ncr_hse_reference" value="{{ report.qaqc.ncr_hse_reference|default:'' }}">
+                                    </div>
+                                    <div class="col-12">
+                                        <label class="form-label">Notes / Actions</label>
+                                        <textarea class="form-control" name="notes" rows="2">{{ report.qaqc.notes|default:'' }}</textarea>
+                                    </div>
+                                </div>
+                                {% if report.status == 'draft' and request.user == report.site_engineer or report.status == 'draft' and request.user.is_admin %}
+                                <button type="submit" class="btn btn-primary mt-3"><i class="fas fa-save"></i> Save QA/QC & HSE</button>
+                                {% endif %}
+                            </form>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Site Events Section -->
+                <div class="accordion-item">
+                    <h2 class="accordion-header d-flex align-items-stretch" id="heading-site-events">
+                        <button class="accordion-button collapsed flex-grow-1" type="button" data-bs-toggle="collapse" data-bs-target="#collapse-site-events" aria-expanded="false" aria-controls="collapse-site-events">
+                            <i class="fas fa-exclamation-triangle me-2"></i> 5. Site Events / Instructions / Delays
+                        </button>
+                        <div class="d-flex flex-column border-start section-reorder-controls">
+                            <button type="button" class="btn btn-sm btn-light border-0 py-0 px-2" onclick="moveSectionUp(this)" title="Move section up"><i class="fas fa-chevron-up small"></i></button>
+                            <button type="button" class="btn btn-sm btn-light border-0 py-0 px-2" onclick="moveSectionDown(this)" title="Move section down"><i class="fas fa-chevron-down small"></i></button>
+                        </div>
+                    </h2>
+                    <div id="collapse-site-events" class="accordion-collapse collapse" aria-labelledby="heading-site-events" data-bs-parent="#dailyReportSectionsAccordion">
+                        <div class="accordion-body">
+                            {% if report.status == 'draft' and request.user == report.site_engineer or report.status == 'draft' and request.user.is_admin %}
+                            <div class="d-flex justify-content-end mb-2">
+                                <button type="button" class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#addSiteEventModal">
+                                    <i class="fas fa-plus"></i> Add
+                                </button>
+                            </div>
+                            {% endif %}
+                            {% if report.site_events.all %}
+                            <div class="table-responsive">
+                                <table class="table table-sm mb-0">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th>Type</th>
+                                            <th>Ref.</th>
+                                            <th>Description</th>
+                                            <th>Responsible</th>
+                                            <th>Target Date</th>
+                                            <th>Status</th>
+                                            <th>Time Impact</th>
+                                            <th>Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="siteEventTable">
+                                        {% for item in report.site_events.all %}
+                                        <tr id="site-event-{{ item.id }}">
+                                            <td>{{ item.get_event_type_display }}</td>
+                                            <td>{{ item.reference }}</td>
+                                            <td>{{ item.description }}</td>
+                                            <td>{{ item.responsible_party }}</td>
+                                            <td>{{ item.target_date|date:"d M Y"|default:"—" }}</td>
+                                            <td>{{ item.get_status_display }}</td>
+                                            <td>{{ item.time_impact_hours|default:"—" }}</td>
+                                            <td>
+                                                {% if report.status == 'draft' and request.user == report.site_engineer or report.status == 'draft' and request.user.is_admin %}
+                                                <button class="btn btn-sm btn-danger" onclick="deleteSiteEvent({{ item.id }})">
+                                                    <i class="fas fa-trash"></i>
+                                                </button>
+                                                {% endif %}
+                                            </td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                            {% else %}
+                            <p class="text-muted text-center py-3">No events / delays logged</p>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Next Day Plan Section -->
+                <div class="accordion-item">
+                    <h2 class="accordion-header d-flex align-items-stretch" id="heading-next-day-plan">
+                        <button class="accordion-button collapsed flex-grow-1" type="button" data-bs-toggle="collapse" data-bs-target="#collapse-next-day-plan" aria-expanded="false" aria-controls="collapse-next-day-plan">
+                            <i class="fas fa-calendar-check me-2"></i> 6. Next Day Plan / Readiness
+                        </button>
+                        <div class="d-flex flex-column border-start section-reorder-controls">
+                            <button type="button" class="btn btn-sm btn-light border-0 py-0 px-2" onclick="moveSectionUp(this)" title="Move section up"><i class="fas fa-chevron-up small"></i></button>
+                            <button type="button" class="btn btn-sm btn-light border-0 py-0 px-2" onclick="moveSectionDown(this)" title="Move section down"><i class="fas fa-chevron-down small"></i></button>
+                        </div>
+                    </h2>
+                    <div id="collapse-next-day-plan" class="accordion-collapse collapse" aria-labelledby="heading-next-day-plan" data-bs-parent="#dailyReportSectionsAccordion">
+                        <div class="accordion-body">
+                            {% if report.status == 'draft' and request.user == report.site_engineer or report.status == 'draft' and request.user.is_admin %}
+                            <div class="d-flex justify-content-end mb-2">
+                                <button type="button" class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#addNextDayPlanModal">
+                                    <i class="fas fa-plus"></i> Add
+                                </button>
+                            </div>
+                            {% endif %}
+                            {% if report.next_day_plan.all %}
+                            <div class="table-responsive">
+                                <table class="table table-sm mb-0">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th>Planned Activity</th>
+                                            <th>Location</th>
+                                            <th>Manpower</th>
+                                            <th>Resources</th>
+                                            <th>Responsible</th>
+                                            <th>Priority</th>
+                                            <th>Readiness</th>
+                                            <th>Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="nextDayPlanTable">
+                                        {% for item in report.next_day_plan.all %}
+                                        <tr id="next-day-plan-{{ item.id }}">
+                                            <td>{{ item.planned_activity }}</td>
+                                            <td>{{ item.location }}</td>
+                                            <td>{{ item.manpower_required|default:"—" }}</td>
+                                            <td>{{ item.resources_required }}</td>
+                                            <td>{{ item.responsible_party }}</td>
+                                            <td>{{ item.get_priority_display }}</td>
+                                            <td>{{ item.get_readiness_display }}</td>
+                                            <td>
+                                                {% if report.status == 'draft' and request.user == report.site_engineer or report.status == 'draft' and request.user.is_admin %}
+                                                <button class="btn btn-sm btn-danger" onclick="deleteNextDayPlan({{ item.id }})">
+                                                    <i class="fas fa-trash"></i>
+                                                </button>
+                                                {% endif %}
+                                            </td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                            {% else %}
+                            <p class="text-muted text-center py-3">No next-day plan recorded</p>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- MODALS FOR ADDING ITEMS -->
+
+<!-- Add Equipment Modal -->
+<div class="modal fade" id="addEquipmentModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Add Equipment</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="equipmentForm">
+                {% csrf_token %}
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="equipmentMaster" class="form-label">Equipment *</label>
+                        <select class="form-select" id="equipmentMaster" name="equipment_master" required>
+                            <option value="" disabled selected>— Select equipment —</option>
+                            {% for eq in equipment_master_list %}
+                            <option value="{{ eq.id }}">{{ eq.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="equipmentActivity" class="form-label">Used For (Activity) *</label>
+                        <select class="form-select" id="equipmentActivity" name="activity" required>
+                            <option value="" disabled selected>— Select activity —</option>
+                            {% for act in activity_progress_entries %}
+                            <option value="{{ act.id }}">{{ act.activity_description }}</option>
+                            {% endfor %}
+                        </select>
+                        <div class="form-text">Add the activity first under "Daily Works / Progress" if it isn't listed yet.</div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="hoursWorked" class="form-label">Hours Worked *</label>
+                        <input type="number" class="form-control" id="hoursWorked" name="hours_worked" min="0" step="0.5" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="quantityIdle" class="form-label">Quantity Idle</label>
+                        <input type="number" class="form-control" id="quantityIdle" name="quantity_idle" min="0">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Add Equipment</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Add Material Modal -->
+<div class="modal fade" id="addMaterialModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Add Material</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="materialForm">
+                {% csrf_token %}
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="materialName" class="form-label">Material Description *</label>
+                        <input type="text" class="form-control" id="materialName" name="material_description" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="materialQuantity" class="form-label">Quantity *</label>
+                        <input type="number" class="form-control" id="materialQuantity" name="quantity" min="0" step="0.01" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="materialUnit" class="form-label">Unit *</label>
+                        <input type="text" class="form-control" id="materialUnit" name="unit" placeholder="e.g., kg, liters, pieces" required>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Add Material</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Add Visitor Modal -->
+<div class="modal fade" id="addVisitorModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Add Visitor</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="visitorForm">
+                {% csrf_token %}
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="visitorName" class="form-label">Visitor Name *</label>
+                        <input type="text" class="form-control" id="visitorName" name="visitor_name" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="purposeOfVisit" class="form-label">Representing</label>
+                        <input type="text" class="form-control" id="purposeOfVisit" name="representing">
+                    </div>
+                    <div class="mb-3">
+                        <label for="timeIn" class="form-label">Visit Time *</label>
+                        <input type="time" class="form-control" id="timeIn" name="visit_time" required>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Add Visitor</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Add Attachment Modal -->
+<div class="modal fade" id="addAttachmentModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Add Attachment</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="attachmentForm" enctype="multipart/form-data">
+                {% csrf_token %}
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="attachmentFile" class="form-label">File *</label>
+                        <input type="file" class="form-control" id="attachmentFile" name="file" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="attachmentCaption" class="form-label">Caption</label>
+                        <input type="text" class="form-control" id="attachmentCaption" name="caption">
+                    </div>
+                    <div class="mb-3">
+                        <label for="attachmentLocation" class="form-label">Location</label>
+                        <input type="text" class="form-control" id="attachmentLocation" name="location">
+                    </div>
+                    <div class="mb-3">
+                        <label for="fileType" class="form-label">File Type *</label>
+                        <select class="form-select" id="fileType" name="attachment_type" required>
+                            <option value="">Select type...</option>
+                            <option value="photo">Photo</option>
+                            <option value="document">Document</option>
+                            <option value="video">Video</option>
+                            <option value="other">Other</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Upload Attachment</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Edit Attachment Modal -->
+<div class="modal fade" id="editAttachmentModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Edit Attachment</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="editAttachmentForm" enctype="multipart/form-data">
+                {% csrf_token %}
+                <input type="hidden" name="attachment_id">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Replace File (optional)</label>
+                        <input type="file" class="form-control" name="file">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Caption</label>
+                        <input type="text" class="form-control" name="caption">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Location</label>
+                        <input type="text" class="form-control" name="location">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">File Type *</label>
+                        <select class="form-select" name="attachment_type" required>
+                            <option value="photo">Photo</option>
+                            <option value="document">Document</option>
+                            <option value="video">Video</option>
+                            <option value="other">Other</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Edit Work Hours Note Modal -->
+<div class="modal fade" id="editWorkHoursNoteModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Edit Work Hours Note</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="editWorkHoursNoteForm">
+                {% csrf_token %}
+                <div class="modal-body">
+                    <textarea class="form-control" name="work_hours_note" rows="3" placeholder='e.g. "24 hrs staff / 8 hrs workers"'></textarea>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Edit Remarks Modal -->
+<div class="modal fade" id="editRemarksModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Edit Remarks</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="editRemarksForm">
+                {% csrf_token %}
+                <div class="modal-body">
+                    <textarea class="form-control" name="remarks" rows="5"></textarea>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Add Activity Progress Modal -->
+<div class="modal fade" id="addActivityProgressModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Add Activity Progress</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="activityProgressForm">
+                {% csrf_token %}
+                <div class="modal-body">
+                    <div class="mb-3 position-relative">
+                        <label class="form-label">Activity Description *</label>
+                        <input type="text" class="form-control" name="activity_description" id="activityProgressSearch" placeholder="Type to search this project's previous activities, or enter a new one..." autocomplete="off" required>
+                        <div class="list-group position-absolute w-100 shadow-sm" id="activityProgressSearchResults" style="z-index: 1060; max-height: 240px; overflow-y: auto; display: none;"></div>
+                        <div class="form-text" id="activityProgressCumulativeHint"></div>
+                    </div>
+                    <div class="row g-2">
+                        <div class="col-md-6">
+                            <label class="form-label">Location</label>
+                            <input type="text" class="form-control" name="location">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">BOQ Sub-item (optional)</label>
+                            <select class="form-select" name="sub_item">
+                                <option value="">— None —</option>
+                                {% for sub in phase_sub_items %}
+                                <option value="{{ sub.id }}">{{ sub.phase.code }}. {{ sub.name_en|default:sub.name_ar }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">Unit</label>
+                            <input type="text" class="form-control" name="unit" placeholder="m3, m2, ...">
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">Total Qty</label>
+                            <input type="number" step="0.01" class="form-control" name="total_quantity">
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">Today Qty</label>
+                            <input type="number" step="0.01" class="form-control" name="quantity_today" value="0">
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">Cumulative Qty</label>
+                            <input type="number" step="0.01" class="form-control" name="quantity_cumulative" value="0">
+                            <div class="form-text">Leave 0 to auto-calculate from this activity's own history on this project.</div>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Progress %</label>
+                            <input type="number" step="0.01" min="0" max="100" class="form-control" name="completion_percentage" value="0">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Status</label>
+                            <select class="form-select" name="status">
+                                <option value="not_started">Not Started</option>
+                                <option value="in_progress" selected>In Progress</option>
+                                <option value="completed">Completed</option>
+                                <option value="delayed">Delayed</option>
+                                <option value="on_hold">On Hold</option>
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Ref. / Remarks</label>
+                            <input type="text" class="form-control" name="reference_notes">
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Add</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Add Worker Attendance Modal -->
+<div class="modal fade" id="addWorkerAttendanceModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Add Worker Attendance</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="workerAttendanceForm">
+                {% csrf_token %}
+                <div class="modal-body">
+                    <div class="row g-2">
+                        <div class="col-md-8 position-relative">
+                            <label class="form-label">Worker *</label>
+                            <div class="d-flex flex-column flex-sm-row gap-2">
+                                <input type="text" class="form-control" id="workerAttendanceSearch" placeholder="Type a name to search (HR employees and day-labor roster)..." autocomplete="off" required>
+                                <button type="button" class="btn btn-outline-secondary text-nowrap" onclick="openAddDailyWorkerModal('workerAttendanceForm')">+ Add New Worker</button>
+                            </div>
+                            <input type="hidden" name="employee" id="workerAttendanceEmployeeId">
+                            <input type="hidden" name="daily_worker" id="workerAttendanceDailyWorkerId">
+                            <input type="hidden" name="worker_name" id="workerAttendanceWorkerName">
+                            <div class="list-group position-absolute w-100 shadow-sm" id="workerAttendanceSearchResults" style="z-index: 1060; max-height: 240px; overflow-y: auto; display: none; top: 100%;"></div>
+                            <div class="form-text">Start typing a name — matches from HR employees and the day-labor roster show below. Not on the list yet? Use "+ Add New Worker".</div>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Crew (optional)</label>
+                            <div class="d-flex flex-column flex-sm-row gap-2">
+                                <select class="form-select" name="crew" onchange="applyCrewToForm(this, 'workerAttendanceForm')">
+                                    <option value="">— No crew (individual) —</option>
+                                    {% for crew in crews %}
+                                    <option value="{{ crew.id }}"
+                                            data-contractor="{{ crew.contractor_name|escapejs }}"
+                                            data-activity="{{ crew.activity.activity_description|default:''|escapejs }}">
+                                        {{ crew.name }}{% if crew.activity %} — {{ crew.activity.activity_description }}{% endif %}{% if crew.contractor_name %} ({{ crew.contractor_name }}){% endif %}
+                                    </option>
+                                    {% endfor %}
+                                </select>
+                                <button type="button" class="btn btn-outline-secondary text-nowrap" onclick="openAddDailyCrewModal('workerAttendanceForm')">+ Add New Crew</button>
+                            </div>
+                            <div class="form-text">On a project with several crews working today, pick one to fill in Contractor/Activity below automatically.</div>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Labor Classification (Trade) *</label>
+                            <select class="form-select" name="labor_classification" required>
+                                <option value="" disabled selected>— Select trade —</option>
+                                {% for lc in labor_classifications %}
+                                <option value="{{ lc.id }}">{{ lc.category.name }} - {{ lc.name }}</option>
+                                {% endfor %}
+                            </select>
+                            <div class="form-text">Required so the printed report can group and total hours by trade.</div>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Contractor / Company</label>
+                            <input type="text" class="form-control" name="contractor_name">
+                            <div class="form-text">Filled from the crew above when one is picked.</div>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Activity / Location</label>
+                            <input type="text" class="form-control" name="activity_location">
+                            <div class="form-text">Filled from the crew above when one is picked.</div>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">Time In</label>
+                            <input type="time" class="form-control" name="time_in">
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">Time Out</label>
+                            <input type="time" class="form-control" name="time_out">
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">Break (hrs)</label>
+                            <input type="number" step="0.5" class="form-control" name="break_hours" value="0">
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">Overtime (hrs)</label>
+                            <input type="number" step="0.5" class="form-control" name="overtime_hours" value="0">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Total Hours (leave 0 to auto-calc from In/Out)</label>
+                            <input type="number" step="0.5" class="form-control" name="total_hours" value="0">
+                        </div>
+                        <div class="col-md-8">
+                            <label class="form-label">Notes</label>
+                            <input type="text" class="form-control" name="notes">
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Add</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Add New Worker Modal (day-labor roster) -->
+<div class="modal fade" id="addDailyWorkerModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Add New Worker</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="dailyWorkerForm">
+                {% csrf_token %}
+                <input type="hidden" id="dailyWorkerTargetForm" name="_target_form">
+                <div class="modal-body">
+                    <div class="row g-2">
+                        <div class="col-md-8">
+                            <label class="form-label">Full Name *</label>
+                            <input type="text" class="form-control" name="full_name" required>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">National ID</label>
+                            <input type="text" class="form-control" name="national_id">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Trade</label>
+                            <input type="text" class="form-control" name="trade" placeholder="e.g. عامل طوبار">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Daily Rate *</label>
+                            <input type="number" step="0.01" min="0" class="form-control" name="daily_rate" required>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label">ID / Identity Document *</label>
+                            <input type="file" class="form-control" name="id_document" required>
+                            <div class="form-text">A photo or scan of the worker's ID, captured once so it's on file for this roster going forward.</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Add Worker</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Add New Crew Modal -->
+<div class="modal fade" id="addDailyCrewModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Add New Crew</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="dailyCrewForm">
+                {% csrf_token %}
+                <input type="hidden" id="dailyCrewTargetForm" name="_target_form">
+                <div class="modal-body">
+                    <div class="row g-2">
+                        <div class="col-12">
+                            <label class="form-label">Crew Name *</label>
+                            <input type="text" class="form-control" name="name" placeholder="e.g. Masonry Crew A" required>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label">Activity (optional)</label>
+                            <select class="form-select" name="activity">
+                                <option value="">— None —</option>
+                                {% for act in activity_progress_entries %}
+                                <option value="{{ act.id }}">{{ act.activity_description }}{% if act.sub_item %} — BOQ: {{ act.sub_item }}{% endif %}</option>
+                                {% endfor %}
+                            </select>
+                            {% if activity_progress_entries %}
+                            <div class="form-text">Which of "Daily Works / Progress"'s logged activities (and its BOQ item) this crew is executing.</div>
+                            {% else %}
+                            <div class="form-text text-warning">No activities logged yet on this report. Add the activity (and its BOQ item) first under "1. Daily Works / Progress", then come back to link this crew to it.</div>
+                            {% endif %}
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label">Subcontractor Agreement (optional)</label>
+                            <select class="form-select" name="agreement" onchange="fillCrewContractorFromAgreement(this)">
+                                <option value="">— None (in-house / type below) —</option>
+                                {% for ag in subcontractor_agreements %}
+                                <option value="{{ ag.id }}" data-vendor="{{ ag.vendor.name|escapejs }}">{{ ag.agreement_number }} — {{ ag.vendor.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label">Contractor / Company</label>
+                            <input type="text" class="form-control" name="contractor_name" id="dailyCrewContractorName" placeholder='e.g. "One Stop" for an in-house crew'>
+                            <div class="form-text">Auto-filled from the agreement above, if picked; otherwise type the contractor/company name.</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Add Crew</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Edit Crew Modal -->
+<div class="modal fade" id="editDailyCrewModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Edit Crew</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="editDailyCrewForm">
+                {% csrf_token %}
+                <input type="hidden" name="crew_id">
+                <div class="modal-body">
+                    <div class="row g-2">
+                        <div class="col-12">
+                            <label class="form-label">Crew Name *</label>
+                            <input type="text" class="form-control" name="name" required>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label">Activity (optional)</label>
+                            <select class="form-select" name="activity">
+                                <option value="">— None —</option>
+                                {% for act in activity_progress_entries %}
+                                <option value="{{ act.id }}">{{ act.activity_description }}{% if act.sub_item %} — BOQ: {{ act.sub_item }}{% endif %}</option>
+                                {% endfor %}
+                            </select>
+                            {% if not activity_progress_entries %}
+                            <div class="form-text text-warning">No activities logged yet on this report. Add one first under "1. Daily Works / Progress".</div>
+                            {% endif %}
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label">Subcontractor Agreement (optional)</label>
+                            <select class="form-select" name="agreement" onchange="fillCrewContractorFromAgreement(this, 'editDailyCrewContractorName')">
+                                <option value="">— None (in-house / type below) —</option>
+                                {% for ag in subcontractor_agreements %}
+                                <option value="{{ ag.id }}" data-vendor="{{ ag.vendor.name|escapejs }}">{{ ag.agreement_number }} — {{ ag.vendor.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label">Contractor / Company</label>
+                            <input type="text" class="form-control" name="contractor_name" id="editDailyCrewContractorName">
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save Crew</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Edit Worker Attendance Modal -->
+<div class="modal fade" id="editWorkerAttendanceModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Edit Worker Attendance</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="editWorkerAttendanceForm">
+                {% csrf_token %}
+                <input type="hidden" name="entry_id">
+                <div class="modal-body">
+                    <div class="row g-2">
+                        <div class="col-md-6">
+                            <label class="form-label">HR Employee (optional)</label>
+                            <select class="form-select" name="employee" onchange="fillWorkerNameFromEmployee(this, 'editWorkerAttendanceForm')">
+                                <option value="">— Not an HR employee (day laborer) —</option>
+                                {% for emp in project_employees %}
+                                <option value="{{ emp.id }}" data-full-name="{{ emp.full_name|escapejs }}">{{ emp.full_name }} ({{ emp.employee_id }})</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Worker Name *</label>
+                            <input type="text" class="form-control" name="worker_name" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Link to Day-Labor Roster (optional)</label>
+                            <select class="form-select" name="daily_worker" onchange="fillWorkerNameFromDailyWorker(this, 'editWorkerAttendanceForm')">
+                                <option value="">— Not linked / HR employee above —</option>
+                                {% for dw in daily_workers %}
+                                <option value="{{ dw.id }}" data-full-name="{{ dw.full_name|escapejs }}">{{ dw.full_name }}{% if dw.trade %} — {{ dw.trade }}{% endif %}</option>
+                                {% endfor %}
+                            </select>
+                            <div class="form-text">Set this to properly link an older, free-text-only row to the shared roster.</div>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Labor Classification (Trade) *</label>
+                            <select class="form-select" name="labor_classification" required>
+                                <option value="" disabled>— Select trade —</option>
+                                {% for lc in labor_classifications %}
+                                <option value="{{ lc.id }}">{{ lc.category.name }} - {{ lc.name }}</option>
+                                {% endfor %}
+                            </select>
+                            <div class="form-text">Required so the printed report can group and total hours by trade.</div>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Contractor / Company</label>
+                            <input type="text" class="form-control" name="contractor_name">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Activity / Location</label>
+                            <input type="text" class="form-control" name="activity_location">
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">Time In</label>
+                            <input type="time" class="form-control" name="time_in">
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">Time Out</label>
+                            <input type="time" class="form-control" name="time_out">
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">Break (hrs)</label>
+                            <input type="number" step="0.5" class="form-control" name="break_hours">
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">Overtime (hrs)</label>
+                            <input type="number" step="0.5" class="form-control" name="overtime_hours">
+                        </div>
+                        <div class="col-md-12">
+                            <label class="form-label">Notes</label>
+                            <input type="text" class="form-control" name="notes">
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Add Site Event Modal -->
+<div class="modal fade" id="addSiteEventModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Add Site Event / Instruction / Delay</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="siteEventForm">
+                {% csrf_token %}
+                <div class="modal-body">
+                    <div class="row g-2">
+                        <div class="col-md-6">
+                            <label class="form-label">Type *</label>
+                            <select class="form-select" name="event_type" required>
+                                <option value="delay">Delay</option>
+                                <option value="site_instruction">Site Instruction (SI)</option>
+                                <option value="rfi">RFI</option>
+                                <option value="ncr">NCR</option>
+                                <option value="hse_incident">HSE Incident</option>
+                                <option value="near_miss">Near Miss</option>
+                                <option value="other" selected>Other</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Reference</label>
+                            <input type="text" class="form-control" name="reference" placeholder="e.g. NCR-014">
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label">Description *</label>
+                            <textarea class="form-control" name="description" rows="2" required></textarea>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label">Required Action</label>
+                            <textarea class="form-control" name="required_action" rows="2"></textarea>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Responsible</label>
+                            <input type="text" class="form-control" name="responsible_party">
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">Target Date</label>
+                            <input type="date" class="form-control" name="target_date">
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">Time Impact (hrs)</label>
+                            <input type="number" step="0.5" class="form-control" name="time_impact_hours">
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label">Remarks</label>
+                            <input type="text" class="form-control" name="remarks">
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Add</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Add Next Day Plan Modal -->
+<div class="modal fade" id="addNextDayPlanModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Add Next-Day Plan Item</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="nextDayPlanForm">
+                {% csrf_token %}
+                <div class="modal-body">
+                    <div class="row g-2">
+                        <div class="col-12">
+                            <label class="form-label">Planned Activity *</label>
+                            <textarea class="form-control" name="planned_activity" rows="2" required></textarea>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Location</label>
+                            <input type="text" class="form-control" name="location">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">BOQ Sub-item (optional)</label>
+                            <select class="form-select" name="sub_item">
+                                <option value="">— None —</option>
+                                {% for sub in phase_sub_items %}
+                                <option value="{{ sub.id }}">{{ sub.phase.code }}. {{ sub.name_en|default:sub.name_ar }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">Manpower</label>
+                            <input type="number" class="form-control" name="manpower_required">
+                        </div>
+                        <div class="col-md-9">
+                            <label class="form-label">Resources Required</label>
+                            <input type="text" class="form-control" name="resources_required">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Requirement / Approval Needed</label>
+                            <input type="text" class="form-control" name="requirement_notes">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Responsible</label>
+                            <input type="text" class="form-control" name="responsible_party">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Priority</label>
+                            <select class="form-select" name="priority">
+                                <option value="">—</option>
+                                <option value="high">High</option>
+                                <option value="medium">Medium</option>
+                                <option value="low">Low</option>
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Readiness</label>
+                            <select class="form-select" name="readiness">
+                                <option value="">—</option>
+                                <option value="ready">Ready</option>
+                                <option value="pending">Pending</option>
+                                <option value="not_ready">Not Ready</option>
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Remarks</label>
+                            <input type="text" class="form-control" name="remarks">
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Add</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+{{ section_order|json_script:"savedSectionOrderData" }}
+<script>
+const reportId = {{ report.pk }};
+const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+
+// Section accordion reordering -- lets the site engineer put whichever section they use most
+// (e.g. Worker Attendance) first, saved per-user so it applies to every Daily Report they open.
+(function () {
+    const accordion = document.getElementById('dailyReportSectionsAccordion');
+    if (!accordion) return;
+
+    function sectionKey(item) {
+        const heading = item.querySelector('h2.accordion-header');
+        return heading ? heading.id.replace('heading-', '') : '';
+    }
+
+    const savedOrder = JSON.parse(document.getElementById('savedSectionOrderData').textContent || '[]');
+    if (savedOrder.length) {
+        const items = Array.from(accordion.children);
+        const byKey = {};
+        items.forEach((item) => { byKey[sectionKey(item)] = item; });
+        savedOrder.forEach((key) => {
+            if (byKey[key]) accordion.appendChild(byKey[key]);
+        });
+        // Any section not in the saved order (e.g. added after the user last saved one) keeps
+        // appearing, just after the ones the user did order -- appendChild above already moved
+        // the known ones to the end in order, so what's left in its original relative position
+        // naturally trails them once the DOM re-append settles.
+    }
+
+    function saveOrder() {
+        const order = Array.from(accordion.children).map(sectionKey).join(',');
+        fetch('/reports/api/daily/section-order/', {
+            method: 'POST',
+            headers: {'X-CSRFToken': csrfToken, 'Content-Type': 'application/x-www-form-urlencoded'},
+            body: `order=${encodeURIComponent(order)}`,
+        }).catch(() => {});
+    }
+
+    window.moveSectionUp = function (button) {
+        const item = button.closest('.accordion-item');
+        const prev = item.previousElementSibling;
+        if (prev) {
+            accordion.insertBefore(item, prev);
+            saveOrder();
+        }
+    };
+
+    window.moveSectionDown = function (button) {
+        const item = button.closest('.accordion-item');
+        const next = item.nextElementSibling;
+        if (next) {
+            accordion.insertBefore(next, item);
+            saveOrder();
+        }
+    };
+})();
+
+// Combined, searchable worker list for "Add Worker Attendance" -- HR employees assigned to
+// this project and the shared day-labor roster, in one list instead of two separate dropdowns
+// (which made it unclear which one to use and had no way to search a long roster by name).
+const workerSearchData = [
+    {% for emp in project_employees %}
+    {type: 'employee', id: '{{ emp.id }}', name: '{{ emp.full_name|escapejs }}', sub: '{{ emp.employee_id|escapejs }} — HR Employee',
+     lc: '{{ emp.position.default_labor_classification_id|default_if_none:"" }}'},
+    {% endfor %}
+    {% for dw in daily_workers %}
+    {type: 'daily_worker', id: '{{ dw.id }}', name: '{{ dw.full_name|escapejs }}', sub: '{% if dw.trade %}{{ dw.trade|escapejs }} — {% endif %}Day-Labor Roster', lc: ''},
+    {% endfor %}
+];
+
+function setupWorkerSearch(inputId, resultsId, formId) {
+    const input = document.getElementById(inputId);
+    const results = document.getElementById(resultsId);
+    const form = document.getElementById(formId);
+
+    function clearSelection() {
+        form.elements['employee'].value = '';
+        form.elements['daily_worker'].value = '';
+        form.elements['worker_name'].value = '';
+    }
+
+    function renderMatches(query) {
+        const q = query.trim().toLowerCase();
+        if (!q) {
+            results.style.display = 'none';
+            return;
+        }
+        const matches = workerSearchData.filter((w) => w.name.toLowerCase().includes(q)).slice(0, 15);
+        results.innerHTML = '';
+        if (!matches.length) {
+            results.style.display = 'none';
+            return;
+        }
+        matches.forEach((m) => {
+            const item = document.createElement('button');
+            item.type = 'button';
+            item.className = 'list-group-item list-group-item-action py-1';
+            item.innerHTML = `<strong>${m.name}</strong> <span class="text-muted small">${m.sub}</span>`;
+            item.addEventListener('mousedown', (e) => {
+                // mousedown (not click) fires before the input's blur hides the list.
+                e.preventDefault();
+                input.value = m.name;
+                form.elements['employee'].value = m.type === 'employee' ? m.id : '';
+                form.elements['daily_worker'].value = m.type === 'daily_worker' ? m.id : '';
+                form.elements['worker_name'].value = m.name;
+                // An HR employee's "details" auto-follow: their position's default trade (if
+                // one is set on it) and "One Stop" as contractor, since staff aren't
+                // subcontracted -- so picking them and pressing Add is really all it takes.
+                if (m.type === 'employee') {
+                    if (m.lc && form.elements['labor_classification']) {
+                        form.elements['labor_classification'].value = m.lc;
+                    }
+                    if (form.elements['contractor_name'] && !form.elements['contractor_name'].value) {
+                        form.elements['contractor_name'].value = 'One Stop';
+                    }
+                }
+                results.style.display = 'none';
+            });
+            results.appendChild(item);
+        });
+        results.style.display = 'block';
+    }
+
+    input.addEventListener('input', () => {
+        clearSelection();
+        renderMatches(input.value);
+    });
+    input.addEventListener('focus', () => {
+        if (input.value.trim()) renderMatches(input.value);
+    });
+    input.addEventListener('blur', () => {
+        setTimeout(() => { results.style.display = 'none'; }, 150);
+    });
+}
+setupWorkerSearch('workerAttendanceSearch', 'workerAttendanceSearchResults', 'workerAttendanceForm');
+
+// Activity history for "Add Activity Progress" -- one row per distinct activity name already
+// used on this project (see views.py), so a recurring activity is picked instead of retyped,
+// and its unit/BOQ link/cumulative-so-far come along with it.
+const activityHistoryData = [
+    {% for a in activity_history %}
+    {name: '{{ a.activity_description|escapejs }}', unit: '{{ a.unit|escapejs }}',
+     subItem: '{{ a.sub_item_id|default_if_none:"" }}', totalQuantity: '{{ a.total_quantity|default_if_none:"" }}',
+     cumulative: '{{ a.quantity_cumulative }}'},
+    {% endfor %}
+];
+
+function setupActivitySearch() {
+    const input = document.getElementById('activityProgressSearch');
+    const results = document.getElementById('activityProgressSearchResults');
+    const hint = document.getElementById('activityProgressCumulativeHint');
+    const form = document.getElementById('activityProgressForm');
+
+    function applyMatch(m) {
+        input.value = m.name;
+        if (m.unit) form.elements['unit'].value = m.unit;
+        if (m.subItem && form.elements['sub_item']) form.elements['sub_item'].value = m.subItem;
+        if (m.totalQuantity) form.elements['total_quantity'].value = m.totalQuantity;
+        hint.textContent = `Cumulative so far (before today): ${m.cumulative}${m.unit ? ' ' + m.unit : ''} — today's quantity will be added to this automatically.`;
+        results.style.display = 'none';
+    }
+
+    function renderMatches(query) {
+        const q = query.trim().toLowerCase();
+        if (!q) {
+            results.style.display = 'none';
+            return;
+        }
+        const matches = activityHistoryData.filter((a) => a.name.toLowerCase().includes(q)).slice(0, 15);
+        results.innerHTML = '';
+        if (!matches.length) {
+            results.style.display = 'none';
+            return;
+        }
+        matches.forEach((m) => {
+            const item = document.createElement('button');
+            item.type = 'button';
+            item.className = 'list-group-item list-group-item-action py-1';
+            item.innerHTML = `<strong>${m.name}</strong> <span class="text-muted small">${m.unit || ''} — cumulative so far: ${m.cumulative}</span>`;
+            item.addEventListener('mousedown', (e) => {
+                e.preventDefault();
+                applyMatch(m);
+            });
+            results.appendChild(item);
+        });
+        results.style.display = 'block';
+    }
+
+    input.addEventListener('input', () => {
+        hint.textContent = '';
+        renderMatches(input.value);
+    });
+    input.addEventListener('focus', () => {
+        if (input.value.trim()) renderMatches(input.value);
+    });
+    input.addEventListener('blur', () => {
+        setTimeout(() => { results.style.display = 'none'; }, 150);
+    });
+}
+setupActivitySearch();
+
+document.getElementById('addActivityProgressModal').addEventListener('hidden.bs.modal', () => {
+    document.getElementById('activityProgressForm').reset();
+    document.getElementById('activityProgressCumulativeHint').textContent = '';
+});
+
+// Picking a Crew fills in that worker's Contractor/Activity from the crew's own data (the
+// server re-derives both from the crew on save regardless, so this is just an accurate preview).
+function applyCrewToForm(selectEl, formId) {
+    const form = document.getElementById(formId);
+    const option = selectEl.options[selectEl.selectedIndex];
+    if (!option || !option.value) return;
+    const contractor = option.getAttribute('data-contractor');
+    const activity = option.getAttribute('data-activity');
+    if (contractor) form.elements['contractor_name'].value = contractor;
+    if (activity) form.elements['activity_location'].value = activity;
+}
+
+// Clear the picked worker when the modal is dismissed without submitting, so reopening it
+// (e.g. after Cancel) doesn't silently carry over a stale selection.
+document.getElementById('addWorkerAttendanceModal').addEventListener('hidden.bs.modal', () => {
+    if (workerAttendanceModalTransitioning) {
+        workerAttendanceModalTransitioning = false;
+        return;
+    }
+    const form = document.getElementById('workerAttendanceForm');
+    form.reset();
+    document.getElementById('workerAttendanceSearch').value = '';
+    form.elements['employee'].value = '';
+    form.elements['daily_worker'].value = '';
+    form.elements['worker_name'].value = '';
+});
+
+// Show alert message
+function showAlert(message, type = 'success') {
+    const alertDiv = document.createElement('div');
+    alertDiv.className = `alert alert-${type} alert-dismissible fade show`;
+    alertDiv.innerHTML = `
+        ${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    `;
+    document.getElementById('alertContainer').appendChild(alertDiv);
+    setTimeout(() => alertDiv.remove(), 5000);
+}
+
+// Add Equipment
+document.getElementById('equipmentForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const formData = new FormData(e.target);
+    
+    try {
+        const response = await fetch(`/reports/api/daily/${reportId}/equipment/`, {
+            method: 'POST',
+            headers: {'X-CSRFToken': csrfToken},
+            body: formData
+        });
+        
+        if (response.ok) {
+            location.reload();
+        } else {
+            showAlert('Error adding equipment', 'danger');
+        }
+    } catch (error) {
+        showAlert('Error: ' + error.message, 'danger');
+    }
+});
+
+// Add Material
+document.getElementById('materialForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const formData = new FormData(e.target);
+    
+    try {
+        const response = await fetch(`/reports/api/daily/${reportId}/material/`, {
+            method: 'POST',
+            headers: {'X-CSRFToken': csrfToken},
+            body: formData
+        });
+        
+        if (response.ok) {
+            location.reload();
+        } else {
+            showAlert('Error adding material', 'danger');
+        }
+    } catch (error) {
+        showAlert('Error: ' + error.message, 'danger');
+    }
+});
+
+// Add Visitor
+document.getElementById('visitorForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const formData = new FormData(e.target);
+    
+    try {
+        const response = await fetch(`/reports/api/daily/${reportId}/visitor/`, {
+            method: 'POST',
+            headers: {'X-CSRFToken': csrfToken},
+            body: formData
+        });
+        
+        if (response.ok) {
+            location.reload();
+        } else {
+            showAlert('Error adding visitor', 'danger');
+        }
+    } catch (error) {
+        showAlert('Error: ' + error.message, 'danger');
+    }
+});
+
+// Add Attachment
+document.getElementById('attachmentForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const formData = new FormData(e.target);
+    
+    try {
+        const response = await fetch(`/reports/api/daily/${reportId}/attachment/`, {
+            method: 'POST',
+            headers: {'X-CSRFToken': csrfToken},
+            body: formData
+        });
+        
+        if (response.ok) {
+            location.reload();
+        } else {
+            showAlert('Error adding attachment', 'danger');
+        }
+    } catch (error) {
+        showAlert('Error: ' + error.message, 'danger');
+    }
+});
+
+// Delete functions
+function deleteEquipment(id) {
+    if (confirm('Are you sure you want to delete this equipment entry?')) {
+        fetch(`/reports/api/daily/${reportId}/equipment/${id}/`, {
+            method: 'DELETE',
+            headers: {'X-CSRFToken': csrfToken}
+        }).then(r => r.ok ? location.reload() : showAlert('Error deleting', 'danger'));
+    }
+}
+
+function deleteMaterial(id) {
+    if (confirm('Are you sure you want to delete this material?')) {
+        fetch(`/reports/api/daily/${reportId}/material/${id}/`, {
+            method: 'DELETE',
+            headers: {'X-CSRFToken': csrfToken}
+        }).then(r => r.ok ? location.reload() : showAlert('Error deleting', 'danger'));
+    }
+}
+
+function deleteVisitor(id) {
+    if (confirm('Are you sure you want to delete this visitor?')) {
+        fetch(`/reports/api/daily/${reportId}/visitor/${id}/`, {
+            method: 'DELETE',
+            headers: {'X-CSRFToken': csrfToken}
+        }).then(r => r.ok ? location.reload() : showAlert('Error deleting', 'danger'));
+    }
+}
+
+function deleteAttachment(id) {
+    if (confirm('Are you sure you want to delete this attachment?')) {
+        fetch(`/reports/api/daily/${reportId}/attachment/${id}/`, {
+            method: 'DELETE',
+            headers: {'X-CSRFToken': csrfToken}
+        }).then(r => r.ok ? location.reload() : showAlert('Error deleting', 'danger'));
+    }
+}
+
+function openEditAttachment(id, caption, location, attachmentType) {
+    const form = document.getElementById('editAttachmentForm');
+    form.reset();
+    form.attachment_id.value = id;
+    form.caption.value = caption;
+    form.location.value = location;
+    form.attachment_type.value = attachmentType;
+    new bootstrap.Modal(document.getElementById('editAttachmentModal')).show();
+}
+
+document.getElementById('editAttachmentForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const form = e.target;
+    try {
+        // POST (not PATCH) is deliberate -- see the matching note on the
+        // server-side view: Django only parses a multipart body into
+        // request.POST/request.FILES for method == 'POST'.
+        const response = await fetch(`/reports/api/daily/${reportId}/attachment/${form.attachment_id.value}/edit/`, {
+            method: 'POST',
+            headers: {'X-CSRFToken': csrfToken},
+            body: new FormData(form),
+        });
+        if (response.ok) {
+            location.reload();
+        } else {
+            showAlert('Error updating attachment', 'danger');
+        }
+    } catch (error) {
+        showAlert('Error: ' + error.message, 'danger');
+    }
+});
+
+function openEditRemarks(currentRemarks) {
+    const form = document.getElementById('editRemarksForm');
+    form.remarks.value = currentRemarks;
+    new bootstrap.Modal(document.getElementById('editRemarksModal')).show();
+}
+
+document.getElementById('editRemarksForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const form = e.target;
+    try {
+        // PATCH bodies aren't auto-parsed into request.POST by Django (only
+        // POST is), so this sends JSON -- the server's _payload() helper
+        // handles JSON for any HTTP method.
+        const response = await fetch(`/reports/api/daily/${reportId}/remarks/`, {
+            method: 'PATCH',
+            headers: {'X-CSRFToken': csrfToken, 'Content-Type': 'application/json'},
+            body: JSON.stringify({remarks: form.remarks.value}),
+        });
+        if (response.ok) {
+            location.reload();
+        } else {
+            showAlert('Error updating remarks', 'danger');
+        }
+    } catch (error) {
+        showAlert('Error: ' + error.message, 'danger');
+    }
+});
+
+function openEditWorkHoursNote(currentNote) {
+    const form = document.getElementById('editWorkHoursNoteForm');
+    form.work_hours_note.value = currentNote;
+    new bootstrap.Modal(document.getElementById('editWorkHoursNoteModal')).show();
+}
+
+document.getElementById('editWorkHoursNoteForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const form = e.target;
+    try {
+        const response = await fetch(`/reports/api/daily/${reportId}/work-hours-note/`, {
+            method: 'PATCH',
+            headers: {'X-CSRFToken': csrfToken, 'Content-Type': 'application/json'},
+            body: JSON.stringify({work_hours_note: form.work_hours_note.value}),
+        });
+        if (response.ok) {
+            location.reload();
+        } else {
+            showAlert('Error updating work hours note', 'danger');
+        }
+    } catch (error) {
+        showAlert('Error: ' + error.message, 'danger');
+    }
+});
+
+// Add Activity Progress
+document.getElementById('activityProgressForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const formData = new FormData(e.target);
+    try {
+        const response = await fetch(`/reports/api/daily/${reportId}/activity-progress/`, {
+            method: 'POST',
+            headers: {'X-CSRFToken': csrfToken},
+            body: formData
+        });
+        if (response.ok) {
+            location.reload();
+        } else {
+            showAlert('Error adding activity progress', 'danger');
+        }
+    } catch (error) {
+        showAlert('Error: ' + error.message, 'danger');
+    }
+});
+
+function deleteActivityProgress(id) {
+    if (confirm('Are you sure you want to delete this activity progress entry?')) {
+        fetch(`/reports/api/daily/${reportId}/activity-progress/${id}/`, {
+            method: 'DELETE',
+            headers: {'X-CSRFToken': csrfToken}
+        }).then(async (r) => {
+            if (r.ok) {
+                location.reload();
+            } else {
+                const data = await r.json().catch(() => ({}));
+                showAlert(data.message || 'Error deleting', 'danger');
+            }
+        });
+    }
+}
+
+function deleteDailyCrew(id) {
+    if (confirm('Are you sure you want to delete this crew?')) {
+        fetch(`/reports/api/daily/${reportId}/crew/${id}/`, {
+            method: 'DELETE',
+            headers: {'X-CSRFToken': csrfToken}
+        }).then(async (r) => {
+            if (r.ok) {
+                location.reload();
+            } else {
+                const data = await r.json().catch(() => ({}));
+                showAlert(data.message || 'Error deleting', 'danger');
+            }
+        });
+    }
+}
+
+// Add Worker Attendance
+document.getElementById('workerAttendanceForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const formData = new FormData(e.target);
+    try {
+        const response = await fetch(`/reports/api/daily/${reportId}/worker-attendance/`, {
+            method: 'POST',
+            headers: {'X-CSRFToken': csrfToken},
+            body: formData
+        });
+        const data = await response.json().catch(() => ({}));
+        if (response.ok && data.success) {
+            location.reload();
+        } else {
+            showAlert(data.message || 'Error adding worker attendance', 'danger');
+        }
+    } catch (error) {
+        showAlert('Error: ' + error.message, 'danger');
+    }
+});
+
+function deleteWorkerAttendance(id) {
+    if (confirm('Are you sure you want to delete this attendance entry?')) {
+        fetch(`/reports/api/daily/${reportId}/worker-attendance/${id}/`, {
+            method: 'DELETE',
+            headers: {'X-CSRFToken': csrfToken}
+        }).then(r => r.ok ? location.reload() : showAlert('Error deleting', 'danger'));
+    }
+}
+
+// Selecting an HR employee pre-fills the worker name (worker_name stays the
+// source of truth on the model) and clears any day-labor roster pick, since
+// a row's name should come from exactly one of the two lists at a time.
+function fillWorkerNameFromEmployee(selectEl, formId) {
+    const form = document.getElementById(formId);
+    const option = selectEl.options[selectEl.selectedIndex];
+    const fullName = option ? option.getAttribute('data-full-name') : '';
+    if (fullName) {
+        form.elements['worker_name'].value = fullName;
+        if (form.elements['daily_worker']) {
+            form.elements['daily_worker'].value = '';
+        }
+    }
+}
+
+// Selecting a worker from the day-labor roster pre-fills worker_name the
+// same way, and clears the HR employee pick.
+function fillWorkerNameFromDailyWorker(selectEl, formId) {
+    const form = document.getElementById(formId);
+    const option = selectEl.options[selectEl.selectedIndex];
+    const fullName = option ? option.getAttribute('data-full-name') : '';
+    if (fullName) {
+        form.elements['worker_name'].value = fullName;
+        if (form.elements['employee']) {
+            form.elements['employee'].value = '';
+        }
+    }
+}
+
+// "+ Add New Worker" on the Add Worker Attendance modal: a worker not yet on
+// the day-labor roster is added there first (name, trade, rate, ID upload),
+// then this same flow continues straight into adding their attendance.
+// True while "Add Worker Attendance" is only hidden temporarily to show the "Add New Worker"
+// sub-modal on top of it -- the hidden.bs.modal handler below uses this to tell that apart from
+// a real Cancel/close, so it doesn't wipe out fields the user already filled in (trade, hours...).
+let workerAttendanceModalTransitioning = false;
+
+function openAddDailyWorkerModal(targetFormId) {
+    document.getElementById('dailyWorkerTargetForm').value = targetFormId;
+    const sourceModalEl = document.getElementById(targetFormId).closest('.modal');
+    const sourceModal = sourceModalEl ? bootstrap.Modal.getInstance(sourceModalEl) : null;
+    if (sourceModal) {
+        workerAttendanceModalTransitioning = true;
+        sourceModal.hide();
+    }
+    new bootstrap.Modal(document.getElementById('addDailyWorkerModal')).show();
+}
+
+document.getElementById('dailyWorkerForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const form = e.target;
+    const targetFormId = document.getElementById('dailyWorkerTargetForm').value;
+    const formData = new FormData(form);
+    try {
+        const response = await fetch('/reports/api/daily-workers/', {
+            method: 'POST',
+            headers: {'X-CSRFToken': csrfToken},
+            body: formData
+        });
+        const data = await response.json().catch(() => ({}));
+        if (response.ok && data.success) {
+            // Add the new worker to every remaining daily-worker <select> on the page (currently
+            // just the Edit modal's) so it's usable right away without a page reload.
+            document.querySelectorAll('select[name="daily_worker"]').forEach((select) => {
+                const opt = document.createElement('option');
+                opt.value = data.id;
+                opt.textContent = data.trade ? `${data.full_name} — ${data.trade}` : data.full_name;
+                opt.setAttribute('data-full-name', data.full_name);
+                select.appendChild(opt);
+            });
+            // And to the searchable worker list (Add Worker Attendance) so it's findable too.
+            workerSearchData.push({
+                type: 'daily_worker', id: String(data.id), name: data.full_name,
+                sub: data.trade ? `${data.trade} — Day-Labor Roster` : 'Day-Labor Roster',
+            });
+            const targetForm = document.getElementById(targetFormId);
+            if (targetForm && targetForm.elements['daily_worker']) {
+                targetForm.elements['daily_worker'].value = data.id;
+                targetForm.elements['worker_name'].value = data.full_name;
+                if (targetForm.elements['employee']) {
+                    targetForm.elements['employee'].value = '';
+                }
+            }
+            const searchInput = targetForm ? targetForm.querySelector('input[id$="Search"]') : null;
+            if (searchInput) {
+                searchInput.value = data.full_name;
+            }
+            form.reset();
+            bootstrap.Modal.getInstance(document.getElementById('addDailyWorkerModal')).hide();
+            const targetModalEl = targetForm ? targetForm.closest('.modal') : null;
+            if (targetModalEl) {
+                new bootstrap.Modal(targetModalEl).show();
+            }
+            showAlert(`${data.full_name} added to the worker roster.`, 'success');
+        } else {
+            showAlert(data.message || 'Error adding worker', 'danger');
+        }
+    } catch (error) {
+        showAlert('Error: ' + error.message, 'danger');
+    }
+});
+
+// Subcontractor Agreement picked on the Add New Crew form pre-fills the crew's contractor name
+// from the agreement's own vendor, since that's the whole point of linking a crew to one.
+function fillCrewContractorFromAgreement(selectEl, targetInputId) {
+    const option = selectEl.options[selectEl.selectedIndex];
+    const vendor = option ? option.getAttribute('data-vendor') : '';
+    if (vendor) {
+        document.getElementById(targetInputId || 'dailyCrewContractorName').value = vendor;
+    }
+}
+
+// "+ Add New Crew" on Add Worker Attendance: same hide/show dance as "+ Add New Worker" above,
+// reusing the same transitioning flag since both temporarily hide the same parent modal.
+function openAddDailyCrewModal(targetFormId) {
+    document.getElementById('dailyCrewTargetForm').value = targetFormId;
+    const sourceModalEl = document.getElementById(targetFormId).closest('.modal');
+    const sourceModal = sourceModalEl ? bootstrap.Modal.getInstance(sourceModalEl) : null;
+    if (sourceModal) {
+        workerAttendanceModalTransitioning = true;
+        sourceModal.hide();
+    }
+    new bootstrap.Modal(document.getElementById('addDailyCrewModal')).show();
+}
+
+document.getElementById('dailyCrewForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const form = e.target;
+    const targetFormId = document.getElementById('dailyCrewTargetForm').value;
+    const formData = new FormData(form);
+    try {
+        const response = await fetch(`/reports/api/daily/${reportId}/crew/`, {
+            method: 'POST',
+            headers: {'X-CSRFToken': csrfToken},
+            body: formData
+        });
+        const data = await response.json().catch(() => ({}));
+        if (response.ok && data.success) {
+            const label = data.activity_description
+                ? `${data.name} — ${data.activity_description}${data.contractor_name ? ` (${data.contractor_name})` : ''}`
+                : `${data.name}${data.contractor_name ? ` (${data.contractor_name})` : ''}`;
+            document.querySelectorAll('select[name="crew"]').forEach((select) => {
+                const opt = document.createElement('option');
+                opt.value = data.id;
+                opt.textContent = label;
+                opt.setAttribute('data-contractor', data.contractor_name || '');
+                opt.setAttribute('data-activity', data.activity_description || '');
+                select.appendChild(opt);
+            });
+            const targetForm = document.getElementById(targetFormId);
+            const crewSelect = targetForm ? targetForm.elements['crew'] : null;
+            if (crewSelect) {
+                crewSelect.value = data.id;
+                applyCrewToForm(crewSelect, targetFormId);
+            }
+            form.reset();
+            bootstrap.Modal.getInstance(document.getElementById('addDailyCrewModal')).hide();
+            const targetModalEl = targetForm ? targetForm.closest('.modal') : null;
+            if (targetModalEl) {
+                new bootstrap.Modal(targetModalEl).show();
+            }
+            showAlert(`Crew "${data.name}" added.`, 'success');
+        } else {
+            showAlert(data.message || 'Error adding crew', 'danger');
+        }
+    } catch (error) {
+        showAlert('Error: ' + error.message, 'danger');
+    }
+});
+
+function openEditDailyCrew(id, name, activityId, agreementId, contractorName) {
+    const form = document.getElementById('editDailyCrewForm');
+    form.crew_id.value = id;
+    form.name.value = name;
+    form.activity.value = activityId || '';
+    form.agreement.value = agreementId || '';
+    form.contractor_name.value = contractorName;
+    new bootstrap.Modal(document.getElementById('editDailyCrewModal')).show();
+}
+
+document.getElementById('editDailyCrewForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const form = e.target;
+    const formData = new FormData(form);
+    try {
+        const response = await fetch(`/reports/api/daily/${reportId}/crew/${form.crew_id.value}/edit/`, {
+            method: 'POST',
+            headers: {'X-CSRFToken': csrfToken},
+            body: formData
+        });
+        const data = await response.json().catch(() => ({}));
+        if (response.ok && data.success) {
+            // Every worker already under this crew re-derives its Contractor/Activity server-side
+            // on this save, so a full reload is the simplest way to show that everywhere at once
+            // (the crews table, the worker table, and the cost-vs-productivity summary).
+            location.reload();
+        } else {
+            showAlert(data.message || 'Error updating crew', 'danger');
+        }
+    } catch (error) {
+        showAlert('Error: ' + error.message, 'danger');
+    }
+});
+
+function openEditWorkerAttendance(id, employeeId, workerName, laborClassificationId, contractorName, activityLocation, timeIn, timeOut, breakHours, overtimeHours, notes, dailyWorkerId) {
+    const form = document.getElementById('editWorkerAttendanceForm');
+    form.entry_id.value = id;
+    form.employee.value = employeeId;
+    form.worker_name.value = workerName;
+    form.daily_worker.value = dailyWorkerId || '';
+    form.labor_classification.value = laborClassificationId;
+    form.contractor_name.value = contractorName;
+    form.activity_location.value = activityLocation;
+    form.time_in.value = timeIn;
+    form.time_out.value = timeOut;
+    form.break_hours.value = breakHours;
+    form.overtime_hours.value = overtimeHours;
+    form.notes.value = notes;
+    new bootstrap.Modal(document.getElementById('editWorkerAttendanceModal')).show();
+}
+
+document.getElementById('editWorkerAttendanceForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const form = e.target;
+    try {
+        // POST (not PATCH) -- Django only parses a multipart body into
+        // request.POST/request.FILES for method == 'POST'.
+        const response = await fetch(`/reports/api/daily/${reportId}/worker-attendance/${form.entry_id.value}/edit/`, {
+            method: 'POST',
+            headers: {'X-CSRFToken': csrfToken},
+            body: new FormData(form),
+        });
+        const data = await response.json().catch(() => ({}));
+        if (response.ok && data.success) {
+            location.reload();
+        } else {
+            showAlert(data.message || 'Error updating worker attendance', 'danger');
+        }
+    } catch (error) {
+        showAlert('Error: ' + error.message, 'danger');
+    }
+});
+
+function pullGpsWorkerAttendance(id) {
+    fetch(`/reports/api/daily/${reportId}/worker-attendance/${id}/pull-gps/`, {
+        method: 'POST',
+        headers: {'X-CSRFToken': csrfToken},
+    }).then(async (response) => {
+        const data = await response.json().catch(() => ({}));
+        if (response.ok && data.success) {
+            location.reload();
+        } else {
+            showAlert(data.message || 'Error pulling GPS hours', 'danger');
+        }
+    }).catch(error => showAlert('Error: ' + error.message, 'danger'));
+}
+
+// Save QA/QC & HSE
+document.getElementById('qaqcForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const formData = new FormData(e.target);
+    try {
+        const response = await fetch(`/reports/api/daily/${reportId}/qaqc/`, {
+            method: 'POST',
+            headers: {'X-CSRFToken': csrfToken},
+            body: formData
+        });
+        if (response.ok) {
+            showAlert('QA/QC & HSE saved', 'success');
+        } else {
+            showAlert('Error saving QA/QC & HSE', 'danger');
+        }
+    } catch (error) {
+        showAlert('Error: ' + error.message, 'danger');
+    }
+});
+
+// Add Site Event
+document.getElementById('siteEventForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const formData = new FormData(e.target);
+    try {
+        const response = await fetch(`/reports/api/daily/${reportId}/site-event/`, {
+            method: 'POST',
+            headers: {'X-CSRFToken': csrfToken},
+            body: formData
+        });
+        if (response.ok) {
+            location.reload();
+        } else {
+            showAlert('Error adding site event', 'danger');
+        }
+    } catch (error) {
+        showAlert('Error: ' + error.message, 'danger');
+    }
+});
+
+function deleteSiteEvent(id) {
+    if (confirm('Are you sure you want to delete this event?')) {
+        fetch(`/reports/api/daily/${reportId}/site-event/${id}/`, {
+            method: 'DELETE',
+            headers: {'X-CSRFToken': csrfToken}
+        }).then(r => r.ok ? location.reload() : showAlert('Error deleting', 'danger'));
+    }
+}
+
+// Add Next Day Plan
+document.getElementById('nextDayPlanForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const formData = new FormData(e.target);
+    try {
+        const response = await fetch(`/reports/api/daily/${reportId}/next-day-plan/`, {
+            method: 'POST',
+            headers: {'X-CSRFToken': csrfToken},
+            body: formData
+        });
+        if (response.ok) {
+            location.reload();
+        } else {
+            showAlert('Error adding next-day plan item', 'danger');
+        }
+    } catch (error) {
+        showAlert('Error: ' + error.message, 'danger');
+    }
+});
+
+function deleteNextDayPlan(id) {
+    if (confirm('Are you sure you want to delete this plan item?')) {
+        fetch(`/reports/api/daily/${reportId}/next-day-plan/${id}/`, {
+            method: 'DELETE',
+            headers: {'X-CSRFToken': csrfToken}
+        }).then(r => r.ok ? location.reload() : showAlert('Error deleting', 'danger'));
+    }
+}
+</script>
+{% endblock %}

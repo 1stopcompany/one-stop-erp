@@ -1,0 +1,408 @@
+{% extends 'timesheets/_hr_base.html' %}
+{% load static %}
+
+{% block title %}Dashboard - One Stop ERP{% endblock %}
+
+{% block extra_css %}
+<style>
+    .hr-hero {
+        background: linear-gradient(135deg, var(--primary-color) 0%, #2d5fa3 60%, #3f7fd1 100%);
+        color: #fff;
+        border-radius: 14px;
+        padding: 1.75rem 2rem;
+        margin-bottom: 1.75rem;
+        position: relative;
+        overflow: hidden;
+    }
+    .hr-hero::after {
+        content: "";
+        position: absolute;
+        right: -60px; top: -60px;
+        width: 220px; height: 220px;
+        background: rgba(255, 255, 255, 0.08);
+        border-radius: 50%;
+    }
+    .hr-hero .hero-eyebrow {
+        text-transform: uppercase;
+        letter-spacing: .08em;
+        font-size: .72rem;
+        opacity: .85;
+    }
+    .hr-hero h1 { font-weight: 700; margin: .15rem 0 .25rem; }
+    .hr-hero .hero-sub { opacity: .9; font-size: .95rem; }
+
+    .stat-tile {
+        border: none;
+        border-radius: 12px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+        transition: transform .25s ease, box-shadow .25s ease;
+        border-left: 4px solid var(--tile-color, var(--primary-color));
+        height: 100%;
+    }
+    .stat-tile:hover { transform: translateY(-3px); box-shadow: 0 8px 20px rgba(0, 0, 0, 0.1); }
+    .stat-tile .stat-icon {
+        width: 46px; height: 46px; border-radius: 10px;
+        display: flex; align-items: center; justify-content: center;
+        background: color-mix(in srgb, var(--tile-color, var(--primary-color)) 14%, white);
+        color: var(--tile-color, var(--primary-color));
+        font-size: 1.15rem;
+        flex-shrink: 0;
+    }
+    .stat-tile .stat-value { font-size: 1.6rem; font-weight: 700; line-height: 1.1; }
+    .stat-tile .stat-label {
+        font-size: .72rem; text-transform: uppercase; letter-spacing: .04em;
+        color: #8a8f98; font-weight: 600;
+    }
+
+    .section-card { border: none; border-radius: 12px; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06); }
+    .section-card .card-header {
+        background: transparent; border-bottom: 1px solid #eef0f4;
+        font-weight: 600; padding: 1rem 1.25rem;
+    }
+
+    .avatar-circle {
+        width: 38px; height: 38px; border-radius: 50%;
+        display: flex; align-items: center; justify-content: center;
+        background: var(--secondary-color); color: var(--primary-color);
+        font-weight: 700; font-size: .85rem; flex-shrink: 0;
+    }
+
+    .quick-tile {
+        border-radius: 10px; padding: 1.1rem .75rem; text-align: center;
+        text-decoration: none; font-weight: 600; font-size: .9rem;
+        transition: transform .2s ease;
+        display: flex; flex-direction: column; align-items: center; gap: .5rem;
+    }
+    .quick-tile:hover { transform: translateY(-2px); }
+    .quick-tile i { font-size: 1.4rem; }
+
+    .status-active { background-color: #198754; color: #fff; }
+    .status-inactive { background-color: #6c757d; color: #fff; }
+    .status-terminated { background-color: #dc3545; color: #fff; }
+    .status-on_leave { background-color: #ffc107; color: #212529; }
+</style>
+{% endblock %}
+
+{% block hr_body %}
+<div class="hr-hero d-flex justify-content-between align-items-center flex-wrap gap-3">
+    <div>
+        <div class="hero-eyebrow">HR Overview</div>
+        <h1 class="h3 mb-0">Welcome back, {{ user.first_name|default:user.username }} 👋</h1>
+        <div class="hero-sub"><i class="fas fa-calendar-alt me-1"></i>{% now "l, F d, Y" %}</div>
+    </div>
+    <div class="d-flex gap-2 flex-wrap">
+        <a href="{% url 'timesheets:user_guide' %}" class="btn btn-light">
+            <i class="fas fa-book me-1"></i>دليل المستخدم
+        </a>
+        {% if perms.timesheets.add_employee %}
+        <a href="{% url 'timesheets:employee_add' %}" class="btn btn-outline-light">
+            <i class="fas fa-user-plus me-1"></i>Add Employee
+        </a>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Statistics -->
+<div class="row g-3 mb-4">
+    <div class="col-xl-3 col-md-6">
+        <div class="card stat-tile" style="--tile-color:#1f4788;">
+            <div class="card-body d-flex align-items-center gap-3">
+                <div class="stat-icon"><i class="fas fa-users"></i></div>
+                <div>
+                    <div class="stat-value">{{ total_employees }}</div>
+                    <div class="stat-label">Active Employees</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-xl-3 col-md-6">
+        <div class="card stat-tile" style="--tile-color:#198754;">
+            <div class="card-body d-flex align-items-center gap-3">
+                <div class="stat-icon"><i class="fas fa-building"></i></div>
+                <div>
+                    <div class="stat-value">{{ total_departments }}</div>
+                    <div class="stat-label">Departments</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-xl-3 col-md-6">
+        <div class="card stat-tile" style="--tile-color:#0dcaf0;">
+            <div class="card-body d-flex align-items-center gap-3">
+                <div class="stat-icon"><i class="fas fa-briefcase"></i></div>
+                <div>
+                    <div class="stat-value">{{ total_positions }}</div>
+                    <div class="stat-label">Positions</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-xl-3 col-md-6">
+        <div class="card stat-tile" style="--tile-color:#ffc107;">
+            <div class="card-body d-flex align-items-center gap-3">
+                <div class="stat-icon"><i class="fas fa-user-plus"></i></div>
+                <div>
+                    <div class="stat-value">{{ recent_hires|length }}</div>
+                    <div class="stat-label">Recent Hires</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-xl-3 col-md-6">
+        <div class="card stat-tile" style="--tile-color:#dc3545;">
+            <div class="card-body d-flex align-items-center gap-3">
+                <div class="stat-icon"><i class="fas fa-plane-departure"></i></div>
+                <div>
+                    <div class="stat-value">{{ pending_leave_count }}</div>
+                    <div class="stat-label">Pending Leave Requests</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-xl-3 col-md-6">
+        <div class="card stat-tile" style="--tile-color:#6c757d;">
+            <div class="card-body d-flex align-items-center gap-3">
+                <div class="stat-icon"><i class="fas fa-hard-hat"></i></div>
+                <div>
+                    <div class="stat-value">{{ active_daily_workers }}</div>
+                    <div class="stat-label">Active Day-Labor Workers</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-xl-3 col-md-6">
+        <div class="card stat-tile" style="--tile-color:#ff6b35;">
+            <div class="card-body d-flex align-items-center gap-3">
+                <div class="stat-icon"><i class="fas fa-file-invoice-dollar"></i></div>
+                <div>
+                    <div class="stat-value">{{ payslips_this_month }}</div>
+                    <div class="stat-label">Payslips This Month</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Leave Requests, Holidays and Payroll -->
+<div class="row g-3">
+    <!-- Pending Leave Requests -->
+    <div class="col-lg-5">
+        <div class="card section-card h-100">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <span><i class="fas fa-plane-departure me-2 text-danger"></i>Pending Leave Requests</span>
+                <a href="{% url 'timesheets:leave_request_list' %}?status=pending" class="btn btn-sm btn-outline-primary">
+                    Review All
+                </a>
+            </div>
+            <div class="card-body">
+                {% if pending_leave_requests %}
+                    <div class="list-group list-group-flush">
+                        {% for req in pending_leave_requests %}
+                        <div class="list-group-item border-0 px-0">
+                            <div class="d-flex justify-content-between align-items-center gap-2">
+                                <div class="d-flex align-items-center gap-2">
+                                    <div class="avatar-circle">{{ req.employee.first_name|first }}{{ req.employee.last_name|first }}</div>
+                                    <div>
+                                        <h6 class="mb-0">{{ req.employee.full_name }}</h6>
+                                        <p class="mb-0 text-muted small">
+                                            {{ req.get_request_type_display }} &middot; {{ req.start_date|date:"M d" }} - {{ req.end_date|date:"M d, Y" }}
+                                            ({{ req.days }} day{{ req.days|pluralize }})
+                                        </p>
+                                    </div>
+                                </div>
+                                <span class="badge bg-warning text-dark">Pending</span>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <div class="text-center text-muted py-4">
+                        <i class="fas fa-check-circle fa-3x mb-3 opacity-50 text-success"></i>
+                        <p class="mb-0">No pending requests</p>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Upcoming Holidays -->
+    <div class="col-lg-3">
+        <div class="card section-card h-100">
+            <div class="card-header">
+                <i class="fas fa-umbrella-beach me-2 text-info"></i>Upcoming Holidays
+            </div>
+            <div class="card-body">
+                {% if upcoming_holidays %}
+                    <div class="list-group list-group-flush">
+                        {% for holiday in upcoming_holidays %}
+                        <div class="list-group-item border-0 px-0">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <span>{{ holiday.name }}</span>
+                                <span class="badge bg-light text-dark border">{{ holiday.date|date:"M d" }}</span>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <p class="text-muted text-center py-3 mb-0">None scheduled</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Payroll Quick Links -->
+    <div class="col-lg-4">
+        <div class="card section-card h-100">
+            <div class="card-header">
+                <i class="fas fa-money-check-alt me-2 text-success"></i>Payroll ({{ current_month|date:"F Y" }})
+            </div>
+            <div class="card-body d-flex flex-column gap-2">
+                <a href="{% url 'timesheets:payroll_run' %}" class="btn btn-success">
+                    <i class="fas fa-play me-2"></i>Salaries (Review &amp; Post)
+                </a>
+                <a href="{% url 'timesheets:wages_run' %}" class="btn btn-outline-success">
+                    <i class="fas fa-hard-hat me-2"></i>Wages (Review &amp; Post)
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Quick Actions and Recent Activity -->
+<div class="row g-3 mt-1">
+    <!-- Quick Actions -->
+    <div class="col-lg-6">
+        <div class="card section-card h-100">
+            <div class="card-header"><i class="fas fa-bolt me-2 text-warning"></i>Quick Actions</div>
+            <div class="card-body">
+                <div class="row g-3">
+                    {% if perms.timesheets.add_employee %}
+                    <div class="col-md-6">
+                        <a href="{% url 'timesheets:employee_add' %}" class="quick-tile w-100 bg-primary bg-opacity-10 text-primary">
+                            <i class="fas fa-user-plus"></i>Add Employee
+                        </a>
+                    </div>
+                    {% endif %}
+
+                    <div class="col-md-6">
+                        <a href="{% url 'timesheets:employee_list' %}" class="quick-tile w-100 bg-secondary bg-opacity-10 text-secondary">
+                            <i class="fas fa-search"></i>Search Employees
+                        </a>
+                    </div>
+
+                    {% if perms.timesheets.add_department %}
+                    <div class="col-md-6">
+                        <a href="{% url 'timesheets:department_add' %}" class="quick-tile w-100 bg-success bg-opacity-10 text-success">
+                            <i class="fas fa-building"></i>Add Department
+                        </a>
+                    </div>
+                    {% endif %}
+
+                    {% if perms.timesheets.add_position %}
+                    <div class="col-md-6">
+                        <a href="{% url 'timesheets:position_add' %}" class="quick-tile w-100 bg-info bg-opacity-10 text-info">
+                            <i class="fas fa-briefcase"></i>Add Position
+                        </a>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Recent Hires -->
+    <div class="col-lg-6">
+        <div class="card section-card h-100">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <span><i class="fas fa-clock me-2 text-primary"></i>Recent Hires</span>
+                <a href="{% url 'timesheets:employee_list' %}" class="btn btn-sm btn-outline-primary">View All</a>
+            </div>
+            <div class="card-body">
+                {% if recent_hires %}
+                    <div class="list-group list-group-flush">
+                        {% for employee in recent_hires %}
+                        <div class="list-group-item border-0 px-0">
+                            <div class="d-flex justify-content-between align-items-center gap-2">
+                                <div class="d-flex align-items-center gap-2">
+                                    <div class="avatar-circle">{{ employee.first_name|first }}{{ employee.last_name|first }}</div>
+                                    <div>
+                                        <h6 class="mb-0">
+                                            <a href="{% url 'timesheets:employee_detail' employee.pk %}" class="text-decoration-none">
+                                                {{ employee.full_name }}
+                                            </a>
+                                        </h6>
+                                        <p class="mb-1 text-muted small">{{ employee.position.title }} - {{ employee.department.name }}</p>
+                                        <small class="text-muted"><i class="fas fa-calendar-alt me-1"></i>Hired {{ employee.hire_date|date:"M d, Y" }}</small>
+                                    </div>
+                                </div>
+                                <span class="badge status-{{ employee.employment_status }}">
+                                    {{ employee.get_employment_status_display }}
+                                </span>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <div class="text-center text-muted py-4">
+                        <i class="fas fa-user-plus fa-3x mb-3 opacity-50"></i>
+                        <p class="mb-0">No recent hires to display</p>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- System Information -->
+<div class="row g-3 mt-1">
+    <div class="col-12">
+        <div class="card section-card">
+            <div class="card-header"><i class="fas fa-info-circle me-2 text-muted"></i>Your Access</div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <ul class="list-unstyled mb-0">
+                            <li><strong>Name:</strong> {{ user.first_name }} {{ user.last_name|default:user.username }}</li>
+                            <li><strong>Email:</strong> {{ user.email|default:"Not provided" }}</li>
+                            <li><strong>Role:</strong>
+                                {% if user.is_superuser %}
+                                    <span class="badge bg-danger">Super Administrator</span>
+                                {% elif user.is_staff %}
+                                    <span class="badge bg-warning text-dark">Staff</span>
+                                {% else %}
+                                    <span class="badge bg-primary">HR Personnel</span>
+                                {% endif %}
+                            </li>
+                        </ul>
+                    </div>
+                    <div class="col-md-6">
+                        <ul class="list-unstyled mb-0">
+                            <li><i class="fas fa-{% if perms.timesheets.view_employee %}check text-success{% else %}times text-danger{% endif %} me-2"></i>View Employees</li>
+                            <li><i class="fas fa-{% if perms.timesheets.add_employee %}check text-success{% else %}times text-danger{% endif %} me-2"></i>Add Employees</li>
+                            <li><i class="fas fa-{% if perms.timesheets.change_employee %}check text-success{% else %}times text-danger{% endif %} me-2"></i>Edit Employees</li>
+                            <li><i class="fas fa-{% if perms.timesheets.delete_employee %}check text-success{% else %}times text-danger{% endif %} me-2"></i>Delete Employees</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const cards = document.querySelectorAll('.stat-tile');
+        cards.forEach((card, index) => {
+            card.style.opacity = '0';
+            card.style.transform = 'translateY(20px)';
+            card.style.transition = 'all 0.4s ease';
+            setTimeout(() => {
+                card.style.opacity = '1';
+                card.style.transform = 'translateY(0)';
+            }, index * 80);
+        });
+    });
+</script>
+{% endblock %}

@@ -1,0 +1,36 @@
+{% extends 'base.html' %}
+{% block title %}Blueprints & Drawings - ERP System{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center my-4">
+  <div>
+    <h1 class="h3 mb-0">🗺️ Blueprints &amp; Drawings</h1>
+    <p class="text-muted mb-0">Engineering drawings per project, with revisions and approval for construction.</p>
+  </div>
+  <div class="d-flex gap-2">
+    <a href="{% url 'blueprints:manual_pdf' %}" class="btn btn-outline-secondary" target="_blank"><i class="bi bi-book"></i> User Guide</a>
+    <a href="{% url 'dashboard' %}" class="btn btn-outline-secondary"><i class="bi bi-house"></i> Back to Dashboard</a>
+  </div>
+</div>
+
+<div class="table-responsive">
+  <table class="table table-hover align-middle bg-white">
+    <thead class="table-light"><tr><th>Project</th><th class="text-center">Drawings</th><th class="text-center">Approved</th><th class="text-center">Awaiting approval</th><th></th></tr></thead>
+    <tbody>
+      {% for row in rows %}
+      <tr>
+        <td><a href="{% url 'blueprints:project_drawings' row.project.pk %}">{{ row.project.name }}</a> <span class="text-muted small">({{ row.project.project_symbol }})</span></td>
+        <td class="text-center">{{ row.total }}</td>
+        <td class="text-center">{{ row.approved }}</td>
+        <td class="text-center">{% if row.pending %}<span class="badge bg-warning text-dark">{{ row.pending }}</span>{% else %}0{% endif %}</td>
+        <td class="text-end">
+          {% if not row.open %}<span class="badge bg-secondary"><i class="bi bi-lock-fill"></i> Locked</span>{% endif %}
+          <a href="{% url 'blueprints:project_drawings' row.project.pk %}" class="btn btn-sm btn-outline-primary">Open</a>
+        </td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="5" class="text-center text-muted py-4">No projects.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

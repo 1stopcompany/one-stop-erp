@@ -1,0 +1,310 @@
+{% extends 'timesheets/_hr_base.html' %}
+{% load static %}
+
+{% block title %}Employees - One Stop ERP{% endblock %}
+
+{% block hr_body %}
+<div class="row">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h1 class="h2 mb-0">
+                <i class="fas fa-user-tie me-2 text-primary"></i>
+                Employees
+            </h1>
+            {% if perms.timesheets.add_employee %}
+            <a href="{% url 'timesheets:employee_add' %}" class="btn btn-primary">
+                <i class="fas fa-plus me-2"></i>Add Employee
+            </a>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Search and Filter Section -->
+<div class="search-section">
+    <form method="get" id="search-form" class="row g-3">
+        <div class="col-md-4">
+            <label for="id_search_query" class="form-label">Search</label>
+            {{ form.search_query }}
+        </div>
+        <div class="col-md-2">
+            <label for="id_department" class="form-label">Department</label>
+            {{ form.department }}
+        </div>
+        <div class="col-md-2">
+            <label for="id_position" class="form-label">Position</label>
+            {{ form.position }}
+        </div>
+        <div class="col-md-2">
+            <label for="id_employment_status" class="form-label">Status</label>
+            {{ form.employment_status }}
+        </div>
+        <div class="col-md-2 d-flex align-items-end">
+            <button type="submit" class="btn btn-primary w-100">
+                <i class="fas fa-search me-2"></i>Search
+            </button>
+        </div>
+    </form>
+</div>
+
+<!-- Results Summary -->
+<div class="row mb-3">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center">
+            <p class="mb-0 text-muted">
+                Showing {{ page_obj.start_index }}-{{ page_obj.end_index }} of {{ total_count }} employees
+            </p>
+            <div class="btn-group" role="group">
+                <a href="{% url 'timesheets:employee_list_pdf' %}?{{ request.GET.urlencode }}" target="_blank" class="btn btn-outline-secondary btn-sm">
+                    <i class="fas fa-print me-1"></i>Print
+                </a>
+                <button type="button" class="btn btn-outline-secondary btn-sm" onclick="exportToCSV()">
+                    <i class="fas fa-download me-1"></i>Export
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Employee Table -->
+<div class="card">
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead>
+                    <tr>
+                        <th class="sortable" data-column="employee_id">
+                            <i class="fas fa-id-badge me-1"></i>ID
+                        </th>
+                        <th class="sortable" data-column="name">
+                            <i class="fas fa-user me-1"></i>Name
+                        </th>
+                        <th class="sortable" data-column="email">
+                            <i class="fas fa-envelope me-1"></i>Email
+                        </th>
+                        <th class="sortable" data-column="department">
+                            <i class="fas fa-building me-1"></i>Department
+                        </th>
+                        <th class="sortable" data-column="position">
+                            <i class="fas fa-briefcase me-1"></i>Position
+                        </th>
+                        <th>
+                            <i class="fas fa-diagram-project me-1"></i>Project
+                        </th>
+                        <th class="sortable" data-column="status">
+                            <i class="fas fa-info-circle me-1"></i>Status
+                        </th>
+                        <th class="sortable" data-column="hire_date">
+                            <i class="fas fa-calendar-alt me-1"></i>Hire Date
+                        </th>
+                        <th width="120">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for employee in employees %}
+                    <tr>
+                        <td>
+                            <strong>{{ employee.employee_id }}</strong>
+                        </td>
+                        <td>
+                            <div class="d-flex align-items-center">
+                                <div class="avatar-circle me-2">
+                                    {{ employee.first_name.0 }}{{ employee.last_name.0 }}
+                                </div>
+                                <div>
+                                    <div class="fw-bold">{{ employee.full_name }}</div>
+                                    <small class="text-muted">{{ employee.phone_number }}</small>
+                                </div>
+                            </div>
+                        </td>
+                        <td>
+                            <a href="mailto:{{ employee.email }}" class="text-decoration-none">
+                                {{ employee.email }}
+                            </a>
+                        </td>
+                        <td>
+                            <span class="badge bg-light text-dark">
+                                {{ employee.department.name }}
+                            </span>
+                        </td>
+                        <td>{{ employee.position.title }}</td>
+                        <td>
+                            {% if employee.project %}
+                                <span class="badge bg-info text-dark">{{ employee.project.project_symbol }}</span>
+                            {% else %}
+                                <span class="text-muted">—</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <span class="badge status-{{ employee.employment_status }}">
+                                {{ employee.get_employment_status_display }}
+                            </span>
+                        </td>
+                        <td>
+                            <span data-bs-toggle="tooltip" title="{{ employee.hire_date|date:'F d, Y' }}">
+                                {{ employee.hire_date|date:"M d, Y" }}
+                            </span>
+                        </td>
+                        <td>
+                            <div class="btn-group btn-group-sm" role="group">
+                                <a href="{% url 'timesheets:employee_detail' employee.pk %}" 
+                                   class="btn btn-outline-primary" 
+                                   data-bs-toggle="tooltip" 
+                                   title="View Details">
+                                    <i class="fas fa-eye"></i>
+                                </a>
+                                {% if perms.timesheets.change_employee %}
+                                <a href="{% url 'timesheets:employee_edit' employee.pk %}" 
+                                   class="btn btn-outline-secondary" 
+                                   data-bs-toggle="tooltip" 
+                                   title="Edit">
+                                    <i class="fas fa-edit"></i>
+                                </a>
+                                {% endif %}
+                            </div>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="8" class="text-center py-5">
+                            <div class="text-muted">
+                                <i class="fas fa-users fa-3x mb-3 opacity-50"></i>
+                                <p class="mb-0">No employees found matching your criteria.</p>
+                                {% if perms.timesheets.add_employee %}
+                                <a href="{% url 'timesheets:employee_add' %}" class="btn btn-primary mt-3">
+                                    <i class="fas fa-plus me-2"></i>Add First Employee
+                                </a>
+                                {% endif %}
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Pagination -->
+{% if page_obj.has_other_pages %}
+<nav aria-label="Employee pagination" class="mt-4">
+    <ul class="pagination justify-content-center">
+        {% if page_obj.has_previous %}
+            <li class="page-item">
+                <a class="page-link" href="?page=1{% if request.GET.search_query %}&search_query={{ request.GET.search_query }}{% endif %}{% if request.GET.department %}&department={{ request.GET.department }}{% endif %}{% if request.GET.position %}&position={{ request.GET.position }}{% endif %}{% if request.GET.employment_status %}&employment_status={{ request.GET.employment_status }}{% endif %}">
+                    <i class="fas fa-angle-double-left"></i>
+                </a>
+            </li>
+            <li class="page-item">
+                <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if request.GET.search_query %}&search_query={{ request.GET.search_query }}{% endif %}{% if request.GET.department %}&department={{ request.GET.department }}{% endif %}{% if request.GET.position %}&position={{ request.GET.position }}{% endif %}{% if request.GET.employment_status %}&employment_status={{ request.GET.employment_status }}{% endif %}">
+                    <i class="fas fa-angle-left"></i>
+                </a>
+            </li>
+        {% endif %}
+
+        {% for num in page_obj.paginator.page_range %}
+            {% if page_obj.number == num %}
+                <li class="page-item active">
+                    <span class="page-link">{{ num }}</span>
+                </li>
+            {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ num }}{% if request.GET.search_query %}&search_query={{ request.GET.search_query }}{% endif %}{% if request.GET.department %}&department={{ request.GET.department }}{% endif %}{% if request.GET.position %}&position={{ request.GET.position }}{% endif %}{% if request.GET.employment_status %}&employment_status={{ request.GET.employment_status }}{% endif %}">{{ num }}</a>
+                </li>
+            {% endif %}
+        {% endfor %}
+
+        {% if page_obj.has_next %}
+            <li class="page-item">
+                <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if request.GET.search_query %}&search_query={{ request.GET.search_query }}{% endif %}{% if request.GET.department %}&department={{ request.GET.department }}{% endif %}{% if request.GET.position %}&position={{ request.GET.position }}{% endif %}{% if request.GET.employment_status %}&employment_status={{ request.GET.employment_status }}{% endif %}">
+                    <i class="fas fa-angle-right"></i>
+                </a>
+            </li>
+            <li class="page-item">
+                <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}{% if request.GET.search_query %}&search_query={{ request.GET.search_query }}{% endif %}{% if request.GET.department %}&department={{ request.GET.department }}{% endif %}{% if request.GET.position %}&position={{ request.GET.position }}{% endif %}{% if request.GET.employment_status %}&employment_status={{ request.GET.employment_status }}{% endif %}">
+                    <i class="fas fa-angle-double-right"></i>
+                </a>
+            </li>
+        {% endif %}
+    </ul>
+</nav>
+{% endif %}
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .avatar-circle {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, #0d6efd, #0056b3);
+        color: white;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: bold;
+        font-size: 0.875rem;
+    }
+    
+    .sortable {
+        cursor: pointer;
+        user-select: none;
+        transition: all 0.3s ease;
+    }
+    
+    .sortable:hover {
+        background-color: rgba(255, 255, 255, 0.1);
+    }
+    
+    .sortable::after {
+        content: '\f0dc';
+        font-family: 'Font Awesome 6 Free';
+        font-weight: 900;
+        margin-left: 0.5rem;
+        opacity: 0.5;
+    }
+    
+    .sortable.sort-asc::after {
+        content: '\f0de';
+        opacity: 1;
+    }
+    
+    .sortable.sort-desc::after {
+        content: '\f0dd';
+        opacity: 1;
+    }
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    function exportToCSV() {
+        // Simple CSV export functionality
+        const table = document.querySelector('table');
+        const rows = table.querySelectorAll('tr');
+        let csv = [];
+        
+        for (let i = 0; i < rows.length; i++) {
+            const row = rows[i];
+            const cols = row.querySelectorAll('td, th');
+            let csvRow = [];
+            
+            for (let j = 0; j < cols.length - 1; j++) { // Exclude actions column
+                csvRow.push('"' + cols[j].textContent.trim().replace(/"/g, '""') + '"');
+            }
+            
+            csv.push(csvRow.join(','));
+        }
+        
+        const csvContent = csv.join('\n');
+        const blob = new Blob([csvContent], { type: 'text/csv' });
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'employees.csv';
+        a.click();
+        window.URL.revokeObjectURL(url);
+    }
+</script>
+{% endblock %}
+

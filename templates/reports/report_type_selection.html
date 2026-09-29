@@ -1,0 +1,388 @@
+{% extends 'base.html' %}
+
+{% block title %}Engineer Dashboard - Site Engineer Reports{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+
+    <!-- Page Header -->
+    <div class="row mb-4 align-items-center">
+        <div class="col-md-8">
+            <h1 class="h2 mb-1">
+                <i class="bi bi-speedometer2"></i> Site Engineer Dashboard
+            </h1>
+            <p class="text-muted mb-0">Welcome, {{ user.first_name|default:user.username }}!</p>
+        </div>
+        <div class="col-md-4 text-md-end mt-3 mt-md-0">
+            <a href="{% url 'dashboard' %}" class="btn btn-outline-secondary">
+                <i class="bi bi-house"></i> ERP Dashboard
+            </a>
+        </div>
+    </div>
+
+    <!-- Report Type Selection -->
+    <div class="row mb-4 g-3">
+        {% if can_create_daily %}
+        <div class="col-md-4">
+            <div class="card h-100 border-0 shadow-sm hover-shadow">
+                <div class="card-body text-center py-5">
+                    <div class="mb-3">
+                        <i class="bi bi-calendar-day" style="font-size: 3rem;"></i>
+                    </div>
+                    <h5 class="card-title mb-2">Daily Construction Report</h5>
+                    <p class="card-text text-muted mb-3">
+                        Create a daily report for today's activities, workforce, equipment, and materials.
+                    </p>
+                    <a href="{% url 'reports:daily_report_create' %}" class="btn btn-primary">
+                        <i class="bi bi-plus-circle"></i> Create Daily Report
+                    </a>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        {% if can_create_monthly %}
+        <div class="col-md-4">
+            <div class="card h-100 border-0 shadow-sm hover-shadow">
+                <div class="card-body text-center py-5">
+                    <div class="mb-3">
+                        <i class="bi bi-calendar-month" style="font-size: 3rem;"></i>
+                    </div>
+                    <h5 class="card-title mb-2">Monthly Maintenance Report</h5>
+                    <p class="card-text text-muted mb-3">
+                        Create a monthly report for the reporting period with floor activities and materials.
+                    </p>
+                    <a href="{% url 'reports:monthly_report_create' %}" class="btn btn-success">
+                        <i class="bi bi-plus-circle"></i> Create Monthly Report
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-4">
+            <div class="card h-100 border-0 shadow-sm hover-shadow">
+                <div class="card-body text-center py-5">
+                    <div class="mb-3">
+                        <i class="bi bi-cash-coin" style="font-size: 3rem;"></i>
+                    </div>
+                    <h5 class="card-title mb-2">Owner Financial Report</h5>
+                    <p class="card-text text-muted mb-3">
+                        Create the owner's monthly technical & financial report with the payment-due calculation.
+                    </p>
+                    <a href="{% url 'reports:owner_financial_report_create' %}" class="btn btn-warning">
+                        <i class="bi bi-plus-circle"></i> Create Owner Financial Report
+                    </a>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        {% if can_view_approvals %}
+        <div class="col-md-4">
+            <div class="card h-100 border-0 shadow-sm hover-shadow">
+                <div class="card-body text-center py-5">
+                    <div class="mb-3">
+                        <i class="bi bi-clipboard-check" style="font-size: 3rem;"></i>
+                    </div>
+                    <h5 class="card-title mb-2">Approvals Dashboard</h5>
+                    <p class="card-text text-muted mb-3">
+                        Review and approve every report awaiting action, across all projects.
+                    </p>
+                    <a href="{% url 'reports:approvals_dashboard' %}" class="btn btn-info">
+                        <i class="bi bi-clipboard-check"></i> Open Approvals Dashboard
+                    </a>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Quick Links -->
+    <div class="row mb-4 g-3">
+        <div class="col-md-4">
+            <a href="{% url 'reports:daily_report_list' %}" class="btn btn-outline-primary btn-lg w-100">
+                <i class="bi bi-list-ul"></i> View All Daily Reports
+            </a>
+        </div>
+        <div class="col-md-4">
+            <a href="{% url 'reports:monthly_report_list' %}" class="btn btn-outline-success btn-lg w-100">
+                <i class="bi bi-list-ul"></i> View All Monthly Reports
+            </a>
+        </div>
+        <div class="col-md-4">
+            <a href="{% url 'reports:owner_financial_report_list' %}" class="btn btn-outline-warning btn-lg w-100">
+                <i class="bi bi-list-ul"></i> View All Owner Financial Reports
+            </a>
+        </div>
+    </div>
+
+    <!-- Statistics Cards -->
+    <div class="row mb-4 g-3">
+        <div class="col-md-3">
+            <div class="card shadow-sm h-100 border-start border-4 border-primary">
+                <div class="card-body">
+                    <div class="text-primary text-uppercase mb-1"><small class="fw-bold">Monthly Reports</small></div>
+                    <div class="h3 mb-0">{{ total_reports }}</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-3">
+            <div class="card shadow-sm h-100 border-start border-4 border-info">
+                <div class="card-body">
+                    <div class="text-info text-uppercase mb-1"><small class="fw-bold">Daily Reports</small></div>
+                    <div class="h3 mb-0">{{ daily_total_reports }}</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-3">
+            <div class="card shadow-sm h-100 border-start border-4 border-warning">
+                <div class="card-body">
+                    <div class="text-warning text-uppercase mb-1"><small class="fw-bold">Pending</small></div>
+                    <div class="h3 mb-0">{{ pending_reports }}</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-3">
+            <div class="card shadow-sm h-100 border-start border-4 border-success">
+                <div class="card-body">
+                    <div class="text-success text-uppercase mb-1"><small class="fw-bold">Approved</small></div>
+                    <div class="h3 mb-0">{{ approved_reports }}</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {% if user.is_project_manager %}
+    <!-- Reports of my projects waiting for management -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card shadow-sm">
+                <div class="card-header bg-white py-3">
+                    <h5 class="mb-0"><i class="bi bi-hourglass-split"></i> Waiting for management approval
+                        <span class="badge bg-warning text-dark">{{ awaiting_management|length }}</span></h5>
+                </div>
+                <div class="card-body p-0">
+                    {% if awaiting_management %}
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0">
+                            <thead class="table-light"><tr><th>Report</th><th>Type</th><th>Project</th><th>Waiting for</th><th>Since</th></tr></thead>
+                            <tbody>
+                                {% for row in awaiting_management %}
+                                <tr>
+                                    <td><a href="{% url row.detail_url row.report.pk %}">{{ row.report.report_number }}</a></td>
+                                    <td>{{ row.type_label }}</td>
+                                    <td>{{ row.report.project.name }}</td>
+                                    <td><span class="badge bg-{% if row.report.status == 'submitted' %}warning text-dark{% else %}info text-dark{% endif %}">{{ row.waiting_for }}</span></td>
+                                    <td class="text-muted small">{{ row.since|date:"Y-m-d" }} ({{ row.since|timesince }} ago)</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <p class="text-muted text-center py-4 mb-0">Nothing is waiting for management approval right now.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Recent Monthly Reports -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card shadow-sm">
+                <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
+                    <h6 class="m-0 fw-bold text-primary">
+                        <i class="bi bi-calendar-month"></i> Recent Monthly Reports
+                    </h6>
+                    <a href="{% url 'reports:monthly_report_list' %}" class="btn btn-sm btn-outline-primary">View All</a>
+                </div>
+                <div class="card-body">
+                    {% if recent_reports %}
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Report Number</th>
+                                    <th>Project</th>
+                                    <th>Period</th>
+                                    <th>Status</th>
+                                    <th>Created</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for report in recent_reports %}
+                                <tr>
+                                    <td><strong>{{ report.report_number }}</strong></td>
+                                    <td>{{ report.project.name }}</td>
+                                    <td>{{ report.reporting_period_from|date:"M d" }} - {{ report.reporting_period_to|date:"M d, Y" }}</td>
+                                    <td>
+                                        {% if report.status == 'draft' %}<span class="badge bg-secondary">Draft</span>
+                                        {% elif report.status == 'submitted' %}<span class="badge bg-warning">Submitted</span>
+                                        {% elif report.status == 'approved' %}<span class="badge bg-success">Approved</span>
+                                        {% elif report.status == 'archived' %}<span class="badge bg-dark">Archived</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ report.created_at|date:"M d, Y" }}</td>
+                                    <td>
+                                        <a href="{% url 'reports:monthly_report_detail' report.id %}" class="btn btn-sm btn-info">
+                                            <i class="bi bi-eye"></i> View
+                                        </a>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <div class="alert alert-info mb-0">
+                        <i class="bi bi-info-circle"></i> No monthly reports yet.
+                        <a href="{% url 'reports:monthly_report_create' %}">Create your first monthly report</a>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Recent Daily Reports -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card shadow-sm">
+                <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
+                    <h6 class="m-0 fw-bold text-info">
+                        <i class="bi bi-calendar-day"></i> Recent Daily Reports
+                    </h6>
+                    <a href="{% url 'reports:daily_report_list' %}" class="btn btn-sm btn-outline-info">View All</a>
+                </div>
+                <div class="card-body">
+                    {% if recent_daily_reports %}
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Report Number</th>
+                                    <th>Project</th>
+                                    <th>Date</th>
+                                    <th>Status</th>
+                                    <th>Created</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for report in recent_daily_reports %}
+                                <tr>
+                                    <td><strong>{{ report.report_number }}</strong></td>
+                                    <td>{{ report.project.name }}</td>
+                                    <td>{{ report.report_date|date:"M d, Y" }}</td>
+                                    <td>
+                                        {% if report.status == 'draft' %}<span class="badge bg-secondary">Draft</span>
+                                        {% elif report.status == 'submitted' %}<span class="badge bg-warning">Submitted</span>
+                                        {% elif report.status == 'approved' %}<span class="badge bg-success">Approved</span>
+                                        {% elif report.status == 'archived' %}<span class="badge bg-dark">Archived</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ report.created_at|date:"M d, Y" }}</td>
+                                    <td>
+                                        <a href="{% url 'reports:daily_report_detail' report.id %}" class="btn btn-sm btn-info">
+                                            <i class="bi bi-eye"></i> View
+                                        </a>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <div class="alert alert-info mb-0">
+                        <i class="bi bi-info-circle"></i> No daily reports yet.
+                        <a href="{% url 'reports:daily_report_create' %}">Create your first daily report</a>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quick Actions + Help -->
+    <div class="row g-3">
+        <div class="col-md-6">
+            <div class="card shadow-sm">
+                <div class="card-header bg-white py-3">
+                    <h6 class="m-0 fw-bold text-primary"><i class="bi bi-lightning"></i> Quick Actions</h6>
+                </div>
+                <div class="card-body">
+                    <div class="list-group">
+                        {% if can_create_daily %}
+                        <a href="{% url 'reports:daily_report_create' %}" class="list-group-item list-group-item-action">
+                            <i class="bi bi-calendar-day"></i> Create Daily Report
+                        </a>
+                        {% endif %}
+                        {% if can_create_monthly %}
+                        <a href="{% url 'reports:monthly_report_create' %}" class="list-group-item list-group-item-action">
+                            <i class="bi bi-calendar-month"></i> Create Monthly Report
+                        </a>
+                        <a href="{% url 'reports:owner_financial_report_create' %}" class="list-group-item list-group-item-action">
+                            <i class="bi bi-cash-coin"></i> Create Owner Financial Report
+                        </a>
+                        {% endif %}
+                        <a href="{% url 'reports:daily_report_list' %}" class="list-group-item list-group-item-action">
+                            <i class="bi bi-list-ul"></i> View Daily Reports
+                        </a>
+                        <a href="{% url 'reports:monthly_report_list' %}" class="list-group-item list-group-item-action">
+                            <i class="bi bi-list-ul"></i> View Monthly Reports
+                        </a>
+                        <a href="{% url 'reports:owner_financial_report_list' %}" class="list-group-item list-group-item-action">
+                            <i class="bi bi-list-ul"></i> View Owner Financial Reports
+                        </a>
+                        {% if can_view_approvals %}
+                        <a href="{% url 'reports:approvals_dashboard' %}" class="list-group-item list-group-item-action">
+                            <i class="bi bi-clipboard-check"></i> Approvals Dashboard
+                        </a>
+                        {% endif %}
+                        {% if user.is_admin or user.is_project_manager or user.is_site_engineer %}
+                        <a href="{% url 'projects:project_list' %}" class="list-group-item list-group-item-action">
+                            <i class="bi bi-building"></i> View Projects
+                        </a>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-6">
+            <div class="card shadow-sm">
+                <div class="card-header bg-white py-3">
+                    <h6 class="m-0 fw-bold text-primary"><i class="bi bi-info-circle"></i> Help & Support</h6>
+                </div>
+                <div class="card-body">
+                    <p class="small text-muted mb-3">
+                        Need help? Check documentation or contact your project manager.
+                    </p>
+                    <div class="list-group">
+                        <a href="#" class="list-group-item list-group-item-action small">
+                            <i class="bi bi-question-circle"></i> FAQ
+                        </a>
+                        <a href="#" class="list-group-item list-group-item-action small">
+                            <i class="bi bi-book"></i> Documentation
+                        </a>
+                        <a href="#" class="list-group-item list-group-item-action small">
+                            <i class="bi bi-envelope"></i> Contact Support
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<style>
+.hover-shadow:hover { box-shadow: 0 8px 20px rgba(0,0,0,.10) !important; transform: translateY(-2px); transition: .2s ease; }
+</style>
+{% endblock %}

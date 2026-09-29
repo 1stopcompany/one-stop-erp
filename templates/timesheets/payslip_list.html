@@ -1,0 +1,79 @@
+{% extends 'timesheets/_hr_base.html' %}
+{% load static %}
+
+{% block title %}Payslips - One Stop ERP{% endblock %}
+
+{% block hr_body %}
+<div class="row">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h1 class="h2 mb-0">
+                <i class="fas fa-file-invoice-dollar me-2 text-primary"></i>
+                Payslips
+            </h1>
+            <form method="get" class="d-flex align-items-center gap-2">
+                <input type="month" name="month" value="{{ month_param }}" class="form-control form-control-sm" style="width: auto;">
+                <button type="submit" class="btn btn-sm btn-outline-primary">Filter</button>
+                {% if month_param %}<a href="{% url 'timesheets:payslip_list' %}" class="btn btn-sm btn-outline-secondary">Clear</a>{% endif %}
+            </form>
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead>
+                    <tr>
+                        <th>Employee</th>
+                        <th>Period</th>
+                        <th>Basis</th>
+                        <th>Status</th>
+                        <th class="text-end">Gross</th>
+                        <th class="text-end">Deductions</th>
+                        <th class="text-end">Net</th>
+                        <th>Generated</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for p in payslips %}
+                    <tr>
+                        <td>
+                            <a href="{% url 'timesheets:employee_detail' p.employee.pk %}" class="text-decoration-none">
+                                {{ p.employee.full_name }}
+                            </a>
+                        </td>
+                        <td>{{ p.period_start|date:"M Y" }}</td>
+                        <td><span class="badge bg-light text-dark">{{ p.get_pay_basis_display }}</span></td>
+                        <td>
+                            {% if p.status == 'posted' %}<span class="badge bg-success">Posted</span>
+                            {% else %}<span class="badge bg-warning text-dark">Draft</span>{% endif %}
+                        </td>
+                        <td class="text-end">₪{{ p.gross_pay }}</td>
+                        <td class="text-end">₪{{ p.other_deductions|add:p.advances }}</td>
+                        <td class="text-end fw-bold">₪{{ p.net_pay }}</td>
+                        <td>{{ p.generated_at|date:"M d, Y" }}</td>
+                        <td>
+                            <a href="{% url 'timesheets:payslip_pdf' p.pk %}" target="_blank" class="btn btn-sm btn-outline-danger" title="PDF">
+                                <i class="fas fa-file-pdf"></i>
+                            </a>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="9" class="text-center py-5">
+                            <div class="text-muted">
+                                <i class="fas fa-file-invoice-dollar fa-3x mb-3 opacity-50"></i>
+                                <p class="mb-0">No payslips generated yet. Use the Payroll export to generate some.</p>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

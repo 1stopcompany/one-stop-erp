@@ -1,0 +1,6 @@
+{% extends 'base.html' %}
+{% block title %}My Profile - One Stop ERP{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center my-4"><h1 class="h3 mb-0">My Profile</h1><a class="btn btn-outline-primary" href="{% url 'accounts:user_edit' user.pk %}">Edit Profile</a></div>
+<div class="card"><div class="card-body"><div class="row g-4"><div class="col-md-6"><strong>Name</strong><div>{{ user.get_full_name|default:user.username }}</div></div><div class="col-md-6"><strong>Username</strong><div>{{ user.username }}</div></div><div class="col-md-6"><strong>Role</strong><div>{{ user.get_role_display }}</div></div><div class="col-md-6"><strong>Email</strong><div>{{ user.email|default:'—' }}</div></div><div class="col-md-6"><strong>Phone</strong><div>{{ user.phone|default:'—' }}</div></div><div class="col-md-6"><strong>Department</strong><div>{{ user.department|default:'—' }}</div></div><div class="col-md-6"><strong>Designation</strong><div>{{ user.designation|default:'—' }}</div></div></div></div></div>
+{% endblock %}

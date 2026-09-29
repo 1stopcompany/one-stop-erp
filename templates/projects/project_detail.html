@@ -1,0 +1,331 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ project.name }} - Site Engineer Reports{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    {% include 'projects/_readiness.html' %}
+    <!-- Page Header -->
+    <div class="mb-4">
+        <h1 class="h2 mb-1">
+            <i class="bi bi-building"></i> {{ project.name }}
+        </h1>
+        <p class="text-muted mb-3">Project Details</p>
+
+        <div class="d-flex flex-wrap align-items-center gap-2">
+            <a href="{% url 'projects:workflow' project.id %}" class="btn btn-outline-primary">
+                <i class="bi bi-signpost-split"></i> Workflow
+            </a>
+
+            <a href="{% url 'projects:project_reports' project.id %}" class="btn btn-outline-primary">
+                <i class="bi bi-file-earmark-text"></i> Reports
+            </a>
+
+            <a href="{% url 'reports:project_schedule' project.id %}" class="btn btn-outline-primary">
+                <i class="bi bi-bar-chart-steps"></i> Schedule
+            </a>
+
+            <a href="{% url 'projects:project_specifications' project.id %}" class="btn btn-outline-primary">
+                <i class="bi bi-journal-bookmark"></i> Specifications
+            </a>
+
+            {% if user.is_admin or user.is_project_manager or user.is_engineering_manager or user.is_general_manager %}
+            <a href="{% url 'ai_assistant:project_ai' project.id %}" class="btn btn-outline-primary">
+                <i class="bi bi-stars"></i> AI Assistant
+            </a>
+            {% endif %}
+
+            {% if user.is_admin or user.is_project_manager or user.is_engineering_manager %}
+            <div class="dropdown">
+                <button class="btn btn-outline-primary dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                    <i class="bi bi-list-columns-reverse"></i> BOQ &amp; Cost
+                </button>
+                <ul class="dropdown-menu dropdown-menu-end">
+                    <li><a class="dropdown-item" href="{% url 'reports:boq_editor' project_id=project.id %}"><i class="bi bi-list-columns-reverse me-2"></i>Manage BOQ</a></li>
+                    <li><a class="dropdown-item" href="{% url 'cost_control:budget_list' %}?project={{ project.id }}"><i class="bi bi-graph-up-arrow me-2"></i>Budget vs Actual</a></li>
+                    <li><a class="dropdown-item" href="{% url 'reports:milestone_editor' project_id=project.id %}"><i class="bi bi-flag me-2"></i>Manage Milestones</a></li>
+                    <li><hr class="dropdown-divider"></li>
+                    <li><a class="dropdown-item" href="{% url 'subcontractors:agreement_list' %}?project={{ project.id }}"><i class="bi bi-file-earmark-ruled me-2"></i>Subcontractor Agreements</a></li>
+                    <li><a class="dropdown-item" href="{% url 'subcontractors:agreement_create' project.id %}"><i class="bi bi-plus-circle me-2"></i>New Subcontractor Agreement</a></li>
+                </ul>
+            </div>
+            {% endif %}
+
+            {% if user.is_admin or user.is_project_manager or user.is_engineering_manager or user.is_general_manager %}
+            <div class="dropdown">
+                <button class="btn btn-outline-dark dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                    <i class="bi bi-printer"></i> Print
+                </button>
+                <ul class="dropdown-menu dropdown-menu-end">
+                    <li><a class="dropdown-item" href="{% url 'reports:boq_pdf' project.id %}" target="_blank"><i class="bi bi-file-earmark-pdf me-2"></i>Print BOQ</a></li>
+                    <li><a class="dropdown-item" href="{% url 'cost_control:report_pdf' %}?project={{ project.id }}" target="_blank"><i class="bi bi-file-earmark-pdf me-2"></i>Print cost report</a></li>
+                </ul>
+            </div>
+            {% endif %}
+
+            {% if user.is_admin or user.is_project_manager or user.is_engineering_manager %}
+            <a href="{% url 'projects:project_edit' pk=project.id %}" class="btn btn-primary">
+                <i class="bi bi-pencil"></i> Edit
+            </a>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Project Information -->
+    <div class="row mb-4">
+        <div class="col-md-8">
+            <div class="card shadow">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">
+                        <i class="bi bi-info-circle"></i> Project Information
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <strong>Project Name:</strong>
+                            <p>{{ project.name }}</p>
+                        </div>
+                        <div class="col-md-6">
+                            <strong>Project Symbol:</strong>
+                            <p><span class="badge bg-primary">{{ project.symbol }}</span></p>
+                        </div>
+                    </div>
+
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <strong>Contract Number:</strong>
+                            <p>{{ project.contract_number }}</p>
+                        </div>
+                        <div class="col-md-6">
+                            <strong>Client / CMC:</strong>
+                            <p>{{ project.client }}</p>
+                        </div>
+                    </div>
+
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <strong>Start Date:</strong>
+                            <p>{{ project.start_date|date:"M d, Y" }}</p>
+                        </div>
+                        <div class="col-md-6">
+                            <strong>Status:</strong>
+                            <p>
+                                {% if project.status == 'active' %}
+                                <span class="badge bg-success">Active</span>
+                                {% elif project.status == 'completed' %}
+                                <span class="badge bg-info">Completed</span>
+                                {% elif project.status == 'on_hold' %}
+                                <span class="badge bg-warning">On Hold</span>
+                                {% else %}
+                                <span class="badge bg-secondary">{{ project.get_status_display }}</span>
+                                {% endif %}
+                            </p>
+                        </div>
+                    </div>
+
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <strong>Maintenance Type:</strong>
+                            <p>{{ project.maintenance_type }}</p>
+                        </div>
+                        <div class="col-md-6">
+                            <strong>Created:</strong>
+                            <p>{{ project.created_at|date:"M d, Y H:i" }}</p>
+                        </div>
+                    </div>
+
+                    {% if project.description %}
+                    <div class="row">
+                        <div class="col-12">
+                            <strong>Description:</strong>
+                            <p>{{ project.description }}</p>
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Quick Stats -->
+        <div class="col-md-4">
+            <div class="card shadow mb-4">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">
+                        <i class="bi bi-graph-up"></i> Statistics
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <div class="d-flex justify-content-between">
+                            <span>Total Floors:</span>
+                            <strong>{{ floors_count }}</strong>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <div class="d-flex justify-content-between">
+                            <span>Total Reports:</span>
+                            <strong>{{ reports_count }}</strong>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <div class="d-flex justify-content-between">
+                            <span>Approved Reports:</span>
+                            <strong>{{ approved_reports }}</strong>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <div class="d-flex justify-content-between">
+                            <span>Pending Reports:</span>
+                            <strong>{{ pending_reports }}</strong>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card shadow">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">
+                        <i class="bi bi-lightning"></i> Actions
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <div class="list-group">
+                        <a href="{% url 'projects:project_reports' project.id %}"
+                            class="list-group-item list-group-item-action">
+                            <i class="bi bi-file-earmark-plus"></i> Reports
+                        </a>
+                        <a href="{% url 'reports:phase_photo_gallery' project.id %}"
+                            class="list-group-item list-group-item-action">
+                            <i class="bi bi-images"></i> Phase Photo Gallery
+                        </a>
+                        <a href="{% url 'projects:project_list' %}" class="list-group-item list-group-item-action">
+                            <i class="bi bi-arrow-left"></i> Back to Projects
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Floors -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card shadow">
+                <div class="card-header py-3 d-flex justify-content-between align-items-center">
+                    <h6 class="m-0 font-weight-bold text-primary">
+                        <i class="bi bi-layers"></i> Floors / Levels
+                    </h6>
+                    {% if user.is_admin or user.is_project_manager %}
+                    <a href="{% url 'projects:project_edit' project.id %}" class="btn btn-sm btn-outline-primary">
+                        <i class="bi bi-plus"></i> Add Floor
+                    </a>
+                    {% endif %}
+                </div>
+                <div class="card-body">
+                    {% if floors %}
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Floor Name</th>
+                                    <th>Floor Number</th>
+                                    <th>Description</th>
+                                    <th>Created</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for floor in floors %}
+                                <tr>
+                                    <td><strong>{{ floor.name }}</strong></td>
+                                    <td>{{ floor.floor_number }}</td>
+                                    <td>{{ floor.description|truncatewords:10 }}</td>
+                                    <td>{{ floor.created_at|date:"M d, Y" }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <div class="alert alert-info">
+                        <i class="bi bi-info-circle"></i> No floors defined yet.
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Recent Reports -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card shadow">
+                <div class="card-header py-3 d-flex justify-content-between align-items-center">
+                    <h6 class="m-0 font-weight-bold text-primary">
+                        <i class="bi bi-file-earmark-text"></i> Recent Reports
+                    </h6>
+                    <a href="{% url 'projects:project_reports' project.id %}" class="btn btn-sm btn-primary">
+                        <i class="bi bi-file-earmark-text"></i> This Project's Reports
+                    </a>
+                </div>
+                <div class="card-body">
+                    {% if recent_reports %}
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Report Number</th>
+                                    <th>Type</th>
+                                    <th>Author</th>
+                                    <th>Period</th>
+                                    <th>Status</th>
+                                    <th>Created</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for report in recent_reports %}
+                                <tr>
+                                    <td><strong>{{ report.report_number }}</strong></td>
+                                    <td><span class="badge bg-light text-dark border">{{ report.type_label }}</span></td>
+                                    <td>{{ report.author.get_full_name|default:report.author.username|default:"—" }}
+                                    </td>
+                                    <td>{{ report.period }}</td>
+                                    <td>
+                                        {% if report.status == 'draft' %}
+                                        <span class="badge bg-secondary">Draft</span>
+                                        {% elif report.status == 'submitted' %}
+                                        <span class="badge bg-warning">Submitted</span>
+                                        {% elif report.status == 'engineering_approved' %}
+                                        <span class="badge bg-info">Eng. Approved</span>
+                                        {% elif report.status == 'approved' %}
+                                        <span class="badge bg-success">Approved</span>
+                                        {% elif report.status == 'rejected' %}
+                                        <span class="badge bg-danger">Rejected</span>
+                                        {% elif report.status == 'archived' %}
+                                        <span class="badge bg-dark">Archived</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ report.created_at|date:"M d, Y" }}</td>
+                                    <td>
+                                        <a href="{% url report.detail_url_name pk=report.pk %}"
+                                            class="btn btn-sm btn-info">
+                                            <i class="bi bi-eye"></i> View
+                                        </a>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <div class="alert alert-info">
+                        <i class="bi bi-info-circle"></i> No reports yet.
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

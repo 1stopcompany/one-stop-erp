@@ -1,0 +1,119 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Approvals Dashboard{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="mb-4">
+        <h1 class="h3"><i class="fas fa-tasks"></i> Approvals Dashboard</h1>
+        <p class="text-muted">Every report awaiting action, across all projects and report types.</p>
+    </div>
+
+    {% if can_review %}
+    <div class="card mb-4">
+        <div class="card-header bg-info text-white d-flex justify-content-between align-items-center">
+            <h5 class="mb-0"><i class="fas fa-search"></i> Pending Engineering Review</h5>
+            <span class="badge bg-light text-dark">{{ pending_review|length }}</span>
+        </div>
+        <div class="card-body p-0">
+            {% if pending_review %}
+            <div class="table-responsive">
+                <table class="table table-hover mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Type</th>
+                            <th>Report Number</th>
+                            <th>Project</th>
+                            <th>Submitted By</th>
+                            <th>Created</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for row in pending_review %}
+                        <tr>
+                            <td>
+                                {% if row.type == 'daily' %}<span class="badge bg-primary">Daily</span>
+                                {% elif row.type == 'monthly' %}<span class="badge bg-success">Monthly</span>
+                                {% else %}<span class="badge bg-warning text-dark">Owner Financial</span>{% endif %}
+                            </td>
+                            <td>{{ row.report.report_number }}</td>
+                            <td>{{ row.report.project.name }}</td>
+                            <td>{{ row.report.site_engineer.get_full_name|default:row.report.site_engineer.username }}</td>
+                            <td>{{ row.report.created_at|date:"d M Y H:i" }}</td>
+                            <td>
+                                <a href="{% url row.action_url row.report.pk %}" class="btn btn-sm btn-info">
+                                    <i class="fas fa-search"></i> Review
+                                </a>
+                                <a href="{% url row.detail_url row.report.pk %}" class="btn btn-sm btn-outline-secondary">
+                                    <i class="fas fa-eye"></i> View
+                                </a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <p class="text-muted text-center py-4 mb-0">Nothing pending engineering review.</p>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
+
+    {% if can_give_final_approval %}
+    <div class="card mb-4">
+        <div class="card-header bg-success text-white d-flex justify-content-between align-items-center">
+            <h5 class="mb-0"><i class="fas fa-check-circle"></i> Pending General Manager Approval</h5>
+            <span class="badge bg-light text-dark">{{ pending_approval|length }}</span>
+        </div>
+        <div class="card-body p-0">
+            {% if pending_approval %}
+            <div class="table-responsive">
+                <table class="table table-hover mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Type</th>
+                            <th>Report Number</th>
+                            <th>Project</th>
+                            <th>Submitted By</th>
+                            <th>Reviewed By</th>
+                            <th>Reviewed On</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for row in pending_approval %}
+                        <tr>
+                            <td>
+                                {% if row.type == 'daily' %}<span class="badge bg-primary">Daily</span>
+                                {% elif row.type == 'monthly' %}<span class="badge bg-success">Monthly</span>
+                                {% else %}<span class="badge bg-warning text-dark">Owner Financial</span>{% endif %}
+                            </td>
+                            <td>{{ row.report.report_number }}</td>
+                            <td>{{ row.report.project.name }}</td>
+                            <td>{{ row.report.site_engineer.get_full_name|default:row.report.site_engineer.username }}</td>
+                            <td>{{ row.report.reviewed_by.get_full_name|default:row.report.reviewed_by.username }}</td>
+                            <td>{{ row.report.review_date|date:"d M Y H:i" }}</td>
+                            <td>
+                                <a href="{% url row.action_url row.report.pk %}" class="btn btn-sm btn-success">
+                                    <i class="fas fa-check"></i> Final Approve
+                                </a>
+                                <a href="{% url row.detail_url row.report.pk %}" class="btn btn-sm btn-outline-secondary">
+                                    <i class="fas fa-eye"></i> View
+                                </a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <p class="text-muted text-center py-4 mb-0">Nothing pending final approval.</p>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

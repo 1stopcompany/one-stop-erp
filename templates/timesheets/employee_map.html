@@ -1,0 +1,83 @@
+{% extends 'timesheets/_hr_base.html' %}
+
+{% block hr_body %}
+<h1 class="h2 mb-4">
+    <i class="fas fa-map-marker-alt me-2 text-primary"></i>
+    Attendance Map
+</h1>
+
+<div id="map" style="height: 500px; border-radius: 0.5rem;"></div>
+
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+      integrity="sha256-p4NxAoJBhIINfQ3ynFgnwI8rjMZbDMWjN2ce3Q1V8A="
+      crossorigin="">
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+        integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+        crossorigin=""></script>
+
+{{ locations|json_script:"locations-data" }}
+
+<script>
+(function () {
+    const dataElement = document.getElementById("locations-data");
+    const locations = dataElement ? JSON.parse(dataElement.textContent) : [];
+
+    // Default center is only used when no attendance locations are available.
+    const defaultCenter = [31.53, 35.10];
+    const initialCenter = locations.length
+        ? [Number(locations[0].latitude), Number(locations[0].longitude)]
+        : defaultCenter;
+
+    const map = L.map("map").setView(initialCenter, locations.length ? 15 : 10);
+
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        maxZoom: 19,
+        attribution: "&copy; OpenStreetMap contributors"
+    }).addTo(map);
+
+    const markerBounds = [];
+
+    locations.forEach((location) => {
+        const latitude = Number(location.latitude);
+        const longitude = Number(location.longitude);
+
+        if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
+            return;
+        }
+
+        const popup = document.createElement("div");
+
+        const employeeName = document.createElement("strong");
+        employeeName.textContent = location.employee || "Unknown employee";
+        popup.appendChild(employeeName);
+
+        const details = [location.type, location.timestamp, location.address]
+            .filter(Boolean);
+
+        details.forEach((value) => {
+            popup.appendChild(document.createElement("br"));
+            popup.appendChild(document.createTextNode(value));
+        });
+
+        if (location.within_geofence !== undefined) {
+            popup.appendChild(document.createElement("br"));
+            popup.appendChild(document.createTextNode(
+                location.within_geofence ? "Inside geofence" : "Outside geofence"
+            ));
+        }
+
+        L.marker([latitude, longitude])
+            .addTo(map)
+            .bindPopup(popup);
+
+        markerBounds.push([latitude, longitude]);
+    });
+
+    if (markerBounds.length > 1) {
+        map.fitBounds(markerBounds, {padding: [30, 30]});
+    } else if (markerBounds.length === 1) {
+        map.setView(markerBounds[0], 16);
+    }
+})();
+</script>
+{% endblock %}

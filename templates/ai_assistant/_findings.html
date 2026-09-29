@@ -1,0 +1,19 @@
+<div class="card shadow-sm mb-4">
+  <div class="card-header fw-semibold">{{ title }}</div>
+  <div class="card-body">
+    {% if subtitle %}<p class="text-muted small">{{ subtitle }}</p>{% endif %}
+    {% for f in findings %}
+    <div class="border-start border-4 ps-3 mb-3 {% if f.severity == 'error' %}border-danger{% elif f.severity == 'warning' %}border-warning{% else %}border-info{% endif %}">
+      <div>
+        <span class="badge {% if f.severity == 'error' %}bg-danger{% elif f.severity == 'warning' %}bg-warning text-dark{% else %}bg-info text-dark{% endif %}">{{ f.area }}</span>
+        <strong>{{ f.title }}</strong>
+      </div>
+      {% if f.detail %}<div class="small">{{ f.detail }}</div>{% endif %}
+      {% if f.items %}<ul class="small text-muted mb-1">{% for item in f.items %}<li>{{ item }}</li>{% endfor %}</ul>{% endif %}
+      {% if f.action %}<div class="small"><i class="bi bi-arrow-right-circle"></i> {{ f.action }}</div>{% endif %}
+    </div>
+    {% empty %}
+    <div class="text-success"><i class="bi bi-check-circle"></i> Nothing to flag.</div>
+    {% endfor %}
+  </div>
+</div>

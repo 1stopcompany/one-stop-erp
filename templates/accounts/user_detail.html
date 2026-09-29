@@ -1,0 +1,377 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}User Details - {{ user.get_full_name }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .user-detail-container {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 20px;
+    }
+    
+    .user-header {
+        background: linear-gradient(135deg, #1E40AF 0%, #3B82F6 100%);
+        color: white;
+        padding: 30px;
+        border-radius: 12px;
+        margin-bottom: 30px;
+        box-shadow: 0 4px 12px rgba(30, 64, 175, 0.2);
+    }
+    
+    .user-avatar {
+        width: 120px;
+        height: 120px;
+        border-radius: 50%;
+        border: 4px solid white;
+        object-fit: cover;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+    }
+    
+    .user-info-card {
+        background: white;
+        border-radius: 12px;
+        padding: 25px;
+        margin-bottom: 20px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        border: 1px solid #E2E8F0;
+    }
+    
+    .card-title {
+        font-size: 20px;
+        font-weight: 600;
+        color: #1E40AF;
+        margin-bottom: 20px;
+        padding-bottom: 10px;
+        border-bottom: 2px solid #E2E8F0;
+    }
+    
+    .info-row {
+        display: flex;
+        padding: 12px 0;
+        border-bottom: 1px solid #F0F4FF;
+    }
+    
+    .info-row:last-child {
+        border-bottom: none;
+    }
+    
+    .info-label {
+        font-weight: 600;
+        color: #64748B;
+        width: 200px;
+        flex-shrink: 0;
+    }
+    
+    .info-value {
+        color: #1E293B;
+        flex-grow: 1;
+    }
+    
+    .status-badge {
+        display: inline-block;
+        padding: 6px 12px;
+        border-radius: 20px;
+        font-size: 14px;
+        font-weight: 500;
+    }
+    
+    .status-active {
+        background: #D1FAE5;
+        color: #065F46;
+    }
+    
+    .status-inactive {
+        background: #FEE2E2;
+        color: #991B1B;
+    }
+    
+    .action-buttons {
+        display: flex;
+        gap: 10px;
+        margin-top: 20px;
+    }
+    
+    .btn {
+        padding: 10px 20px;
+        border-radius: 8px;
+        font-weight: 500;
+        text-decoration: none;
+        display: inline-block;
+        transition: all 0.2s;
+    }
+    
+    .btn-primary {
+        background: #1E40AF;
+        color: white;
+    }
+    
+    .btn-primary:hover {
+        background: #1E3A8A;
+        transform: translateY(-1px);
+        box-shadow: 0 4px 8px rgba(30, 64, 175, 0.3);
+    }
+    
+    .btn-secondary {
+        background: #F0F4FF;
+        color: #1E40AF;
+    }
+    
+    .btn-secondary:hover {
+        background: #DBEAFE;
+    }
+    
+    .btn-danger {
+        background: #EF4444;
+        color: white;
+    }
+    
+    .btn-danger:hover {
+        background: #DC2626;
+    }
+    
+    .permissions-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+        gap: 10px;
+        margin-top: 15px;
+    }
+    
+    .permission-item {
+        background: #F0F4FF;
+        padding: 10px 15px;
+        border-radius: 6px;
+        font-size: 14px;
+        color: #1E40AF;
+    }
+    
+    .groups-list {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin-top: 15px;
+    }
+    
+    .group-badge {
+        background: #3B82F6;
+        color: white;
+        padding: 8px 16px;
+        border-radius: 20px;
+        font-size: 14px;
+        font-weight: 500;
+    }
+    
+    .empty-state {
+        text-align: center;
+        padding: 40px;
+        color: #64748B;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="user-detail-container">
+    <!-- User Header -->
+    <div class="user-header">
+        <div class="d-flex align-items-center">
+            {% if user.employee.profile_picture %}
+                <img src="{{ user.employee.profile_picture.url }}" alt="{{ user.get_full_name }}" class="user-avatar">
+            {% else %}
+                <div class="user-avatar" style="background: white; display: flex; align-items: center; justify-content: center; font-size: 48px; color: #1E40AF;">
+                    {{ user.first_name.0 }}{{ user.last_name.0 }}
+                </div>
+            {% endif %}
+            <div style="margin-left: 30px; flex-grow: 1;">
+                <h1 style="margin: 0 0 10px 0; font-size: 32px;">{{ user.get_full_name }}</h1>
+                <p style="margin: 0; font-size: 18px; opacity: 0.9;">
+                    {% if user.employee %}
+                        {{ user.employee.position.title }} - {{ user.employee.department.name }}
+                    {% else %}
+                        @{{ user.username }}
+                    {% endif %}
+                </p>
+                <p style="margin: 10px 0 0 0; font-size: 16px; opacity: 0.8;">
+                    <i class="fas fa-envelope"></i> {{ user.email }}
+                </p>
+            </div>
+            <div>
+                {% if user.is_active %}
+                    <span class="status-badge status-active">Active</span>
+                {% else %}
+                    <span class="status-badge status-inactive">Inactive</span>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Basic Information -->
+        <div class="col-md-6">
+            <div class="user-info-card">
+                <h2 class="card-title">Basic Information</h2>
+                <div class="info-row">
+                    <span class="info-label">Username:</span>
+                    <span class="info-value">{{ user.username }}</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">First Name:</span>
+                    <span class="info-value">{{ user.first_name }}</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Last Name:</span>
+                    <span class="info-value">{{ user.last_name }}</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Email:</span>
+                    <span class="info-value">{{ user.email }}</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Date Joined:</span>
+                    <span class="info-value">{{ user.date_joined|date:"F d, Y" }}</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Last Login:</span>
+                    <span class="info-value">
+                        {% if user.last_login %}
+                            {{ user.last_login|date:"F d, Y H:i" }}
+                        {% else %}
+                            Never
+                        {% endif %}
+                    </span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Employee Information -->
+        <div class="col-md-6">
+            <div class="user-info-card">
+                <h2 class="card-title">Employee Information</h2>
+                {% if user.employee %}
+                    <div class="info-row">
+                        <span class="info-label">Employee ID:</span>
+                        <span class="info-value">{{ user.employee.employee_id }}</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">Department:</span>
+                        <span class="info-value">{{ user.employee.department.name }}</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">Position:</span>
+                        <span class="info-value">{{ user.employee.position.title }}</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">Employment Status:</span>
+                        <span class="info-value">{{ user.employee.get_employment_status_display }}</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">Employment Type:</span>
+                        <span class="info-value">{{ user.employee.get_employment_type_display }}</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">Hire Date:</span>
+                        <span class="info-value">{{ user.employee.hire_date|date:"F d, Y" }}</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">Phone:</span>
+                        <span class="info-value">{{ user.employee.phone_number|default:"Not provided" }}</span>
+                    </div>
+                {% else %}
+                    <div class="empty-state">
+                        <p>No employee profile linked to this user.</p>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Permissions and Groups -->
+    <div class="row">
+        <div class="col-md-6">
+            <div class="user-info-card">
+                <h2 class="card-title">User Roles & Permissions</h2>
+                <div class="info-row">
+                    <span class="info-label">Superuser:</span>
+                    <span class="info-value">
+                        {% if user.is_superuser %}
+                            <span class="status-badge status-active">Yes</span>
+                        {% else %}
+                            <span class="status-badge status-inactive">No</span>
+                        {% endif %}
+                    </span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Staff Status:</span>
+                    <span class="info-value">
+                        {% if user.is_staff %}
+                            <span class="status-badge status-active">Yes</span>
+                        {% else %}
+                            <span class="status-badge status-inactive">No</span>
+                        {% endif %}
+                    </span>
+                </div>
+                
+                <h3 style="margin-top: 20px; font-size: 16px; font-weight: 600; color: #1E40AF;">Groups</h3>
+                {% if user.groups.all %}
+                    <div class="groups-list">
+                        {% for group in user.groups.all %}
+                            <span class="group-badge">{{ group.name }}</span>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <p style="color: #64748B; margin-top: 10px;">No groups assigned</p>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="col-md-6">
+            <div class="user-info-card">
+                <h2 class="card-title">Specific Permissions</h2>
+                {% if user.user_permissions.all %}
+                    <div class="permissions-grid">
+                        {% for permission in user.user_permissions.all %}
+                            <div class="permission-item">
+                                {{ permission.name }}
+                            </div>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <div class="empty-state">
+                        <p>No specific permissions assigned. Permissions are inherited from groups.</p>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Action Buttons -->
+    <div class="user-info-card">
+        <h2 class="card-title">Actions</h2>
+        <div class="action-buttons">
+            <a href="{% url 'admin:accounts_customuser_change' user.id %}" class="btn btn-primary">
+                <i class="fas fa-edit"></i> Edit User
+            </a>
+           <a href="{% url 'admin:accounts_customuser_changelist' %}" class="btn btn-secondary">
+                <i class="fas fa-list"></i> Back to User List
+            </a>
+            {% if user.employee %}
+                <a href="{% url 'admin:timesheets_employee_change' user.employee.id %}" class="btn btn-primary">
+                    <i class="fas fa-user-tie"></i> Edit Employee Profile
+                </a>
+            {% endif %}
+            {% if not user.is_superuser %}
+                <a href="{% url 'admin:accounts_customuser_delete' user.id %}" class="btn btn-danger">
+                    <i class="fas fa-trash"></i> Delete User
+                </a>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Add any JavaScript functionality here
+    console.log('User detail page loaded');
+</script>
+{% endblock %}

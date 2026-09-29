@@ -1,0 +1,35 @@
+{% extends 'timesheets/_hr_base.html' %}
+
+{% block title %}Attendance Summary{% endblock %}
+
+{% block hr_body %}
+<h1 class="h2 mb-4">
+    <i class="fas fa-calendar-alt me-2 text-primary"></i>
+    {{ employee.full_name }} – Monthly Attendance
+</h1>
+
+<div class="card">
+    <table class="table mb-0">
+        <thead>
+            <tr>
+                <th>Month</th>
+                <th>Total Hours</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for month, hours in monthly_summary %}
+            <tr>
+                <td>{{ month|date:"F Y" }}</td>
+                <td>{{ hours|floatformat:2 }} hrs</td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="2" class="text-center text-muted py-4">
+                    No attendance data available
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

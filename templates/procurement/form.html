@@ -1,0 +1,179 @@
+{% extends "base.html" %}
+{% block title %}Procurement Form - One Stop ERP{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center my-4">
+  <h1 class="h3 mb-0">{{ title|default:'Procurement Form' }}</h1>
+  <a href="javascript:history.back()" class="btn btn-outline-secondary">Back</a>
+</div>
+<div class="card"><div class="card-body">
+{% if item_hierarchy %}{{ item_hierarchy|json_script:"item-hierarchy-data" }}{% endif %}
+<form method="post" novalidate>{% csrf_token %}
+  {% if form.non_field_errors %}
+  <div class="alert alert-danger"><i class="bi bi-exclamation-triangle-fill"></i>
+    {% for error in form.non_field_errors %}<div>{{ error }}</div>{% endfor %}
+  </div>
+  {% endif %}
+  {% for field in form %}
+  <div class="mb-3">
+    <label class="form-label" for="{{ field.id_for_label }}">{{ field.label }}</label>
+    {{ field }}
+    {% if field.help_text %}<div class="form-text">{{ field.help_text|safe }}</div>{% endif %}
+    {% for error in field.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+  </div>
+  {% endfor %}
+  <div id="item-code-preview" class="alert alert-light border d-none"
+       data-check-url="{% url 'procurement:item_code_check' %}"
+       data-exclude="{{ form.instance.pk|default:'' }}" data-variant="{{ form.instance.variant_suffix|default:'' }}">
+    <div id="code-trail" class="text-muted small mb-1"></div>
+    <div><strong>Short Code:</strong> <span id="sc">__.__.__.__</span></div>
+    <div><strong>Full Code:</strong> <span id="fc">OS.__.__.__.__.___</span></div>
+    <div id="code-dup" class="text-danger fw-bold mt-2 d-none"></div>
+  </div>
+  <button type="submit" class="btn btn-primary" id="item-save-btn">Save</button>
+  <a href="javascript:history.back()" class="btn btn-outline-secondary">Cancel</a>
+</form>
+</div></div>
+{% endblock %}
+{% block extra_js %}
+<script>
+(function () {
+  const aa = document.querySelector('[data-level="aa_level"]');
+  const bb = document.querySelector('[data-level="bb_category"]');
+  const cc = document.querySelector('[data-level="cc_subcategory"]');
+  const dd = document.querySelector('[data-level="dd_itemtype"]');
+  const eee = document.getElementById('id_eee_attribute');
+  if (![aa, bb, cc, dd, eee].every(Boolean)) return;
+
+  const treeEl = document.getElementById('item-hierarchy-data');
+  const TREE = treeEl ? JSON.parse(treeEl.textContent) : [];
+
+  const preview = document.getElementById('item-code-preview');
+  const trail = document.getElementById('code-trail');
+  const sc = document.getElementById('sc');
+  const fc = document.getElementById('fc');
+  preview.classList.remove('d-none');
+
+  function makeOption(value, label) {
+    const o = document.createElement('option');
+    o.value = value;
+    o.textContent = label;
+    return o;
+  }
+
+  // Rebuilds a select's options from `items` ([{code,name}]); keeps/injects `wantValue`
+  // as the selected one even if it isn't in `items` (e.g. editing an item whose code
+  // isn't in the reference workbook), so an existing item's value is never silently lost.
+  function fillSelect(select, items, wantValue, placeholder) {
+    select.innerHTML = '';
+    select.appendChild(makeOption('', placeholder));
+    let found = false;
+    items.forEach(function (it) {
+      select.appendChild(makeOption(it.code, it.code + ' - ' + it.name));
+      if (it.code === wantValue) found = true;
+    });
+    if (wantValue && !found) {
+      select.appendChild(makeOption(wantValue, wantValue + ' (not in reference list)'));
+    }
+    select.value = wantValue || '';
+  }
+
+  function findFamily(code) { return TREE.find(function (f) { return f.code === code; }); }
+  function findGroup(family, code) { return family && family.groups.find(function (g) { return g.code === code; }); }
+  function findClassification(group, code) { return group && group.classifications.find(function (c) { return c.code === code; }); }
+  function findBrand(classification, code) { return classification && classification.brands.find(function (t) { return t.code === code; }); }
+
+  function populateGroups(wantValue) {
+    const family = findFamily(aa.value);
+    fillSelect(bb, family ? family.groups : [], wantValue || '', '— Select Group —');
+  }
+  function populateClassifications(wantValue) {
+    const group = findGroup(findFamily(aa.value), bb.value);
+    fillSelect(cc, group ? group.classifications : [], wantValue || '', '— Select Classification —');
+  }
+  function populateBrands(wantValue) {
+    const classification = findClassification(findGroup(findFamily(aa.value), bb.value), cc.value);
+    fillSelect(dd, classification ? classification.brands : [], wantValue || '', '— Select Brand —');
+  }
+
+  function updateTrail() {
+    const family = findFamily(aa.value);
+    const group = findGroup(family, bb.value);
+    const classification = findClassification(group, cc.value);
+    const brand = findBrand(classification, dd.value);
+    trail.textContent = [family, group, classification, brand]
+      .filter(Boolean)
+      .map(function (x) { return x.code + ' - ' + x.name; })
+      .join(' → ');
+  }
+
+  function digits(value) { return String(value || '').replace(/\D/g, ''); }
+  function z2(value) { return digits(value).padStart(2, '0').slice(-2); }
+  function z3(value) { return digits(value).padStart(3, '0').slice(-3); }
+
+  function updateCodePreview() {
+    const A = z2(aa.value), B = z2(bb.value), C = z2(cc.value), D = z2(dd.value), E = z3(eee.value);
+    sc.textContent = A + '.' + B + '.' + C + '.' + D;
+    fc.textContent = 'OS.' + A + '.' + B + '.' + C + '.' + D + '.' + E;
+    checkDuplicate();
+  }
+
+  // Live duplicate warning: asks the server whether this Full Code already belongs to
+  // another item and blocks Save while it does (the server re-checks on submit anyway).
+  const dupBox = document.getElementById('code-dup');
+  const saveBtn = document.getElementById('item-save-btn');
+  let checkTimer = null, checkSeq = 0;
+  function checkDuplicate() {
+    clearTimeout(checkTimer);
+    checkTimer = setTimeout(function () {
+      const seq = ++checkSeq;
+      if (!aa.value || !bb.value || !cc.value || !dd.value) { showDup(null); return; }
+      const q = new URLSearchParams({
+        aa: digits(aa.value), bb: digits(bb.value), cc: digits(cc.value), dd: digits(dd.value),
+        eee: digits(eee.value) || '0', exclude: preview.dataset.exclude, variant: preview.dataset.variant,
+      });
+      fetch(preview.dataset.checkUrl + '?' + q.toString(), { credentials: 'same-origin' })
+        .then(function (r) { return r.json(); })
+        .then(function (data) { if (seq === checkSeq) showDup(data); })
+        .catch(function () { if (seq === checkSeq) showDup(null); });
+    }, 250);
+  }
+  function showDup(data) {
+    if (data && data.exists) {
+      dupBox.innerHTML = '';
+      dupBox.appendChild(document.createTextNode(
+        'Full Code ' + data.full_code + ' is already used by: ' + data.description + '. '
+        + 'Each item needs a unique Full Code — change the Attribute to continue. '));
+      const a = document.createElement('a');
+      a.href = data.url; a.target = '_blank'; a.textContent = 'View that item';
+      dupBox.appendChild(a);
+      dupBox.classList.remove('d-none');
+      saveBtn.disabled = true;
+    } else {
+      dupBox.classList.add('d-none');
+      saveBtn.disabled = false;
+    }
+  }
+
+  // Initial render: restore whatever each select's own data-initial says (set from the
+  // model instance in ItemMasterForm.__init__ -- blank across the board for a brand-new item).
+  fillSelect(aa, TREE, aa.dataset.initial, '— Select Family —');
+  populateGroups(bb.dataset.initial);
+  populateClassifications(cc.dataset.initial);
+  populateBrands(dd.dataset.initial);
+  updateTrail();
+  updateCodePreview();
+
+  aa.addEventListener('change', function () {
+    populateGroups(); populateClassifications(); populateBrands(); updateTrail(); updateCodePreview();
+  });
+  bb.addEventListener('change', function () {
+    populateClassifications(); populateBrands(); updateTrail(); updateCodePreview();
+  });
+  cc.addEventListener('change', function () {
+    populateBrands(); updateTrail(); updateCodePreview();
+  });
+  dd.addEventListener('change', function () { updateTrail(); updateCodePreview(); });
+  eee.addEventListener('input', updateCodePreview);
+})();
+</script>
+{% endblock %}

@@ -1,0 +1,69 @@
+{% extends 'base.html' %}
+{% block title %}BOQ Item - {{ sub_item.code }}{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center flex-wrap gap-2 my-4">
+  <div>
+    <h1 class="h3 mb-0">{{ sub_item.code }} &mdash; {{ sub_item.name_ar }}</h1>
+    <p class="text-muted mb-0">{{ sub_item.phase.code }}. {{ sub_item.phase.name_ar }} &middot; {{ project.name }}</p>
+  </div>
+  <div class="d-flex gap-2">
+    <a class="btn btn-outline-secondary" href="{% url 'cost_control:budget_list' %}?project={{ project.pk }}">Back</a>
+    <a class="btn btn-primary" href="{% url 'reports:boq_editor' project.pk %}">Manage BOQ</a>
+  </div>
+</div>
+
+{% if line %}
+<div class="mb-3">
+  <span class="badge fs-6 bg-{% if line.status == 'overrun' or line.status == 'over_committed' %}danger{% elif line.status == 'no_progress' %}warning text-dark{% elif line.status == 'saving' %}info text-dark{% elif line.status == 'on_track' %}success{% else %}secondary{% endif %}">{{ line.status_label }}</span>
+  <span class="text-muted ms-2">Progress {{ line.progress_pct }}%</span>
+</div>
+
+<div class="row g-3 mb-4">
+  <div class="col-md-6"><div class="card h-100"><div class="card-header">Money</div><div class="card-body">
+    <dl class="row mb-0">
+      <dt class="col-7">Budget (cost)</dt><dd class="col-5 text-end">{{ line.budget|floatformat:"2g" }}</dd>
+      {% if line.contract %}<dt class="col-7">Contract (sell)</dt><dd class="col-5 text-end">{{ line.contract|floatformat:"2g" }}</dd>{% endif %}
+      <dt class="col-7">Committed (ordered)</dt><dd class="col-5 text-end">{{ line.committed|floatformat:"2g" }}</dd>
+      <dt class="col-7">Actual (received)</dt><dd class="col-5 text-end">{{ line.actual|floatformat:"2g" }}</dd>
+      <dt class="col-7">Earned (budget &times; progress)</dt><dd class="col-5 text-end">{{ line.earned|floatformat:"2g" }}</dd>
+      <dt class="col-7">Cost variance (earned &minus; actual)</dt><dd class="col-5 text-end {% if line.cost_variance < 0 %}text-danger{% endif %}">{{ line.cost_variance|floatformat:"2g" }}</dd>
+      <dt class="col-7">CPI</dt><dd class="col-5 text-end">{{ line.cpi|default:"—" }}</dd>
+      <dt class="col-7">Forecast at completion</dt><dd class="col-5 text-end">{{ line.eac|floatformat:"2g" }}</dd>
+      <dt class="col-7">Forecast vs budget</dt><dd class="col-5 text-end {% if line.vac < 0 %}text-danger{% endif %}">{{ line.vac|floatformat:"2g" }}</dd>
+    </dl>
+  </div></div></div>
+  <div class="col-md-6"><div class="card h-100"><div class="card-header">Quantity and unit cost</div><div class="card-body">
+    <dl class="row mb-0">
+      <dt class="col-7">Planned quantity</dt><dd class="col-5 text-end">{{ line.quantity|floatformat:"-3g" }} {{ line.unit }}</dd>
+      <dt class="col-7">Executed so far</dt><dd class="col-5 text-end">{{ line.executed_qty|floatformat:"-3g" }}</dd>
+      <dt class="col-7">Budget unit price</dt><dd class="col-5 text-end">{{ line.budget_price|floatformat:"2g" }}</dd>
+      <dt class="col-7">Actual cost per executed unit</dt><dd class="col-5 text-end">{% if line.actual_unit_cost is not None %}{{ line.actual_unit_cost|floatformat:"2g" }}{% else %}—{% endif %}</dd>
+      <dt class="col-7">Difference per unit</dt><dd class="col-5 text-end {% if line.unit_cost_variance and line.unit_cost_variance > 0 %}text-danger{% endif %}">{% if line.unit_cost_variance is not None %}{{ line.unit_cost_variance|floatformat:"2g" }}{% else %}—{% endif %}</dd>
+      {% if line.contract %}<dt class="col-7">Earned revenue (contract &times; progress)</dt><dd class="col-5 text-end">{{ line.earned_revenue|floatformat:"2g" }}</dd>{% endif %}
+    </dl>
+  </div></div></div>
+</div>
+{% else %}
+<div class="alert alert-info">This item has no budget or spending yet &mdash; enter its quantity and prices in Manage BOQ.</div>
+{% endif %}
+
+<h2 class="h5">Purchases charged to this item</h2>
+<div class="table-responsive">
+  <table class="table table-sm bg-white align-middle">
+    <thead class="table-light"><tr><th>PO</th><th>Supplier</th><th>Material</th><th class="text-end">Ordered</th><th class="text-end">Received</th><th class="text-end">Unit price</th><th class="text-end">Value</th><th>Status</th></tr></thead>
+    <tbody>
+      {% for l in po_lines %}
+      <tr>
+        <td><a href="{% url 'procurement:po_detail' l.po.pk %}">{{ l.po.po_number }}</a></td><td>{{ l.po.vendor.name }}</td>
+        <td>{{ l.item.full_code }} <span class="text-muted small">{{ l.item.description|truncatechars:34 }}</span></td>
+        <td class="text-end">{{ l.quantity_ordered|floatformat:"-2g" }}</td><td class="text-end">{{ l.quantity_received|floatformat:"-2g" }}</td>
+        <td class="text-end">{{ l.unit_price|floatformat:"2g" }}</td><td class="text-end">{{ l.total_price|floatformat:"2g" }}</td>
+        <td><span class="badge bg-secondary">{{ l.po.get_status_display }}</span></td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="8" class="text-center text-muted py-3">No purchase order is charged to this item yet. Choose it as the "BOQ item" on a requisition or order line.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

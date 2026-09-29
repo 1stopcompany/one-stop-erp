@@ -1,0 +1,240 @@
+{% extends 'base.html' %}
+{% block title %}Project Workflow - {{ project.name }}{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center flex-wrap gap-2 my-4">
+  <div>
+    <h1 class="h3 mb-0"><i class="bi bi-signpost-split"></i> Project Workflow</h1>
+    <p class="text-muted mb-0">{{ project.name }} ({{ project.project_symbol }}) &middot;
+      <span class="badge bg-{% if project.status == 'active' %}success{% elif project.status == 'planning' %}info text-dark{% else %}secondary{% endif %}">{{ project.get_status_display }}</span>
+    </p>
+  </div>
+  <a href="{% url 'projects:project_detail' project.pk %}" class="btn btn-outline-secondary">Back to project</a>
+</div>
+
+{% include 'projects/_readiness.html' %}
+
+{% if flow_complete %}
+<div class="alert alert-success"><i class="bi bi-check-circle-fill"></i> All start-up stages are complete{% if project.status == 'active' %} -- the project is running.{% endif %}</div>
+{% else %}
+<div class="alert alert-info">
+  <i class="bi bi-info-circle"></i> Work on the stages in order: each one opens only after the one before it is complete.
+  Completing the last stage starts the project (it becomes <strong>Active</strong>) and lets site reports be created for it.
+</div>
+{% endif %}
+
+{% for row in board %}
+<div class="card mb-3 {% if row.locked %}bg-light{% endif %}">
+  <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+    <div class="fw-bold">
+      {% if row.done %}<i class="bi bi-check-circle-fill text-success"></i>
+      {% elif row.locked %}<i class="bi bi-lock-fill text-secondary"></i>
+      {% else %}<i class="bi bi-{{ forloop.counter }}-circle-fill text-primary"></i>{% endif %}
+      Stage {{ forloop.counter }} &mdash; {{ row.label }}
+    </div>
+    <div>
+      {% if row.done %}
+        <span class="badge bg-success">Complete{% if row.stage.completed_by %} &middot; {{ row.stage.completed_at|date:"Y-m-d" }} by {{ row.stage.completed_by.get_username }}{% endif %}</span>
+      {% elif row.locked %}
+        <span class="badge bg-secondary">Locked</span>
+      {% else %}
+        <span class="badge bg-primary">In progress</span>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="card-body">
+    {% if row.locked %}
+      <p class="text-muted mb-0">Complete the previous stage to open this one.</p>
+    {% else %}
+
+      {% if row.key == 'insurance' %}
+        <div class="table-responsive">
+          <table class="table table-sm align-middle">
+            <thead class="table-light"><tr><th>Type</th><th>Insurer</th><th>Policy no.</th><th class="text-end">Amount</th><th>Valid</th><th>Status</th><th></th></tr></thead>
+            <tbody>
+              {% for ins in insurances %}
+              <tr>
+                <td>{{ ins.get_policy_type_display }}</td>
+                <td>{{ ins.insurer }}</td>
+                <td>{{ ins.policy_number }}</td>
+                <td class="text-end">{% if ins.insured_amount %}{{ ins.insured_amount|floatformat:2 }}{% else %}&mdash;{% endif %}</td>
+                <td class="text-nowrap">{{ ins.start_date|date:"Y-m-d" }} &rarr; {{ ins.end_date|date:"Y-m-d" }}</td>
+                <td>
+                  {% if ins.state == 'expired' %}<span class="badge bg-danger">Expired {{ ins.end_date|timesince }} ago</span>
+                  {% elif ins.state == 'expiring' %}<span class="badge bg-warning text-dark">Expires in {{ ins.days_left }} day{{ ins.days_left|pluralize }}</span>
+                  {% else %}<span class="badge bg-success">Valid</span>{% endif %}
+                </td>
+                <td class="text-nowrap text-end">
+                  <a href="{{ ins.document.url }}" target="_blank" class="btn btn-sm btn-outline-secondary"><i class="bi bi-file-earmark-arrow-down"></i></a>
+                  {% if can_manage and not row.done %}
+                  <form method="post" action="{% url 'projects:insurance_delete' project.pk ins.pk %}" class="d-inline" onsubmit="return confirm('Delete this policy?');">{% csrf_token %}
+                    <button class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i></button>
+                  </form>
+                  {% endif %}
+                </td>
+              </tr>
+              {% empty %}
+              <tr><td colspan="7" class="text-center text-muted py-3">No insurance policy uploaded yet.</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% if can_manage %}<a href="{% url 'projects:insurance_add' project.pk %}" class="btn btn-sm btn-outline-primary"><i class="bi bi-plus-circle"></i> Add insurance policy</a>{% endif %}
+
+      {% elif row.key == 'tender' %}
+        <div class="table-responsive">
+          <table class="table table-sm align-middle">
+            <thead class="table-light"><tr><th>Category</th><th>Title</th><th>Uploaded</th><th></th></tr></thead>
+            <tbody>
+              {% for doc in tender_documents %}
+              <tr>
+                <td>{{ doc.get_category_display }}</td>
+                <td>{{ doc.title }}{% if doc.notes %} <span class="text-muted small">&mdash; {{ doc.notes }}</span>{% endif %}</td>
+                <td class="text-nowrap">{{ doc.uploaded_at|date:"Y-m-d" }}{% if doc.uploaded_by %} &middot; {{ doc.uploaded_by.get_username }}{% endif %}</td>
+                <td class="text-nowrap text-end">
+                  <a href="{{ doc.document.url }}" target="_blank" class="btn btn-sm btn-outline-secondary"><i class="bi bi-file-earmark-arrow-down"></i></a>
+                  {% if can_manage and not row.done %}
+                  <form method="post" action="{% url 'projects:tender_delete' project.pk doc.pk %}" class="d-inline" onsubmit="return confirm('Delete this document?');">{% csrf_token %}
+                    <button class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i></button>
+                  </form>
+                  {% endif %}
+                </td>
+              </tr>
+              {% empty %}
+              <tr><td colspan="4" class="text-center text-muted py-3">No tender document uploaded yet.</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% if can_manage %}<a href="{% url 'projects:tender_add' project.pk %}" class="btn btn-sm btn-outline-primary"><i class="bi bi-plus-circle"></i> Upload tender document</a>{% endif %}
+
+      {% elif row.key == 'drawings' %}
+        <p class="mb-2">
+          <strong>{{ drawings_approved }}</strong> of <strong>{{ drawings_total }}</strong> drawing{{ drawings_total|pluralize }} approved for construction.
+        </p>
+        <a href="{% url 'blueprints:project_drawings' project.pk %}" class="btn btn-sm btn-outline-primary mb-3"><i class="bi bi-map"></i> Open the drawings</a>
+
+        <h6 class="mt-3">Regulatory approvals</h6>
+        <div class="table-responsive">
+          <table class="table table-sm align-middle">
+            <thead class="table-light"><tr><th>Body</th><th>Ref. / no.</th><th>Approved</th><th>Uploaded</th><th></th></tr></thead>
+            <tbody>
+              {% for doc in regulatory_approvals %}
+              <tr>
+                <td>{{ doc.get_body_display }}{% if doc.title %} <span class="text-muted small">&mdash; {{ doc.title }}</span>{% endif %}</td>
+                <td>{{ doc.approval_number|default:"—" }}</td>
+                <td>{{ doc.approved_date|date:"Y-m-d"|default:"—" }}</td>
+                <td class="text-nowrap">{{ doc.uploaded_at|date:"Y-m-d" }}{% if doc.uploaded_by %} &middot; {{ doc.uploaded_by.get_username }}{% endif %}</td>
+                <td class="text-nowrap text-end">
+                  <a href="{{ doc.document.url }}" target="_blank" class="btn btn-sm btn-outline-secondary"><i class="bi bi-file-earmark-arrow-down"></i></a>
+                  {% if can_manage and not row.done %}
+                  <form method="post" action="{% url 'projects:regulatory_delete' project.pk doc.pk %}" class="d-inline" onsubmit="return confirm('Delete this approval?');">{% csrf_token %}
+                    <button class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i></button>
+                  </form>
+                  {% endif %}
+                </td>
+              </tr>
+              {% empty %}
+              <tr><td colspan="5" class="text-center text-muted py-3">No regulatory approval uploaded yet.</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% if missing_regulatory_bodies %}
+        <p class="text-muted small">Still needed: {% for body, label in regulatory_bodies %}{% if body in missing_regulatory_bodies %}{{ label }}{% if not forloop.last %}, {% endif %}{% endif %}{% endfor %}</p>
+        {% endif %}
+        {% if can_manage %}<a href="{% url 'projects:regulatory_add' project.pk %}" class="btn btn-sm btn-outline-primary"><i class="bi bi-plus-circle"></i> Upload regulatory approval</a>{% endif %}
+
+      {% elif row.key == 'schedule' %}
+        <p class="mb-2">
+          {% if schedule_task_count %}<strong>{{ schedule_task_count }}</strong> schedule activit{{ schedule_task_count|pluralize:"y,ies" }} imported.
+          {% else %}No schedule imported yet.{% endif %}
+        </p>
+        <a href="{% url 'reports:project_schedule' project.pk %}" class="btn btn-sm btn-outline-primary"><i class="bi bi-bar-chart-steps"></i> Open the schedule</a>
+
+      {% elif row.key == 'plans' %}
+        <div class="table-responsive">
+          <table class="table table-sm align-middle">
+            <thead class="table-light"><tr><th>Plan</th><th>Status</th><th>Uploaded</th><th></th></tr></thead>
+            <tbody>
+              {% for item in plan_rows %}
+              <tr>
+                <td>{{ item.label }}</td>
+                <td>
+                  {% if item.plan and item.plan.checklist_complete %}<span class="badge bg-success">Uploaded</span>
+                  {% elif item.plan %}<span class="badge bg-warning text-dark">Checklist incomplete</span>
+                  {% else %}<span class="badge bg-secondary">Missing</span>{% endif %}
+                </td>
+                <td class="text-nowrap">
+                  {% if item.plan %}{{ item.plan.uploaded_at|date:"Y-m-d" }}{% if item.plan.uploaded_by %} &middot; {{ item.plan.uploaded_by.get_username }}{% endif %}{% else %}&mdash;{% endif %}
+                </td>
+                <td class="text-nowrap text-end">
+                  {% if item.plan %}
+                    <a href="{{ item.plan.document.url }}" target="_blank" class="btn btn-sm btn-outline-secondary"><i class="bi bi-file-earmark-arrow-down"></i></a>
+                    {% if item.category == 'site_management' and can_manage and not row.done %}
+                    <button type="button" class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#siteChecklistModal"><i class="bi bi-list-check"></i> Checklist</button>
+                    {% endif %}
+                    {% if can_manage and not row.done %}
+                    <form method="post" action="{% url 'projects:plan_delete' project.pk item.plan.pk %}" class="d-inline" onsubmit="return confirm('Delete this plan?');">{% csrf_token %}
+                      <button class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i></button>
+                    </form>
+                    {% endif %}
+                  {% endif %}
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% if can_manage %}<a href="{% url 'projects:plan_add' project.pk %}" class="btn btn-sm btn-outline-primary"><i class="bi bi-plus-circle"></i> Upload a plan document</a>{% endif %}
+
+        {% if site_plan %}
+        <div class="modal fade" id="siteChecklistModal" tabindex="-1">
+          <div class="modal-dialog">
+            <div class="modal-content">
+              <div class="modal-header">
+                <h5 class="modal-title">Site Management and Logistics &mdash; checklist</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+              </div>
+              <form method="post" action="{% url 'projects:plan_checklist_update' project.pk site_plan.pk %}">
+                {% csrf_token %}
+                <div class="modal-body">
+                  {% for field in checklist_form %}
+                  <div class="form-check mb-2">
+                    {{ field }}
+                    <label class="form-check-label" for="{{ field.id_for_label }}">{{ field.label }}</label>
+                  </div>
+                  {% endfor %}
+                </div>
+                <div class="modal-footer">
+                  <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                  <button type="submit" class="btn btn-primary">Save checklist</button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+        {% endif %}
+      {% endif %}
+
+      {% if not row.done %}
+      <hr>
+      <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+        <div class="small {% if row.requirement_met %}text-success{% else %}text-muted{% endif %}">
+          {% if row.requirement_met %}<i class="bi bi-check-circle"></i>{% else %}<i class="bi bi-circle"></i>{% endif %}
+          Needed to complete: {{ row.requirement }}
+        </div>
+        {% if can_manage %}
+        <form method="post" action="{% url 'projects:stage_complete' project.pk row.key %}">{% csrf_token %}
+          <button class="btn btn-success" {% if not row.can_complete %}disabled{% endif %}>
+            {% if forloop.last %}<i class="bi bi-play-circle"></i> Complete &amp; start work{% else %}<i class="bi bi-check2-circle"></i> Complete this stage{% endif %}
+          </button>
+        </form>
+        {% endif %}
+      </div>
+      {% endif %}
+    {% endif %}
+  </div>
+</div>
+{% endfor %}
+{% endblock %}

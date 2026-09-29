@@ -1,0 +1,71 @@
+from django.urls import path, include
+from . import views
+from . import auth_views
+
+app_name = 'timesheets'
+
+urlpatterns = [
+    # Web Views
+    path('', views.dashboard, name='dashboard'),
+    path('guide/', views.user_guide, name='user_guide'),
+    path('guide/pdf/', views.user_guide_pdf, name='user_guide_pdf'),
+
+    path('employees/', views.employee_list, name='employee_list'),
+    path('employees/pdf/', views.employee_list_pdf, name='employee_list_pdf'),
+    path('employees/add/', views.employee_add, name='employee_add'),
+    path('employees/<int:employee_id>/', views.employee_detail, name='employee_detail'),
+    path('employees/<int:employee_id>/pdf/', views.employee_detail_pdf, name='employee_detail_pdf'),
+    path('employees/<int:employee_id>/leave-summary/', views.employee_leave_summary, name='employee_leave_summary'),
+    path('employees/<int:employee_id>/leave-summary/pdf/', views.employee_leave_summary_pdf, name='employee_leave_summary_pdf'),
+    path('employees/<int:employee_id>/edit/', views.employee_edit, name='employee_edit'),
+    path('employees/<int:employee_id>/documents/add/', views.employee_document_add, name='employee_document_add'),
+    path('employees/<int:employee_id>/notes/add/', views.employee_note_add, name='employee_note_add'),
+    path('employees/<int:employee_id>/work-experience/add/', views.employee_work_experience_add, name='employee_work_experience_add'),
+    path('employees/<int:employee_id>/education/add/', views.employee_education_add, name='employee_education_add'),
+    path('employees/<int:employee_id>/dependents/add/', views.employee_dependent_add, name='employee_dependent_add'),
+    path('employees/<int:employee_id>/status/update/', views.employee_status_update, name='employee_status_update'),
+    path('employees/<int:employee_id>/type/update/', views.employee_type_update, name='employee_type_update'),
+    path('leave-requests/', views.leave_request_list, name='leave_request_list'),
+    path('leave-requests/<int:pk>/<str:action>/', views.leave_request_review, name='leave_request_review'),
+    path('day-labor-workers/', views.daily_worker_list, name='daily_worker_list'),
+    path('day-labor-workers/add/', views.daily_worker_add, name='daily_worker_add'),
+    path('day-labor-workers/<int:worker_id>/attendance/', views.daily_worker_attendance, name='daily_worker_attendance'),
+    path('wages/run/', views.wages_run, name='wages_run'),
+    path('wages/run/<int:pk>/update/', views.wages_run_update_row, name='wages_run_update_row'),
+    path('wages/run/post/', views.wages_run_post, name='wages_run_post'),
+    path('wages/export/', views.export_wages_excel, name='export_wages_excel'),
+    path('wages/export/pdf/', views.export_wages_pdf, name='export_wages_pdf'),
+    path('wages/<int:pk>/pdf/', views.wage_slip_pdf, name='wage_slip_pdf'),
+    path('payslips/', views.payslip_list, name='payslip_list'),
+    path('payslips/<int:pk>/pdf/', views.payslip_pdf, name='payslip_pdf'),
+    path('salary-structures/', views.salary_structure_list, name='salary_structure_list'),
+    path('salary-structures/add/', views.salary_structure_add, name='salary_structure_add'),
+    path('holidays/', views.holiday_list, name='holiday_list'),
+    path('holidays/add/', views.holiday_add, name='holiday_add'),
+    path('departments/', views.department_list, name='department_list'),
+    path('departments/add/', views.department_add, name='department_add'),
+    path('positions/', views.position_list, name='position_list'),
+    path('positions/add/', views.position_add, name='position_add'),
+    path('location-tracking/', views.location_tracking, name='location_tracking'),
+    path('location-history/<int:employee_id>/', views.location_history, name='location_history'),
+    path('geofences/', views.geofence_list, name='geofence_list'),
+    path('geofences/add/', views.geofence_add, name='geofence_add'),
+    path("employees/<int:pk>/attendance/",views.EmployeeAttendanceSummaryView.as_view(),name="employee_attendance"),
+    path("employees/<int:employee_id>/dtr/", views.daily_time_record, name="daily_time_record"),
+    path("employees/<int:employee_id>/dtr/export/excel/", views.export_dtr_excel, name="export_dtr_excel"),
+    path("employees/<int:employee_id>/dtr/export/pdf/", views.export_dtr_pdf, name="export_dtr_pdf"),
+    path("dtr/<int:pk>/update/", views.daily_time_record_update_row, name="daily_time_record_update_row"),
+    path("map/", views.EmployeeMapView.as_view(), name="attendance_map"),
+    path("payroll/run/", views.payroll_run, name="payroll_run"),
+    path("payroll/run/<int:pk>/update/", views.payroll_run_update_row, name="payroll_run_update_row"),
+    path("payroll/run/post/", views.payroll_run_post, name="payroll_run_post"),
+    path("payroll/export/", views.export_payroll_excel, name="export_payroll"),
+    path("payroll/export/pdf/", views.export_payroll_pdf, name="export_payroll_pdf"),
+    path("payroll/daily-workers/export/", views.export_daily_workers_payroll_excel, name="export_daily_workers_payroll"),
+    # API URLs
+    path('api/', include('timesheets.api_urls')),
+
+    # Auth Views
+    path('login/', auth_views.login_view, name='login'),
+    path('logout/', auth_views.logout_view, name='logout'),
+]

@@ -1,0 +1,74 @@
+{# templates/includes/sidebar.html -- one sidebar for every section; same order, names and icons as templates/erp_dashboard.html #}
+{% with app=request.resolver_match.app_name %}
+<div class="position-sticky pt-3">
+
+    <div class="sidebar-section-title">ERP</div>
+    <ul class="nav flex-column mb-3">
+        <li class="nav-item">
+            <a class="nav-link {% if request.resolver_match.url_name == 'dashboard' and not app %}active{% endif %}" href="{% url 'dashboard' %}">
+                <i class="bi bi-grid"></i> ERP Dashboard
+            </a>
+        </li>
+    </ul>
+
+    <div class="sidebar-section-title">Core</div>
+    <ul class="nav flex-column mb-3">
+        <li class="nav-item">
+            <a class="nav-link {% if app == 'projects' %}active{% endif %}" href="{% url 'projects:project_list' %}">🏗️ Projects</a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link {% if app == 'reports' %}active{% endif %}" href="{% url 'reports:report_type_selection' %}">📝 Site Reports</a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link {% if app == 'core' %}active{% endif %}" href="{% url 'core:specifications_list' %}">📐 Standards &amp; Specs</a>
+        </li>
+    </ul>
+
+    <div class="sidebar-section-title">Modules</div>
+    <ul class="nav flex-column mb-3">
+        <li class="nav-item">
+            <a class="nav-link {% if app == 'crm' %}active{% endif %}" href="{% url 'crm:dashboard' %}">🤝 CRM</a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link {% if app == 'procurement' %}active{% endif %}" href="{% url 'procurement:dashboard' %}">📦 Procurement</a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link {% if app == 'cost_control' %}active{% endif %}" href="{% url 'cost_control:dashboard' %}">📊 Cost Control</a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link {% if app == 'timesheets' %}active{% endif %}" href="{% url 'timesheets:dashboard' %}">📅 HR</a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link {% if app == 'accounting' %}active{% endif %}" href="{% url 'accounting:dashboard' %}">💰 Accounting</a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link {% if app == 'safety' %}active{% endif %}" href="{% url 'safety:dashboard' %}">🛡️ Safety</a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link {% if app == 'equipment' %}active{% endif %}" href="{% url 'equipment:dashboard' %}">🚜 Equipment</a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link {% if app == 'subcontractors' %}active{% endif %}" href="{% url 'subcontractors:dashboard' %}">👷 Subcontractors</a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link {% if app == 'blueprints' %}active{% endif %}" href="{% url 'blueprints:dashboard' %}">🗺️ Blueprints</a>
+        </li>
+    </ul>
+
+    {% if user.is_admin %}
+    <div class="sidebar-section-title">Administration</div>
+    <ul class="nav flex-column mb-3">
+        <li class="nav-item">
+            <a class="nav-link {% if app == 'accounts' and request.resolver_match.url_name == 'dashboard' %}active{% endif %}" href="{% url 'accounts:dashboard' %}"><i class="bi bi-speedometer2"></i> Overview</a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link" href="{% url 'admin:index' %}"><i class="bi bi-gear"></i> Admin Panel</a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link {% if app == 'accounts' and request.resolver_match.url_name != 'dashboard' %}active{% endif %}" href="{% url 'accounts:user_list' %}"><i class="bi bi-people"></i> Users</a>
+        </li>
+    </ul>
+    {% endif %}
+
+</div>
+{% endwith %}

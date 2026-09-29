@@ -1,0 +1,145 @@
+{% extends 'timesheets/_hr_base.html' %}
+{% load static %}
+
+{% block title %}Wages Run - One Stop ERP{% endblock %}
+
+{% block hr_body %}
+<div class="row">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+            <h1 class="h2 mb-0">
+                <i class="fas fa-hard-hat me-2 text-primary"></i>
+                Wages Run <span class="text-muted fs-6">(كشف الصرف)</span>
+            </h1>
+            <div class="d-flex align-items-center gap-2">
+                <form method="get" class="d-flex align-items-center gap-2">
+                    <input type="month" name="month" value="{{ month_param }}" class="form-control form-control-sm" style="width: auto;">
+                    <button type="submit" class="btn btn-sm btn-outline-primary">Load</button>
+                </form>
+                <a href="{% url 'timesheets:export_wages_excel' %}?month={{ month_param }}" class="btn btn-sm btn-outline-success">
+                    <i class="fas fa-file-excel me-1"></i>Export Excel
+                </a>
+                <a href="{% url 'timesheets:export_wages_pdf' %}?month={{ month_param }}" target="_blank" class="btn btn-sm btn-outline-danger">
+                    <i class="fas fa-file-pdf me-1"></i>Export PDF
+                </a>
+                <a href="{% url 'timesheets:export_daily_workers_payroll' %}?month={{ month_param }}" class="btn btn-sm btn-outline-secondary">
+                    <i class="fas fa-layer-group me-1"></i>By-Project Detail
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <div>
+        <span class="h5 mb-0">{{ period_start|date:"F Y" }}</span>
+        {% if is_posted %}
+            <span class="badge bg-success ms-2"><i class="fas fa-lock me-1"></i>Posted</span>
+        {% else %}
+            <span class="badge bg-warning text-dark ms-2">Draft</span>
+        {% endif %}
+        <span class="text-muted ms-3">Total Net: ₪{{ total_net }}</span>
+    </div>
+    {% if not is_posted and wage_slips %}
+    <form method="post" action="{% url 'timesheets:wages_run_post' %}" onsubmit="return confirm('Post wages for {{ period_start|date:"F Y" }}? This locks it against further edits.');">
+        {% csrf_token %}
+        <input type="hidden" name="month" value="{{ month_param }}">
+        <button type="submit" class="btn btn-success">
+            <i class="fas fa-check-double me-2"></i>Post Wages (ترحيل)
+        </button>
+    </form>
+    {% endif %}
+</div>
+
+{% if not is_posted %}
+<p class="text-muted small">
+    Days and pay below are computed automatically from each worker's daily attendance across every project
+    they worked this month. Review the allowances/deductions/advances, click <strong>Save</strong> on a row
+    to recalculate it, then click <strong>Post Wages</strong> to finalize the month.
+</p>
+{% endif %}
+
+<div class="card">
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0 align-middle">
+                <thead>
+                    <tr>
+                        <th>Worker</th>
+                        <th class="text-end" style="width:80px;">Days</th>
+                        <th class="text-end" style="width:90px;">OT Hours</th>
+                        <th class="text-end">Base Pay</th>
+                        <th class="text-end">OT Pay</th>
+                        <th class="text-end">Gross</th>
+                        <th class="text-end" style="width:110px;">Allowances</th>
+                        <th class="text-end" style="width:110px;">Deductions</th>
+                        <th class="text-end" style="width:110px;">Advances</th>
+                        <th class="text-end">Net Pay</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for w in wage_slips %}
+                    <tr>
+                        <td>
+                            <a href="{% url 'timesheets:daily_worker_attendance' w.worker.pk %}?month={{ month_param }}" class="text-decoration-none">{{ w.worker.full_name }}</a>
+                            <div class="text-muted small">{{ w.worker.trade|default:"—" }}</div>
+                        </td>
+                        <td class="text-end">{{ w.total_days }}</td>
+                        {% if w.status == 'posted' %}
+                            <td class="text-end">{{ w.overtime_hours }}</td>
+                            <td class="text-end">₪{{ w.base_pay }}</td>
+                            <td class="text-end">₪{{ w.overtime_pay }}</td>
+                            <td class="text-end fw-bold">₪{{ w.gross_pay }}</td>
+                            <td class="text-end">₪{{ w.other_allowances }}</td>
+                            <td class="text-end">₪{{ w.other_deductions }}</td>
+                            <td class="text-end">₪{{ w.advances }}</td>
+                            <td class="text-end fw-bold">₪{{ w.net_pay }}</td>
+                        {% else %}
+                            <form id="wage-row-{{ w.pk }}" method="post" action="{% url 'timesheets:wages_run_update_row' w.pk %}"></form>
+                            <td class="text-end">{{ w.overtime_hours }}</td>
+                            <td class="text-end">₪{{ w.base_pay }}</td>
+                            <td class="text-end">₪{{ w.overtime_pay }}</td>
+                            <td class="text-end fw-bold">₪{{ w.gross_pay }}</td>
+                            <td class="text-end">
+                                <input type="number" step="0.01" name="other_allowances" form="wage-row-{{ w.pk }}"
+                                       value="{{ w.other_allowances }}" class="form-control form-control-sm text-end">
+                            </td>
+                            <td class="text-end">
+                                <input type="number" step="0.01" name="other_deductions" form="wage-row-{{ w.pk }}"
+                                       value="{{ w.other_deductions }}" class="form-control form-control-sm text-end">
+                            </td>
+                            <td class="text-end">
+                                <input type="number" step="0.01" name="advances" form="wage-row-{{ w.pk }}"
+                                       value="{{ w.advances }}" class="form-control form-control-sm text-end">
+                            </td>
+                            <td class="text-end fw-bold">₪{{ w.net_pay }}</td>
+                        {% endif %}
+                        <td class="text-nowrap">
+                            {% if w.status != 'posted' %}
+                            <input type="hidden" name="csrfmiddlewaretoken" value="{{ csrf_token }}" form="wage-row-{{ w.pk }}">
+                            <button type="submit" form="wage-row-{{ w.pk }}" class="btn btn-sm btn-outline-primary" title="Save">
+                                <i class="fas fa-save"></i>
+                            </button>
+                            {% endif %}
+                            <a href="{% url 'timesheets:wage_slip_pdf' w.pk %}" target="_blank" class="btn btn-sm btn-outline-danger" title="PDF">
+                                <i class="fas fa-file-pdf"></i>
+                            </a>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="11" class="text-center py-5">
+                            <div class="text-muted">
+                                <i class="fas fa-hard-hat fa-3x mb-3 opacity-50"></i>
+                                <p class="mb-0">No day-labor attendance recorded for this month yet.</p>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

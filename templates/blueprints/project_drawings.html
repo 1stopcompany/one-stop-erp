@@ -1,0 +1,74 @@
+{% extends 'base.html' %}
+{% block title %}Drawings - {{ project.name }}{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center flex-wrap gap-2 my-4">
+  <div>
+    <h1 class="h3 mb-0"><i class="bi bi-map"></i> Engineering Drawings</h1>
+    <p class="text-muted mb-0">{{ project.name }} ({{ project.project_symbol }})</p>
+  </div>
+  <div class="d-flex flex-wrap gap-2">
+    <a href="{% url 'blueprints:manual_pdf' %}" class="btn btn-outline-secondary" target="_blank"><i class="bi bi-book"></i> User Guide</a>
+    <a href="{% url 'projects:workflow' project.pk %}" class="btn btn-outline-secondary"><i class="bi bi-signpost-split"></i> Project workflow</a>
+    {% if can_upload and unlocked %}<a href="{% url 'blueprints:blueprint_add' project.pk %}" class="btn btn-primary"><i class="bi bi-upload"></i> Upload a drawing</a>{% endif %}
+  </div>
+</div>
+
+{% if not unlocked %}
+<div class="alert alert-warning"><i class="bi bi-lock-fill"></i> Drawings open after the insurance and tender-document stages are complete.
+  <a href="{% url 'projects:workflow' project.pk %}">Go to the workflow</a>.</div>
+{% endif %}
+
+{% for bp in blueprints %}
+<div class="card mb-3">
+  <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+    <div><strong>{{ bp.drawing_number }}</strong> &mdash; {{ bp.title }} <span class="badge bg-light text-dark border">{{ bp.get_discipline_display }}</span></div>
+    {% if can_upload and unlocked %}<a href="{% url 'blueprints:revision_add' bp.pk %}" class="btn btn-sm btn-outline-primary"><i class="bi bi-plus-circle"></i> New revision</a>{% endif %}
+  </div>
+  <div class="table-responsive">
+    <table class="table table-sm align-middle mb-0">
+      <thead class="table-light"><tr><th>Rev.</th><th>Status</th><th>Uploaded</th><th>Reviewed</th><th></th></tr></thead>
+      <tbody>
+        {% for rev in bp.revisions.all %}
+        <tr>
+          <td class="fw-bold">{{ rev.revision }}</td>
+          <td>
+            {% if rev.status == 'approved' %}<span class="badge bg-success">Approved for construction</span>
+            {% elif rev.status == 'pending' %}<span class="badge bg-warning text-dark">Awaiting approval</span>
+            {% elif rev.status == 'rejected' %}<span class="badge bg-danger">Rejected</span>{% if rev.rejection_reason %} <span class="small text-muted">{{ rev.rejection_reason }}</span>{% endif %}
+            {% else %}<span class="badge bg-secondary">Superseded</span>{% endif %}
+          </td>
+          <td class="small text-nowrap">{{ rev.uploaded_at|date:"Y-m-d" }}{% if rev.uploaded_by %} &middot; {{ rev.uploaded_by.get_username }}{% endif %}{% if rev.notes %}<div class="text-muted">{{ rev.notes }}</div>{% endif %}</td>
+          <td class="small text-nowrap">{% if rev.reviewed_by %}{{ rev.reviewed_at|date:"Y-m-d" }} &middot; {{ rev.reviewed_by.get_username }}{% else %}&mdash;{% endif %}</td>
+          <td class="text-end text-nowrap">
+            <a href="{{ rev.file.url }}" target="_blank" class="btn btn-sm btn-outline-secondary" title="Open the file"><i class="bi bi-file-earmark-arrow-down"></i></a>
+            {% if rev.ai_run %}
+              {% if rev.ai_run.status == 'done' %}<a href="{% url 'ai_assistant:run_detail' rev.ai_run.pk %}" class="btn btn-sm btn-outline-success" title="Materials, quantities and green-building data read from this drawing"><i class="bi bi-stars"></i> AI analysis</a>
+              {% elif rev.ai_run.status == 'failed' %}<a href="{% url 'ai_assistant:run_detail' rev.ai_run.pk %}" class="btn btn-sm btn-outline-danger" title="{{ rev.ai_run.error }}"><i class="bi bi-exclamation-triangle"></i> AI failed</a>
+              {% else %}<a href="{% url 'ai_assistant:run_detail' rev.ai_run.pk %}" class="btn btn-sm btn-outline-secondary"><span class="spinner-border spinner-border-sm"></span> Analyzing…</a>{% endif %}
+            {% endif %}
+            {% if can_analyze and ai_configured %}
+            <form method="post" action="{% url 'ai_assistant:analyze_drawing' rev.pk %}" class="d-inline">{% csrf_token %}
+              <button class="btn btn-sm btn-outline-primary" title="Read this drawing for materials, quantities and green-building (EDGE) data"><i class="bi bi-stars"></i> {% if rev.ai_run %}Re-analyze{% else %}Analyze{% endif %}</button>
+            </form>
+            {% endif %}
+            {% if can_approve and unlocked and rev.status == 'pending' %}
+            <form method="post" action="{% url 'blueprints:revision_review' rev.pk %}" class="d-inline">{% csrf_token %}
+              <input type="hidden" name="action" value="approve">
+              <button class="btn btn-sm btn-success"><i class="bi bi-check2"></i> Approve</button>
+            </form>
+            <form method="post" action="{% url 'blueprints:revision_review' rev.pk %}" class="d-inline" onsubmit="var r = prompt('Reason for rejecting this drawing?'); if (!r) return false; this.reason.value = r; return true;">{% csrf_token %}
+              <input type="hidden" name="action" value="reject"><input type="hidden" name="reason" value="">
+              <button class="btn btn-sm btn-outline-danger"><i class="bi bi-x"></i> Reject</button>
+            </form>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% empty %}
+<div class="card"><div class="card-body text-center text-muted py-5">No drawings uploaded for this project yet.</div></div>
+{% endfor %}
+{% endblock %}

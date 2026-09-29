@@ -1,0 +1,29 @@
+{% extends 'base.html' %}{% block title %}Received — {{ po.po_number }}{% endblock %}
+{% block content %}
+<div class="my-4 text-center">
+  <i class="bi bi-check-circle-fill text-success" style="font-size:3rem;"></i>
+  <h1 class="h4 mt-2">Recorded</h1>
+  <p class="text-muted">{{ po.po_number }} — {{ po.project }}</p>
+</div>
+
+{% if recorded %}
+<div class="card">
+  <div class="card-header">What you entered</div>
+  <div class="table-responsive"><table class="table mb-0">
+    <thead><tr><th>Item</th><th class="text-end">Quantity</th></tr></thead>
+    <tbody>
+      {% for r in recorded %}
+      <tr><td>{{ r.item.description }} <span class="text-muted small">({{ r.item.full_code }})</span></td><td class="text-end">{{ r.qty }} {{ r.unit }}</td></tr>
+      {% endfor %}
+    </tbody>
+  </table></div>
+</div>
+{% else %}
+<div class="alert alert-warning">No quantities were entered.</div>
+{% endif %}
+
+<div class="mt-3 d-flex gap-2">
+  <a href="{% url 'procurement:po_site_receive' po.pk %}" class="btn btn-outline-primary">Enter More</a>
+  <a href="{% url 'procurement:dashboard' %}" class="btn btn-outline-secondary">Back to Dashboard</a>
+</div>
+{% endblock %}

@@ -1,0 +1,6 @@
+{% extends 'timesheets/_hr_base.html' %}
+{% block title %}Location History - One Stop ERP{% endblock %}
+{% block hr_body %}
+<div class="my-4"><h1 class="h3 mb-1">Location History</h1><p class="text-muted mb-0">{{ employee.full_name }} · {{ selected_date }}</p></div>
+<div class="card"><div class="table-responsive"><table class="table mb-0"><thead><tr><th>Timestamp</th><th>Coordinates</th><th>Accuracy</th><th>Speed</th></tr></thead><tbody>{% for location in history %}<tr><td>{{ location.timestamp }}</td><td>{{ location.latitude }}, {{ location.longitude }}</td><td>{{ location.accuracy|default:'—' }}</td><td>{{ location.speed|default:'—' }}</td></tr>{% empty %}<tr><td colspan="4" class="text-center text-muted py-4">No location history for this date.</td></tr>{% endfor %}</tbody></table></div></div>
+{% endblock %}

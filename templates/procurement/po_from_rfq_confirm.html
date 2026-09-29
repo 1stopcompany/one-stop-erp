@@ -1,0 +1,47 @@
+{% extends 'base.html' %}{% block title %}Create Purchase Order(s){% endblock %}
+{% block content %}
+<div class="my-4">
+  <h1 class="h3">Create Purchase Order{{ summary|length|pluralize }}</h1>
+  <p class="text-muted mb-0">{{ rfq.rfq_number }} &mdash; {{ pr.project }}</p>
+</div>
+
+<div class="alert alert-info">
+  Based on the current sourcing selection, this will create <strong>{{ summary|length }}</strong>
+  purchase order{{ summary|length|pluralize }} &mdash; one per vendor.
+</div>
+
+<form method="post">
+  {% csrf_token %}
+  {% for s in summary %}
+  <div class="card mb-3">
+    <div class="card-header">{{ s.vendor.name }}</div>
+    <div class="table-responsive"><table class="table mb-0">
+      <thead><tr><th>Item</th><th class="text-end">Qty</th><th class="text-end">Unit Price</th><th class="text-end">Total</th></tr></thead>
+      <tbody>
+        {% for line in s.lines %}
+        <tr>
+          <td>
+            <div class="d-flex align-items-center gap-2">
+              <img src="{% url 'procurement:item_barcode_png' line.pr_line.item.pk %}" alt="{{ line.pr_line.item.full_code }}" style="height:28px;">
+              <span>{{ line.pr_line.item.full_code }} &mdash; {{ line.pr_line.item.description }}</span>
+            </div>
+          </td>
+          <td class="text-end">{{ line.pr_line.quantity_requested }} {{ line.pr_line.get_unit_display }}</td>
+          <td class="text-end">₪{{ line.unit_price }}</td>
+          <td class="text-end">₪{{ line.total_price }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table></div>
+    <div class="card-body py-2 text-end"><strong>Subtotal: ₪{{ s.total }}</strong></div>
+  </div>
+  {% endfor %}
+
+  <div class="mb-3" style="max-width:250px;">
+    <label class="form-label">Delivery Date <span class="text-muted small">(applies to all)</span></label>
+    <input type="date" name="delivery_date" class="form-control" required>
+  </div>
+  <button type="submit" class="btn btn-primary">Create Purchase Order{{ summary|length|pluralize }}</button>
+  <a href="{% url 'procurement:rfq_detail' rfq.pk %}" class="btn btn-outline-secondary">Cancel</a>
+</form>
+{% endblock %}

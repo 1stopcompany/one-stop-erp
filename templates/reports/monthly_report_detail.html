@@ -1,0 +1,2443 @@
+{% extends 'module_base.html' %}
+{% block title %}Report {{ report.report_number }} - Monthly{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+
+  <div id="alertContainer"></div>
+
+  <!-- Header -->
+  <div class="d-flex flex-wrap justify-content-between align-items-center mb-3">
+    <div>
+      <h1 class="h3 mb-1">
+        <i class="bi bi-file-earmark-text"></i> {{ report.report_number }}
+        <span class="badge bg-secondary align-middle" style="font-size:0.9rem;">Rev{{ report.revision_number|stringformat:"02d" }}</span>
+      </h1>
+      <div class="text-muted">Monthly Site Progress Report</div>
+    </div>
+
+    <div class="d-flex gap-2">
+      {% if report.status == 'draft' and report.site_engineer == user or report.status == 'draft' and user.is_admin %}
+        <a href="{% url 'reports:monthly_report_update' report.id %}" class="btn btn-primary">
+          <i class="bi bi-pencil"></i> Edit
+        </a>
+      {% endif %}
+      {% if request.user.is_admin or request.user == report.site_engineer %}
+      <button type="button" class="btn btn-outline-warning" data-bs-toggle="modal" data-bs-target="#newRevisionModal">
+        <i class="bi bi-arrow-repeat"></i> New Revision
+      </button>
+      {% endif %}
+      <a href="{% url 'reports:monthly_report_dashboard' report.id %}" class="btn btn-outline-info">
+        <i class="bi bi-graph-up-arrow"></i> Dashboard
+      </a>
+      <a href="{% url 'reports:export_internal_monthly_pdf' report.id %}" class="btn btn-outline-secondary">
+        <i class="bi bi-file-earmark-text"></i> Internal Report
+      </a>
+      <a href="{% url 'reports:export_monthly_pdf' report.id %}" class="btn btn-success">
+        <i class="bi bi-file-pdf"></i> Export PDF (EDGE)
+      </a>
+      <a href="{% url 'reports:monthly_report_list' %}" class="btn btn-outline-secondary">
+        <i class="bi bi-arrow-left"></i> Back
+      </a>
+    </div>
+  </div>
+
+  {% if report.status == 'rejected' and report.rejection_reason %}
+  <div class="alert alert-danger"><strong>Rejection reason:</strong> {{ report.rejection_reason }}</div>
+  {% endif %}
+
+  <!-- Status Card -->
+  <div class="card shadow-sm mb-4">
+    <div class="card-body">
+      <div class="row g-3">
+        <div class="col-md-3">
+          <div class="text-muted small">Status</div>
+          <div>
+            {% if report.status == 'draft' %}
+              <span class="badge bg-secondary">Draft</span>
+            {% elif report.status == 'submitted' %}
+              <span class="badge bg-warning">Submitted</span>
+            {% elif report.status == 'engineering_approved' %}
+              <span class="badge bg-info">Approved by Engineering Manager</span>
+            {% elif report.status == 'approved' %}
+              <span class="badge bg-success">Approved</span>
+            {% elif report.status == 'rejected' %}
+              <span class="badge bg-danger">Rejected</span>
+            {% elif report.status == 'archived' %}
+              <span class="badge bg-dark">Archived</span>
+            {% endif %}
+          </div>
+        </div>
+
+        <div class="col-md-3">
+          <div class="text-muted small">Project</div>
+          <div class="fw-semibold">{{ report.project.name }}</div>
+          <span class="badge bg-primary mt-1">{{ report.project.project_symbol }}</span>
+        </div>
+
+        <div class="col-md-3">
+          <div class="text-muted small">Reporting Period</div>
+          <div class="fw-semibold">
+            {{ report.reporting_period_from|date:"M d, Y" }} - {{ report.reporting_period_to|date:"M d, Y" }}
+          </div>
+        </div>
+
+        <div class="col-md-3">
+          <div class="text-muted small">Prepared By</div>
+          <div class="fw-semibold">{{ report.site_engineer.get_full_name|default:report.site_engineer.username }}</div>
+          <div class="text-muted small">Created: {{ report.created_at|date:"M d, Y H:i" }}</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tabs, grouped into logical clusters so 14 sections stay scannable -->
+  <div class="monthly-tab-groups mb-3">
+
+    <div class="tab-group">
+      <div class="tab-group-label">Report</div>
+      <ul class="nav nav-pills flex-wrap gap-1">
+        <li class="nav-item" role="presentation">
+          <button class="nav-link" data-bs-toggle="collapse" data-bs-target="#tab-overview" type="button" aria-expanded="true" aria-controls="tab-overview">
+            <i class="bi bi-info-circle"></i> Overview
+          </button>
+        </li>
+        <li class="nav-item" role="presentation">
+          <button class="nav-link" data-bs-toggle="collapse" data-bs-target="#tab-progress" type="button" aria-expanded="false" aria-controls="tab-progress">
+            <i class="bi bi-graph-up"></i> Progress Summary
+          </button>
+        </li>
+        <li class="nav-item" role="presentation">
+          <button class="nav-link" data-bs-toggle="collapse" data-bs-target="#tab-boq" type="button" aria-expanded="false" aria-controls="tab-boq">
+            <i class="bi bi-list-ol"></i> BOQ Breakdown
+          </button>
+        </li>
+      </ul>
+    </div>
+
+    <div class="tab-group">
+      <div class="tab-group-label">Site Activities</div>
+      <ul class="nav nav-pills flex-wrap gap-1">
+        <li class="nav-item" role="presentation">
+          <button class="nav-link" data-bs-toggle="collapse" data-bs-target="#tab-activities" type="button" aria-expanded="false" aria-controls="tab-activities">
+            <i class="bi bi-list-check"></i> Key Activities
+          </button>
+        </li>
+        <li class="nav-item" role="presentation">
+          <button class="nav-link" data-bs-toggle="collapse" data-bs-target="#tab-materials" type="button" aria-expanded="false" aria-controls="tab-materials">
+            <i class="bi bi-box"></i> Materials Status
+          </button>
+        </li>
+        <li class="nav-item" role="presentation">
+          <button class="nav-link" data-bs-toggle="collapse" data-bs-target="#tab-external" type="button" aria-expanded="false" aria-controls="tab-external">
+            <i class="bi bi-hammer"></i> External Works
+          </button>
+        </li>
+      </ul>
+    </div>
+
+    <div class="tab-group">
+      <div class="tab-group-label">Compliance &amp; Planning</div>
+      <ul class="nav nav-pills flex-wrap gap-1">
+        <li class="nav-item" role="presentation">
+          <button class="nav-link" data-bs-toggle="collapse" data-bs-target="#tab-hse-qc" type="button" aria-expanded="false" aria-controls="tab-hse-qc">
+            <i class="bi bi-shield-check"></i> HSE &amp; QC
+          </button>
+        </li>
+        <li class="nav-item" role="presentation">
+          <button class="nav-link" data-bs-toggle="collapse" data-bs-target="#tab-issues" type="button" aria-expanded="false" aria-controls="tab-issues">
+            <i class="bi bi-exclamation-triangle"></i> Issues &amp; Risks
+          </button>
+        </li>
+        <li class="nav-item" role="presentation">
+          <button class="nav-link" data-bs-toggle="collapse" data-bs-target="#tab-upcoming" type="button" aria-expanded="false" aria-controls="tab-upcoming">
+            <i class="bi bi-calendar-event"></i> Plan for Next Month
+          </button>
+        </li>
+      </ul>
+    </div>
+
+    <div class="tab-group">
+      <div class="tab-group-label">Media &amp; Sign-Off</div>
+      <ul class="nav nav-pills flex-wrap gap-1">
+        <li class="nav-item" role="presentation">
+          <button class="nav-link" data-bs-toggle="collapse" data-bs-target="#tab-photos" type="button" aria-expanded="false" aria-controls="tab-photos">
+            <i class="bi bi-images"></i> Photos
+          </button>
+        </li>
+        <li class="nav-item" role="presentation">
+          <button class="nav-link" data-bs-toggle="collapse" data-bs-target="#tab-appendix" type="button" aria-expanded="false" aria-controls="tab-appendix">
+            <i class="bi bi-paperclip"></i> Appendix
+          </button>
+        </li>
+        <li class="nav-item" role="presentation">
+          <button class="nav-link" data-bs-toggle="collapse" data-bs-target="#tab-review-comments" type="button" aria-expanded="false" aria-controls="tab-review-comments">
+            <i class="bi bi-chat-left-text"></i> Response to Comments
+            {% if review_comments_count %}<span class="badge bg-secondary">{{ review_comments_count }}</span>{% endif %}
+          </button>
+        </li>
+        <li class="nav-item" role="presentation">
+          <button class="nav-link" data-bs-toggle="collapse" data-bs-target="#tab-approvals" type="button" aria-expanded="false" aria-controls="tab-approvals">
+            <i class="bi bi-check-circle"></i> Sign-Off
+          </button>
+        </li>
+      </ul>
+    </div>
+
+  </div>
+
+  <div class="tab-content">
+
+    <!-- OVERVIEW -->
+    <div class="collapse show" id="tab-overview" data-section-id="overview" style="order: {{ section_positions.overview }};">
+      {% if section_reorderable %}
+      <div class="section-reorder-bar">
+        <button type="button" class="btn btn-sm btn-outline-secondary" onclick="moveSection('overview', 'up')" {% if section_positions.overview == 0 %}disabled{% endif %} title="Move section up">
+          <i class="bi bi-arrow-up"></i>
+        </button>
+        <button type="button" class="btn btn-sm btn-outline-secondary" onclick="moveSection('overview', 'down')" {% if section_positions.overview == section_order|length|add:-1 %}disabled{% endif %} title="Move section down">
+          <i class="bi bi-arrow-down"></i>
+        </button>
+      </div>
+      {% endif %}
+
+      <div class="card shadow-sm mb-4">
+        <div class="card-header bg-light d-flex justify-content-between align-items-center">
+          <div class="fw-semibold text-primary"><i class="bi bi-info-circle"></i> General Information</div>
+        </div>
+        <div class="card-body">
+          <div class="row g-3">
+            <div class="col-md-6">
+              <div class="text-muted small">Weather</div>
+              <div class="fw-semibold">{{ report.get_weather_conditions_display }}</div>
+            </div>
+            <div class="col-md-6">
+              <div class="text-muted small">General Description</div>
+              <div class="border rounded p-3 bg-white">
+                {{ report.general_description|default:"-"|linebreaks }}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card shadow-sm mb-4">
+        <div class="card-header bg-light d-flex justify-content-between align-items-center">
+          <div class="fw-semibold text-primary"><i class="bi bi-journal-text"></i> 2. Executive Summary</div>
+          {% if editable %}
+          <button type="button" class="btn btn-sm btn-outline-warning" onclick="openEditMonthlyText('executive_summary', 'Executive Summary', '{{ report.executive_summary|default:""|escapejs }}')">
+            <i class="bi bi-pencil"></i> Edit
+          </button>
+          {% endif %}
+        </div>
+        <div class="card-body">
+          <p style="white-space: pre-line;">{{ report.executive_summary|default:"—" }}</p>
+        </div>
+      </div>
+
+      <!-- Actions -->
+      <div class="card shadow-sm mb-4">
+        <div class="card-header bg-light">
+          <div class="fw-semibold text-primary"><i class="bi bi-lightning"></i> Quick Actions</div>
+        </div>
+        <div class="card-body d-flex flex-wrap gap-2">
+          {% if report.status == 'draft' %}
+            {% if report.site_engineer == user or user.is_admin %}
+            <form method="post" action="{% url 'reports:submit_monthly_report' report.id %}">
+              {% csrf_token %}
+              <button type="submit" class="btn btn-success">
+                <i class="bi bi-send"></i> Submit for Approval
+              </button>
+            </form>
+            {% endif %}
+          {% endif %}
+
+          {% if report.status == 'submitted' %}
+            {% if user.is_engineering_manager or user.is_admin %}
+            <a href="{% url 'reports:review_monthly_report' report.id %}" class="btn btn-info">
+              <i class="bi bi-search"></i> Review
+            </a>
+            {% endif %}
+          {% endif %}
+
+          {% if report.status == 'engineering_approved' %}
+            {% if user.is_general_manager or user.is_admin %}
+            <a href="{% url 'reports:approve_monthly_report' report.id %}" class="btn btn-success">
+              <i class="bi bi-check-circle"></i> Final Approve
+            </a>
+            {% endif %}
+          {% endif %}
+        </div>
+      </div>
+    </div>
+
+    <!-- PROGRESS SUMMARY -->
+    <div class="collapse" id="tab-progress" data-section-id="progress" style="order: {{ section_positions.progress }};">
+      {% if section_reorderable %}
+      <div class="section-reorder-bar">
+        <button type="button" class="btn btn-sm btn-outline-secondary" onclick="moveSection('progress', 'up')" {% if section_positions.progress == 0 %}disabled{% endif %} title="Move section up">
+          <i class="bi bi-arrow-up"></i>
+        </button>
+        <button type="button" class="btn btn-sm btn-outline-secondary" onclick="moveSection('progress', 'down')" {% if section_positions.progress == section_order|length|add:-1 %}disabled{% endif %} title="Move section down">
+          <i class="bi bi-arrow-down"></i>
+        </button>
+      </div>
+      {% endif %}
+
+      <div class="card shadow-sm mb-4">
+        <div class="card-header bg-light">
+          <div class="fw-semibold text-primary"><i class="bi bi-graph-up"></i> 3. Progress Summary</div>
+        </div>
+        <div class="card-body">
+          <div class="table-responsive">
+            <table class="table table-sm table-bordered mb-3">
+              <thead class="table-light">
+                <tr><th>Item</th><th>Planned %</th><th>Actual %</th></tr>
+              </thead>
+              <tbody>
+                <tr class="table-light">
+                  <td class="fw-semibold">Overall Project Progress (Cumulative)</td>
+                  <td>—</td>
+                  <td class="fw-semibold">{{ progress_breakdown.overall_percentage|floatformat:3 }}%</td>
+                </tr>
+                <tr class="table-light">
+                  <td class="fw-semibold">Progress This Month</td>
+                  <td>—</td>
+                  <td>
+                    {{ progress_this_month_percentage|floatformat:3 }}%
+                    <span class="text-muted small">({{ progress_previous_percentage|floatformat:3 }}% as of {{ report.reporting_period_from|date:"d/m" }} &rarr; {{ progress_breakdown.overall_percentage|floatformat:3 }}% as of {{ report.reporting_period_to|date:"d/m" }})</span>
+                  </td>
+                </tr>
+                {% for item in report.progress_category_items.all %}
+                <tr id="progress-item-{{ item.id }}">
+                  <td>{{ item.item_name }}</td>
+                  <td>{{ item.planned_value|default:"—" }}</td>
+                  <td>
+                    {{ item.actual_value|default:"—" }}
+                    {% if editable %}
+                    <div class="float-end">
+                      <button class="btn btn-sm btn-outline-warning" onclick="openEditProgressItem({{ item.id }}, '{{ item.item_name|escapejs }}', '{{ item.planned_value|escapejs }}', '{{ item.actual_value|escapejs }}')"><i class="bi bi-pencil"></i></button>
+                      <button class="btn btn-sm btn-outline-danger" onclick="deleteProgressItem({{ item.id }})"><i class="bi bi-trash"></i></button>
+                    </div>
+                    {% endif %}
+                  </td>
+                </tr>
+                {% endfor %}
+                <tr>
+                  <td class="fw-semibold">Schedule Variance (+/- days)</td>
+                  <td colspan="2">
+                    {{ report.schedule_variance_note|default:"—" }}
+                    {% if editable %}
+                    <button class="btn btn-sm btn-outline-warning float-end" onclick="openEditMonthlyText('schedule_variance_note', 'Schedule Variance', '{{ report.schedule_variance_note|escapejs }}')"><i class="bi bi-pencil"></i> Edit</button>
+                    {% endif %}
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          {% if editable %}
+          <button class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#addProgressItemModal">
+            <i class="bi bi-plus-circle"></i> Add Category Row
+          </button>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+
+    <!-- KEY ACTIVITIES -->
+    <div class="collapse" id="tab-activities" data-section-id="activities" style="order: {{ section_positions.activities }};">
+      {% if section_reorderable %}
+      <div class="section-reorder-bar">
+        <button type="button" class="btn btn-sm btn-outline-secondary" onclick="moveSection('activities', 'up')" {% if section_positions.activities == 0 %}disabled{% endif %} title="Move section up">
+          <i class="bi bi-arrow-up"></i>
+        </button>
+        <button type="button" class="btn btn-sm btn-outline-secondary" onclick="moveSection('activities', 'down')" {% if section_positions.activities == section_order|length|add:-1 %}disabled{% endif %} title="Move section down">
+          <i class="bi bi-arrow-down"></i>
+        </button>
+      </div>
+      {% endif %}
+
+      <div class="card shadow-sm mb-4">
+        <div class="card-header bg-light d-flex justify-content-between align-items-center">
+          <div class="fw-semibold text-primary"><i class="bi bi-list-check"></i> 4. Key Activities Carried Out This Month</div>
+          {% if editable %}
+          <button class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#addKeyActivityModal">
+            <i class="bi bi-plus-circle"></i> Add
+          </button>
+          {% endif %}
+        </div>
+        <div class="card-body">
+          <div class="table-responsive">
+            <table class="table table-sm table-hover align-middle mb-0">
+              <thead class="table-light">
+                <tr><th style="width:40px;">#</th><th>Activity / Work Item</th><th style="width:140px;">Status</th><th>Remarks</th><th style="width:90px;"></th></tr>
+              </thead>
+              <tbody>
+                {% for a in report.key_activities.all %}
+                <tr id="key-activity-{{ a.id }}">
+                  <td>{{ forloop.counter }}</td>
+                  <td style="white-space: pre-line;">{{ a.activity }}</td>
+                  <td>
+                    {% if a.status == 'completed' %}<span class="badge bg-success">{{ a.get_status_display }}</span>
+                    {% elif a.status == 'in_progress' %}<span class="badge bg-warning">{{ a.get_status_display }}</span>
+                    {% elif a.status == 'delayed' %}<span class="badge bg-danger">{{ a.get_status_display }}</span>
+                    {% else %}<span class="badge bg-secondary">{{ a.get_status_display }}</span>
+                    {% endif %}
+                  </td>
+                  <td style="white-space: pre-line;">{{ a.remarks|default:"—" }}</td>
+                  <td>
+                    {% if editable %}
+                    <button class="btn btn-sm btn-outline-warning" onclick="openEditKeyActivity({{ a.id }}, '{{ a.activity|escapejs }}', '{{ a.status }}', '{{ a.remarks|escapejs }}')"><i class="bi bi-pencil"></i></button>
+                    <button class="btn btn-sm btn-outline-danger" onclick="deleteKeyActivity({{ a.id }})"><i class="bi bi-trash"></i></button>
+                    {% endif %}
+                  </td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="5" class="text-center text-muted py-3">No key activities recorded.</td></tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- MATERIALS STATUS -->
+    <div class="collapse" id="tab-materials" data-section-id="materials" style="order: {{ section_positions.materials }};">
+      {% if section_reorderable %}
+      <div class="section-reorder-bar">
+        <button type="button" class="btn btn-sm btn-outline-secondary" onclick="moveSection('materials', 'up')" {% if section_positions.materials == 0 %}disabled{% endif %} title="Move section up">
+          <i class="bi bi-arrow-up"></i>
+        </button>
+        <button type="button" class="btn btn-sm btn-outline-secondary" onclick="moveSection('materials', 'down')" {% if section_positions.materials == section_order|length|add:-1 %}disabled{% endif %} title="Move section down">
+          <i class="bi bi-arrow-down"></i>
+        </button>
+      </div>
+      {% endif %}
+
+      <div class="card shadow-sm mb-4">
+        <div class="card-header bg-light d-flex justify-content-between align-items-center">
+          <div class="fw-semibold text-primary"><i class="bi bi-box"></i> 5. Materials Status</div>
+          {% if editable %}
+          <button class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#addMaterialSupplyModal">
+            <i class="bi bi-plus-circle"></i> Add
+          </button>
+          {% endif %}
+        </div>
+
+        <div class="card-body">
+          {% with items=report.material_supplies.all %}
+            {% if items %}
+              <div class="table-responsive">
+                <table class="table table-hover align-middle">
+                  <thead class="table-light">
+                    <tr>
+                      <th style="width:130px;">Type</th>
+                      <th>Material</th>
+                      <th style="width:140px;">Qty (cumulative)</th>
+                      <th style="width:110px;">Delivered</th>
+                      <th style="width:110px;">Used</th>
+                      <th>Remaining / Notes</th>
+                      <th style="width:130px;"></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {% for m in items %}
+                      <tr id="material-{{ m.id }}">
+                        <td>{{ m.get_material_type_display|default:"—" }}</td>
+                        <td class="fw-semibold">{{ m.material_description }}</td>
+                        <td>{{ m.quantity }} {{ m.unit }}</td>
+                        <td>{{ m.delivered_quantity|default:"—" }} {% if m.delivered_quantity %}{{ m.unit }}{% endif %}</td>
+                        <td>{{ m.used_quantity|default:"—" }} {% if m.used_quantity %}{{ m.unit }}{% endif %}</td>
+                        <td>{{ m.remaining_notes|default:"—" }}</td>
+                        <td>
+                          {% if editable %}
+                          <button class="btn btn-sm btn-outline-success" onclick="openAddMaterialQuantity({{ m.id }}, '{{ m.material_description|escapejs }}', '{{ m.quantity }}')" title="Add quantity">
+                            <i class="bi bi-plus-circle"></i>
+                          </button>
+                          <button class="btn btn-sm btn-outline-warning" onclick="openEditMaterial({{ m.id }}, '{{ m.material_type }}', '{{ m.material_description|escapejs }}', '{{ m.unit|escapejs }}', '{{ m.delivered_quantity|default_if_none:'' }}', '{{ m.used_quantity|default_if_none:'' }}', '{{ m.remaining_notes|escapejs }}')">
+                            <i class="bi bi-pencil"></i>
+                          </button>
+                          <button class="btn btn-sm btn-outline-danger" onclick="deleteMaterialSupply({{ m.id }})">
+                            <i class="bi bi-trash"></i>
+                          </button>
+                          {% endif %}
+                        </td>
+                      </tr>
+                    {% endfor %}
+                  </tbody>
+                </table>
+              </div>
+            {% else %}
+              <div class="alert alert-info mb-0">
+                <i class="bi bi-info-circle"></i> No materials recorded.
+              </div>
+            {% endif %}
+          {% endwith %}
+        </div>
+      </div>
+    </div>
+
+    <!-- EXTERNAL -->
+    <div class="collapse" id="tab-external" data-section-id="external" style="order: {{ section_positions.external }};">
+      {% if section_reorderable %}
+      <div class="section-reorder-bar">
+        <button type="button" class="btn btn-sm btn-outline-secondary" onclick="moveSection('external', 'up')" {% if section_positions.external == 0 %}disabled{% endif %} title="Move section up">
+          <i class="bi bi-arrow-up"></i>
+        </button>
+        <button type="button" class="btn btn-sm btn-outline-secondary" onclick="moveSection('external', 'down')" {% if section_positions.external == section_order|length|add:-1 %}disabled{% endif %} title="Move section down">
+          <i class="bi bi-arrow-down"></i>
+        </button>
+      </div>
+      {% endif %}
+
+      <div class="card shadow-sm mb-4">
+        <div class="card-header bg-light d-flex justify-content-between align-items-center">
+          <div class="fw-semibold text-primary"><i class="bi bi-hammer"></i> External &amp; Other Works</div>
+          {% if editable %}
+          <button class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#addExternalWorkModal">
+            <i class="bi bi-plus-circle"></i> Add
+          </button>
+          {% endif %}
+        </div>
+
+        <div class="card-body">
+          {% with items=report.external_works.all %}
+            {% if items %}
+              {% for work in items %}
+                <div class="border rounded p-3 mb-3">
+                  <div class="d-flex justify-content-between align-items-start flex-wrap gap-2">
+                    <div>
+                      <div class="fw-semibold">{{ work.work_description }}</div>
+                    </div>
+                    <div style="min-width:220px;">
+                      <div class="text-muted small mb-1">Completion</div>
+                      <div class="progress" style="height: 18px;">
+                        <div class="progress-bar bg-info" style="width: {{ work.completion_percentage|add:0 }}%;">
+                          {{ work.completion_percentage }}%
+                        </div>
+                      </div>
+                    </div>
+                    {% if editable %}
+                    <button class="btn btn-sm btn-outline-danger" onclick="deleteExternalWork({{ work.id }})">
+                      <i class="bi bi-trash"></i>
+                    </button>
+                    {% endif %}
+                  </div>
+                </div>
+              {% endfor %}
+            {% else %}
+              <div class="alert alert-info mb-0">
+                <i class="bi bi-info-circle"></i> No external works recorded.
+              </div>
+            {% endif %}
+          {% endwith %}
+        </div>
+      </div>
+    </div>
+
+    <!-- HSE & QC -->
+    <div class="collapse" id="tab-hse-qc" data-section-id="hse_qc" style="order: {{ section_positions.hse_qc }};">
+      {% if section_reorderable %}
+      <div class="section-reorder-bar">
+        <button type="button" class="btn btn-sm btn-outline-secondary" onclick="moveSection('hse_qc', 'up')" {% if section_positions.hse_qc == 0 %}disabled{% endif %} title="Move section up">
+          <i class="bi bi-arrow-up"></i>
+        </button>
+        <button type="button" class="btn btn-sm btn-outline-secondary" onclick="moveSection('hse_qc', 'down')" {% if section_positions.hse_qc == section_order|length|add:-1 %}disabled{% endif %} title="Move section down">
+          <i class="bi bi-arrow-down"></i>
+        </button>
+      </div>
+      {% endif %}
+
+      <div class="card shadow-sm mb-4">
+        <div class="card-header bg-light">
+          <div class="fw-semibold text-primary"><i class="bi bi-shield-check"></i> 6. Health, Safety &amp; Environment (HSE)</div>
+        </div>
+        <div class="card-body">
+          <div class="row g-3">
+            {% for field_name, label, value in hse_rows %}
+            <div class="col-md-6">
+              <div class="d-flex justify-content-between align-items-start">
+                <div class="text-muted small">{{ label }}</div>
+                {% if editable %}
+                <button class="btn btn-sm btn-outline-warning" onclick="openEditMonthlyText('{{ field_name }}', '{{ label|escapejs }}', '{{ value|escapejs }}')"><i class="bi bi-pencil"></i></button>
+                {% endif %}
+              </div>
+              <div>{{ value|default:"—" }}</div>
+            </div>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+
+      <div class="card shadow-sm mb-4">
+        <div class="card-header bg-light">
+          <div class="fw-semibold text-primary"><i class="bi bi-clipboard-check"></i> 7. Quality Control / Inspections</div>
+        </div>
+        <div class="card-body">
+          <div class="row g-3">
+            <div class="col-12">
+              <div class="d-flex justify-content-between align-items-start">
+                <div class="text-muted small">Inspections / tests conducted this month</div>
+                {% if editable %}
+                <button class="btn btn-sm btn-outline-warning" onclick="openEditMonthlyText('qc_inspections_note', 'Inspections / Tests Conducted', '{{ report.qc_inspections_note|escapejs }}')"><i class="bi bi-pencil"></i></button>
+                {% endif %}
+              </div>
+              <div style="white-space: pre-line;">{{ report.qc_inspections_note|default:"—" }}</div>
+            </div>
+            <div class="col-12">
+              <div class="d-flex justify-content-between align-items-start">
+                <div class="text-muted small">Non-conformances raised and status</div>
+                {% if editable %}
+                <button class="btn btn-sm btn-outline-warning" onclick="openEditMonthlyText('qc_nonconformances_note', 'Non-Conformances', '{{ report.qc_nonconformances_note|escapejs }}')"><i class="bi bi-pencil"></i></button>
+                {% endif %}
+              </div>
+              <div style="white-space: pre-line;">{{ report.qc_nonconformances_note|default:"—" }}</div>
+            </div>
+            <div class="col-12">
+              <div class="d-flex justify-content-between align-items-start">
+                <div class="text-muted small">Approvals / material submittals pending</div>
+                {% if editable %}
+                <button class="btn btn-sm btn-outline-warning" onclick="openEditMonthlyText('qc_pending_submittals_note', 'Pending Submittals', '{{ report.qc_pending_submittals_note|escapejs }}')"><i class="bi bi-pencil"></i></button>
+                {% endif %}
+              </div>
+              <div style="white-space: pre-line;">{{ report.qc_pending_submittals_note|default:"—" }}</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ISSUES / RISKS / DELAYS -->
+    <div class="collapse" id="tab-issues" data-section-id="issues" style="order: {{ section_positions.issues }};">
+      {% if section_reorderable %}
+      <div class="section-reorder-bar">
+        <button type="button" class="btn btn-sm btn-outline-secondary" onclick="moveSection('issues', 'up')" {% if section_positions.issues == 0 %}disabled{% endif %} title="Move section up">
+          <i class="bi bi-arrow-up"></i>
+        </button>
+        <button type="button" class="btn btn-sm btn-outline-secondary" onclick="moveSection('issues', 'down')" {% if section_positions.issues == section_order|length|add:-1 %}disabled{% endif %} title="Move section down">
+          <i class="bi bi-arrow-down"></i>
+        </button>
+      </div>
+      {% endif %}
+
+      <div class="card shadow-sm mb-4">
+        <div class="card-header bg-light d-flex justify-content-between align-items-center">
+          <div class="fw-semibold text-primary"><i class="bi bi-exclamation-triangle"></i> 8. Issues, Risks &amp; Delays</div>
+          {% if editable %}
+          <button class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#addIssueModal">
+            <i class="bi bi-plus-circle"></i> Add
+          </button>
+          {% endif %}
+        </div>
+        <div class="card-body">
+          <div class="table-responsive">
+            <table class="table table-sm table-hover align-middle mb-0">
+              <thead class="table-light">
+                <tr><th style="width:40px;">#</th><th>Issue / Risk / Delay</th><th>Impact</th><th>Mitigation / Action</th><th style="width:90px;"></th></tr>
+              </thead>
+              <tbody>
+                {% for i in report.issues_risks_delays.all %}
+                <tr id="issue-{{ i.id }}">
+                  <td>{{ forloop.counter }}</td>
+                  <td style="white-space: pre-line;">{{ i.description }}</td>
+                  <td style="white-space: pre-line;">{{ i.impact|default:"—" }}</td>
+                  <td style="white-space: pre-line;">{{ i.mitigation|default:"—" }}</td>
+                  <td>
+                    {% if editable %}
+                    <button class="btn btn-sm btn-outline-warning" onclick="openEditIssue({{ i.id }}, '{{ i.description|escapejs }}', '{{ i.impact|escapejs }}', '{{ i.mitigation|escapejs }}')"><i class="bi bi-pencil"></i></button>
+                    <button class="btn btn-sm btn-outline-danger" onclick="deleteIssue({{ i.id }})"><i class="bi bi-trash"></i></button>
+                    {% endif %}
+                  </td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="5" class="text-center text-muted py-3">No significant issues, risks, or delays were encountered during the reporting period.</td></tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- UPCOMING / PLAN FOR NEXT MONTH -->
+    <div class="collapse" id="tab-upcoming" data-section-id="upcoming" style="order: {{ section_positions.upcoming }};">
+      {% if section_reorderable %}
+      <div class="section-reorder-bar">
+        <button type="button" class="btn btn-sm btn-outline-secondary" onclick="moveSection('upcoming', 'up')" {% if section_positions.upcoming == 0 %}disabled{% endif %} title="Move section up">
+          <i class="bi bi-arrow-up"></i>
+        </button>
+        <button type="button" class="btn btn-sm btn-outline-secondary" onclick="moveSection('upcoming', 'down')" {% if section_positions.upcoming == section_order|length|add:-1 %}disabled{% endif %} title="Move section down">
+          <i class="bi bi-arrow-down"></i>
+        </button>
+      </div>
+      {% endif %}
+
+      <div class="card shadow-sm mb-4">
+        <div class="card-header bg-light d-flex justify-content-between align-items-center">
+          <div class="fw-semibold text-primary"><i class="bi bi-calendar-event"></i> 9. Plan for Next Month</div>
+          {% if editable %}
+          <button class="btn btn-sm btn-outline-warning" onclick="openEditMonthlyText('next_month_plan', 'Plan for Next Month', '{{ report.next_month_plan|escapejs }}')">
+            <i class="bi bi-pencil"></i> Edit
+          </button>
+          {% endif %}
+        </div>
+        <div class="card-body">
+          <p style="white-space: pre-line;">{{ report.next_month_plan|default:"—" }}</p>
+        </div>
+      </div>
+
+      <div class="card shadow-sm mb-4">
+        <div class="card-header bg-light d-flex justify-content-between align-items-center">
+          <div class="fw-semibold text-primary"><i class="bi bi-calendar-week"></i> Upcoming Works (scheduled)</div>
+          {% if editable %}
+          <button class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#addUpcomingWorkModal">
+            <i class="bi bi-plus-circle"></i> Add
+          </button>
+          {% endif %}
+        </div>
+
+        <div class="card-body">
+          {% with items=report.upcoming_works.all %}
+            {% if items %}
+              {% for w in items %}
+                <div class="border rounded p-3 mb-3">
+                  <div class="d-flex justify-content-between align-items-start flex-wrap gap-2">
+                    <div>
+                      <div class="fw-semibold">{{ w.work_description }}</div>
+                      <div class="text-muted small">
+                        Planned: {{ w.planned_start_date|date:"M d, Y" }} - {{ w.planned_end_date|date:"M d, Y" }}
+                      </div>
+                    </div>
+                    {% if editable %}
+                    <button class="btn btn-sm btn-outline-danger" onclick="deleteUpcomingWork({{ w.id }})">
+                      <i class="bi bi-trash"></i>
+                    </button>
+                    {% endif %}
+                  </div>
+                </div>
+              {% endfor %}
+            {% else %}
+              <div class="alert alert-info mb-0">
+                <i class="bi bi-info-circle"></i> No upcoming works planned.
+              </div>
+            {% endif %}
+          {% endwith %}
+        </div>
+      </div>
+    </div>
+
+    <!-- BOQ BREAKDOWN -->
+    <div class="collapse" id="tab-boq" data-section-id="boq" style="order: {{ section_positions.boq }};">
+      {% if section_reorderable %}
+      <div class="section-reorder-bar">
+        <button type="button" class="btn btn-sm btn-outline-secondary" onclick="moveSection('boq', 'up')" {% if section_positions.boq == 0 %}disabled{% endif %} title="Move section up">
+          <i class="bi bi-arrow-up"></i>
+        </button>
+        <button type="button" class="btn btn-sm btn-outline-secondary" onclick="moveSection('boq', 'down')" {% if section_positions.boq == section_order|length|add:-1 %}disabled{% endif %} title="Move section down">
+          <i class="bi bi-arrow-down"></i>
+        </button>
+      </div>
+      {% endif %}
+
+      <div class="card shadow-sm mb-4">
+        <div class="card-header bg-light d-flex justify-content-between align-items-center">
+          <div class="fw-semibold text-primary"><i class="bi bi-list-ol"></i> 10. BOQ Progress Breakdown by Item</div>
+          {% if request.user.is_admin or request.user == report.project.manager %}
+          <a href="{% url 'reports:boq_editor' project_id=report.project.id %}" class="btn btn-sm btn-outline-primary">
+            <i class="bi bi-pencil"></i> Edit BOQ
+          </a>
+          {% endif %}
+        </div>
+        <div class="card-body">
+          <div class="table-responsive">
+            <table class="table table-sm table-bordered mb-0">
+              <thead class="table-light">
+                <tr>
+                  <th>No.</th>
+                  <th>Main Item / Sub-item</th>
+                  <th>% of Total</th>
+                  <th>Start Date</th>
+                  <th>Planned Completion</th>
+                  <th>Execution %</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for row in progress_breakdown.phases %}
+                <tr class="table-light">
+                  <td>{{ row.phase.code }}</td>
+                  <td class="fw-semibold">{{ row.phase.name_en|default:row.phase.name_ar }}</td>
+                  <td class="fw-semibold">{{ row.phase.weight_percentage }}%</td>
+                  <td></td>
+                  <td></td>
+                  <td class="fw-semibold">{{ row.execution_percentage|floatformat:1 }}%</td>
+                </tr>
+                {% for sub in row.sub_items %}
+                <tr>
+                  <td></td>
+                  <td class="ps-4">{{ sub.sub_item.name_en|default:sub.sub_item.name_ar }}</td>
+                  <td>{{ sub.sub_item.weight_percentage }}%</td>
+                  <td>{{ sub.sub_item.planned_start_date|date:"d/m/Y"|default:"—" }}</td>
+                  <td>{{ sub.sub_item.planned_completion_date|date:"d/m/Y"|default:"—" }}</td>
+                  <td>{{ sub.execution_percentage|floatformat:1 }}%</td>
+                </tr>
+                {% endfor %}
+                {% endfor %}
+              </tbody>
+              <tfoot>
+                <tr class="table-secondary">
+                  <td colspan="5" class="text-end"><strong>TOTAL — Overall Cumulative Progress</strong></td>
+                  <td><strong>{{ progress_breakdown.overall_percentage|floatformat:3 }}%</strong></td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- PHOTOS -->
+    <div class="collapse" id="tab-photos" data-section-id="photos" style="order: {{ section_positions.photos }};">
+      {% if section_reorderable %}
+      <div class="section-reorder-bar">
+        <button type="button" class="btn btn-sm btn-outline-secondary" onclick="moveSection('photos', 'up')" {% if section_positions.photos == 0 %}disabled{% endif %} title="Move section up">
+          <i class="bi bi-arrow-up"></i>
+        </button>
+        <button type="button" class="btn btn-sm btn-outline-secondary" onclick="moveSection('photos', 'down')" {% if section_positions.photos == section_order|length|add:-1 %}disabled{% endif %} title="Move section down">
+          <i class="bi bi-arrow-down"></i>
+        </button>
+      </div>
+      {% endif %}
+
+      <div class="card shadow-sm mb-4">
+        <div class="card-header bg-light d-flex justify-content-between align-items-center">
+          <div class="fw-semibold text-primary"><i class="bi bi-images"></i> 11. Photographic Record</div>
+          {% if editable %}
+          <button type="button" class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#addPhotoModal">
+            <i class="bi bi-plus-circle"></i> Add Photo
+          </button>
+          {% endif %}
+        </div>
+        <div class="card-body">
+          <div class="d-flex justify-content-between align-items-start mb-3 border rounded p-3 bg-white">
+            <div>
+              <div class="text-muted small">Full Album Link (e.g. Dropbox)</div>
+              {% if report.photos_external_link %}
+                <a href="{{ report.photos_external_link }}" target="_blank" rel="noopener">
+                  <i class="bi bi-box-arrow-up-right"></i> {{ report.photos_external_link }}
+                </a>
+              {% else %}
+                <span class="text-muted">No external album link set.</span>
+              {% endif %}
+            </div>
+            {% if editable %}
+            <button type="button" class="btn btn-sm btn-outline-warning" onclick="openEditMonthlyText('photos_external_link', 'Full Album Link', '{{ report.photos_external_link|escapejs }}')">
+              <i class="bi bi-pencil"></i> Edit
+            </button>
+            {% endif %}
+          </div>
+          {% regroup report.phase_photos.all by phase as photo_groups %}
+          {% if photo_groups %}
+            {% for group in photo_groups %}
+            <h6 class="text-primary mt-2">{{ group.grouper.code }}. {{ group.grouper.name_en|default:group.grouper.name_ar }}</h6>
+            <div class="row g-3 mb-3">
+              {% for photo in group.list %}
+              <div class="col-md-3 col-sm-4 col-6" id="report-photo-{{ photo.id }}">
+                <div class="card h-100">
+                  <img src="{{ photo.photo.url }}" class="card-img-top" style="height: 150px; object-fit: cover;" alt="{{ photo.caption }}">
+                  <div class="card-body p-2">
+                    <p class="small mb-2">{{ photo.caption|default:"—"|truncatewords:10 }}</p>
+                    {% if editable %}
+                    <div class="d-flex gap-1">
+                      <button class="btn btn-sm btn-outline-warning" onclick="openEditPhoto({{ photo.id }}, {{ photo.phase_id }}, '{{ photo.caption|escapejs }}', '{{ photo.taken_date|date:'Y-m-d' }}')">
+                        <i class="bi bi-pencil"></i>
+                      </button>
+                      <button class="btn btn-sm btn-outline-danger" onclick="deleteReportPhoto({{ photo.id }})">
+                        <i class="bi bi-trash"></i>
+                      </button>
+                    </div>
+                    {% endif %}
+                  </div>
+                </div>
+              </div>
+              {% endfor %}
+            </div>
+            {% endfor %}
+          {% else %}
+          <div class="alert alert-info mb-0"><i class="bi bi-info-circle"></i> No photos added yet.</div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+
+    <!-- APPENDIX -->
+    <div class="collapse" id="tab-appendix" data-section-id="appendix" style="order: {{ section_positions.appendix }};">
+      {% if section_reorderable %}
+      <div class="section-reorder-bar">
+        <button type="button" class="btn btn-sm btn-outline-secondary" onclick="moveSection('appendix', 'up')" {% if section_positions.appendix == 0 %}disabled{% endif %} title="Move section up">
+          <i class="bi bi-arrow-up"></i>
+        </button>
+        <button type="button" class="btn btn-sm btn-outline-secondary" onclick="moveSection('appendix', 'down')" {% if section_positions.appendix == section_order|length|add:-1 %}disabled{% endif %} title="Move section down">
+          <i class="bi bi-arrow-down"></i>
+        </button>
+      </div>
+      {% endif %}
+
+      <div class="card shadow-sm mb-4">
+        <div class="card-header bg-light d-flex justify-content-between align-items-center">
+          <div class="fw-semibold text-primary"><i class="bi bi-paperclip"></i> 13. Appendix — Supporting Documents</div>
+          {% if editable %}
+          <button type="button" class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#addAttachmentModal">
+            <i class="bi bi-plus-circle"></i> Add
+          </button>
+          {% endif %}
+        </div>
+        <div class="card-body">
+          {% if monthly_attachments %}
+          <div class="row" id="attachmentContainer">
+            {% for item in monthly_attachments %}
+            <div class="col-md-6 col-lg-4 mb-3" id="attachment-{{ item.id }}">
+              <div class="card h-100">
+                {% if item.attachment_type == 'photo' %}
+                <img src="{{ item.file.url }}" class="card-img-top" style="height: 150px; object-fit: cover;" alt="{{ item.description }}">
+                {% endif %}
+                <div class="card-body">
+                  <p class="text-muted mb-1">
+                    {% if item.attachment_type == 'photo' %}<i class="bi bi-image"></i> Photo
+                    {% else %}<i class="bi bi-file-earmark"></i> {{ item.get_attachment_type_display }}
+                    {% endif %}
+                  </p>
+                  <p class="mb-1"><strong>{{ item.description|default:"Untitled" }}</strong></p>
+                  {% if item.location %}<p class="text-muted small mb-1"><i class="bi bi-geo-alt"></i> {{ item.location }}</p>{% endif %}
+                  <p class="text-muted small">{{ item.created_at|date:"d M Y H:i" }}</p>
+                  <div class="d-flex flex-wrap gap-1">
+                    <a href="{{ item.file.url }}" class="btn btn-sm btn-primary" target="_blank">
+                      <i class="bi bi-download"></i> Download
+                    </a>
+                    {% if editable %}
+                    <button class="btn btn-sm btn-outline-warning" onclick="openEditAttachment({{ item.id }}, '{{ item.description|escapejs }}', '{{ item.location|escapejs }}', '{{ item.attachment_type }}')">
+                      <i class="bi bi-pencil"></i>
+                    </button>
+                    <button class="btn btn-sm btn-outline-danger" onclick="deleteMonthlyAttachment({{ item.id }})">
+                      <i class="bi bi-trash"></i>
+                    </button>
+                    {% endif %}
+                  </div>
+                </div>
+              </div>
+            </div>
+            {% endfor %}
+          </div>
+          {% else %}
+          <p class="text-muted text-center py-3 mb-0">No supporting documents attached.</p>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+
+    <!-- RESPONSE TO COMMENTS (supervision / external consultant review) -->
+    <div class="collapse" id="tab-review-comments" data-section-id="review_comments" style="order: {{ section_positions.review_comments }};">
+      {% if section_reorderable %}
+      <div class="section-reorder-bar">
+        <button type="button" class="btn btn-sm btn-outline-secondary" onclick="moveSection('review_comments', 'up')" {% if section_positions.review_comments == 0 %}disabled{% endif %} title="Move section up">
+          <i class="bi bi-arrow-up"></i>
+        </button>
+        <button type="button" class="btn btn-sm btn-outline-secondary" onclick="moveSection('review_comments', 'down')" {% if section_positions.review_comments == section_order|length|add:-1 %}disabled{% endif %} title="Move section down">
+          <i class="bi bi-arrow-down"></i>
+        </button>
+      </div>
+      {% endif %}
+
+      <div class="card shadow-sm mb-4">
+        <div class="card-header bg-light d-flex justify-content-between align-items-center">
+          <div class="fw-semibold text-primary"><i class="bi bi-chat-left-text"></i> Response to Comments from Supervision</div>
+          {% if editable %}
+          <button class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#addReviewCommentModal">
+            <i class="bi bi-plus-circle"></i> Add
+          </button>
+          {% endif %}
+        </div>
+        <div class="card-body">
+          <p class="text-muted small">Feedback from the external supervision/consultant on this reporting period, and the contractor's response to each — addressed before this report is reissued as a new revision.</p>
+          {% with items=report.review_comments.all %}
+          {% if items %}
+          <div class="table-responsive">
+            <table class="table table-sm table-hover align-middle mb-0">
+              <thead class="table-light">
+                <tr><th style="width:16%;">Reference</th><th>Comment</th><th>Response</th><th style="width:10%;">Status</th><th style="width:90px;"></th></tr>
+              </thead>
+              <tbody>
+                {% for c in items %}
+                <tr id="review-comment-{{ c.id }}">
+                  <td>{{ c.reference|default:"—" }}</td>
+                  <td style="white-space: pre-line;">{{ c.comment_text }}</td>
+                  <td style="white-space: pre-line;">{{ c.response_text|default:"—" }}</td>
+                  <td>
+                    {% if c.status == 'resolved' %}<span class="badge bg-success">Resolved</span>
+                    {% else %}<span class="badge bg-warning">Open</span>
+                    {% endif %}
+                  </td>
+                  <td>
+                    {% if editable %}
+                    <button class="btn btn-sm btn-outline-warning" onclick="openEditReviewComment({{ c.id }}, '{{ c.reference|escapejs }}', '{{ c.comment_text|escapejs }}', '{{ c.response_text|escapejs }}', '{{ c.status }}')"><i class="bi bi-pencil"></i></button>
+                    <button class="btn btn-sm btn-outline-danger" onclick="deleteReviewComment({{ c.id }})"><i class="bi bi-trash"></i></button>
+                    {% endif %}
+                  </td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+          {% else %}
+          <div class="alert alert-info mb-0"><i class="bi bi-info-circle"></i> No supervision comments recorded for this revision.</div>
+          {% endif %}
+          {% endwith %}
+        </div>
+      </div>
+    </div>
+
+    <!-- SIGN-OFF -->
+    <div class="collapse" id="tab-approvals" data-section-id="approvals" style="order: {{ section_positions.approvals }};">
+      {% if section_reorderable %}
+      <div class="section-reorder-bar">
+        <button type="button" class="btn btn-sm btn-outline-secondary" onclick="moveSection('approvals', 'up')" {% if section_positions.approvals == 0 %}disabled{% endif %} title="Move section up">
+          <i class="bi bi-arrow-up"></i>
+        </button>
+        <button type="button" class="btn btn-sm btn-outline-secondary" onclick="moveSection('approvals', 'down')" {% if section_positions.approvals == section_order|length|add:-1 %}disabled{% endif %} title="Move section down">
+          <i class="bi bi-arrow-down"></i>
+        </button>
+      </div>
+      {% endif %}
+
+      <div class="card shadow-sm mb-4">
+        <div class="card-header bg-light">
+          <div class="fw-semibold text-primary"><i class="bi bi-check-circle"></i> 12. Sign-Off</div>
+        </div>
+
+        <div class="card-body">
+          <div class="row g-3">
+            <div class="col-md-4">
+              <div class="text-muted small">Prepared By</div>
+              <div class="fw-semibold">{{ report.site_engineer.get_full_name|default:report.site_engineer.username }}</div>
+              <div class="text-muted small">Submitted/Created: {{ report.created_at|date:"M d, Y H:i" }}</div>
+            </div>
+
+            <div class="col-md-4">
+              <div class="text-muted small">Reviewed By</div>
+              {% if report.reviewed_by %}
+                <div class="fw-semibold">{{ report.reviewed_by.get_full_name|default:report.reviewed_by.username }}</div>
+                <div class="text-muted small">Reviewed: {{ report.review_date|date:"M d, Y H:i" }}</div>
+              {% else %}
+                <div class="text-muted">Pending review...</div>
+              {% endif %}
+            </div>
+
+            <div class="col-md-4">
+              <div class="text-muted small">Approved By</div>
+              {% if report.approved_by %}
+                <div class="fw-semibold">{{ report.approved_by.get_full_name|default:report.approved_by.username }}</div>
+                <div class="text-muted small">Approved: {{ report.approval_date|date:"M d, Y H:i" }}</div>
+              {% else %}
+                <div class="text-muted">Pending approval...</div>
+              {% endif %}
+            </div>
+
+            {% if report.status == 'rejected' and report.rejection_reason %}
+            <div class="col-12">
+              <div class="alert alert-danger mb-0"><strong>Rejection reason:</strong> {{ report.rejection_reason }}</div>
+            </div>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /tab-content -->
+
+</div>
+
+<!-- Add External Work Modal -->
+<div class="modal fade" id="addExternalWorkModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Add External Work</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <form id="externalWorkForm">
+        {% csrf_token %}
+        <div class="modal-body">
+          <div class="mb-3">
+            <label for="externalWorkDescription" class="form-label">Work Description *</label>
+            <textarea class="form-control" id="externalWorkDescription" name="work_description" rows="3" required></textarea>
+          </div>
+          <div class="mb-3">
+            <label for="externalWorkCompletion" class="form-label">Completion (%) *</label>
+            <input type="number" class="form-control" id="externalWorkCompletion" name="completion_percentage" min="0" max="100" required>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-primary">Add</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- Add Material Supply Modal -->
+<div class="modal fade" id="addMaterialSupplyModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Add Material</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <form id="materialSupplyForm">
+        {% csrf_token %}
+        <div class="modal-body">
+          <div class="mb-3">
+            <label for="materialType" class="form-label">Type *</label>
+            <select class="form-select" id="materialType" name="material_type" required>
+              <option value="concrete_grade">Concrete Grade</option>
+              <option value="equipment">Equipment</option>
+              <option value="material" selected>Other Material</option>
+            </select>
+          </div>
+          <div class="mb-3">
+            <label for="materialDescription" class="form-label">Material *</label>
+            <input type="text" class="form-control" id="materialDescription" name="material_description" required placeholder="e.g. Concrete B450">
+          </div>
+          <div class="mb-3">
+            <label for="materialUnit" class="form-label">Unit *</label>
+            <input type="text" class="form-control" id="materialUnit" name="unit" required>
+          </div>
+          <div class="row">
+            <div class="col-6 mb-3">
+              <label class="form-label">Delivered This Month</label>
+              <input type="number" step="0.01" class="form-control" name="delivered_quantity">
+            </div>
+            <div class="col-6 mb-3">
+              <label class="form-label">Used This Month</label>
+              <input type="number" step="0.01" class="form-control" name="used_quantity">
+            </div>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Initial Quantity *</label>
+            <input type="number" step="0.01" class="form-control" name="quantity" required>
+            <div class="form-text">Starting cumulative quantity for this material. Once it exists, use the "+" button on the row to add each period's usage on top of it.</div>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Remaining / Notes</label>
+            <input type="text" class="form-control" name="remaining_notes" placeholder="e.g. Datasheet attached">
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-primary">Add</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- Edit Material Supply Modal -->
+<div class="modal fade" id="editMaterialSupplyModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Edit Material</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <form id="editMaterialSupplyForm">
+        {% csrf_token %}
+        <input type="hidden" name="item_id">
+        <div class="modal-body">
+          <div class="mb-3">
+            <label class="form-label">Type *</label>
+            <select class="form-select" name="material_type" required>
+              <option value="concrete_grade">Concrete Grade</option>
+              <option value="equipment">Equipment</option>
+              <option value="material">Other Material</option>
+            </select>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Material *</label>
+            <input type="text" class="form-control" name="material_description" required>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Unit *</label>
+            <input type="text" class="form-control" name="unit" required>
+          </div>
+          <div class="row">
+            <div class="col-6 mb-3">
+              <label class="form-label">Delivered This Month</label>
+              <input type="number" step="0.01" class="form-control" name="delivered_quantity">
+            </div>
+            <div class="col-6 mb-3">
+              <label class="form-label">Used This Month</label>
+              <input type="number" step="0.01" class="form-control" name="used_quantity">
+            </div>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Remaining / Notes</label>
+            <input type="text" class="form-control" name="remaining_notes">
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-primary">Save</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- Add Material Quantity Modal -->
+<div class="modal fade" id="addMaterialQuantityModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Add Quantity <span id="addMatQtyItemName" class="text-muted"></span></h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <form id="addMaterialQuantityForm">
+        {% csrf_token %}
+        <input type="hidden" name="item_id">
+        <div class="modal-body">
+          <p class="text-muted">Current cumulative quantity: <strong id="addMatQtyCurrent"></strong></p>
+          <div class="mb-3">
+            <label class="form-label">Quantity used this period *</label>
+            <input type="number" step="0.01" min="0.01" class="form-control" name="additional_quantity" required>
+            <div class="form-text">This gets added to the current cumulative quantity above.</div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-primary">Add</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- Add Upcoming Work Modal -->
+<div class="modal fade" id="addUpcomingWorkModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Add Upcoming Work</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <form id="upcomingWorkForm">
+        {% csrf_token %}
+        <div class="modal-body">
+          <div class="mb-3">
+            <label for="upcomingWorkDescription" class="form-label">Work Description *</label>
+            <textarea class="form-control" id="upcomingWorkDescription" name="work_description" rows="3" required></textarea>
+          </div>
+          <div class="mb-3">
+            <label for="upcomingStartDate" class="form-label">Planned Start Date *</label>
+            <input type="date" class="form-control" id="upcomingStartDate" name="planned_start_date" required>
+          </div>
+          <div class="mb-3">
+            <label for="upcomingEndDate" class="form-label">Planned End Date *</label>
+            <input type="date" class="form-control" id="upcomingEndDate" name="planned_end_date" required>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-primary">Add</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- Add Progress Category Item Modal -->
+<div class="modal fade" id="addProgressItemModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Add Progress Category Row</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <form id="progressItemForm">
+        {% csrf_token %}
+        <div class="modal-body">
+          <div class="mb-3">
+            <label class="form-label">Item *</label>
+            <input type="text" class="form-control" name="item_name" required placeholder="e.g. Civil / Structural Works">
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Planned %</label>
+            <input type="text" class="form-control" name="planned_value" placeholder="e.g. ≈ 32.6% or —">
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Actual %</label>
+            <input type="text" class="form-control" name="actual_value" placeholder="e.g. In progress (Phase 3) or Not started (0%)">
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-primary">Add</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- Edit Progress Category Item Modal -->
+<div class="modal fade" id="editProgressItemModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Edit Progress Category Row</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <form id="editProgressItemForm">
+        {% csrf_token %}
+        <input type="hidden" name="item_id">
+        <div class="modal-body">
+          <div class="mb-3">
+            <label class="form-label">Item *</label>
+            <input type="text" class="form-control" name="item_name" required>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Planned %</label>
+            <input type="text" class="form-control" name="planned_value">
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Actual %</label>
+            <input type="text" class="form-control" name="actual_value">
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-primary">Save</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- Add Key Activity Modal -->
+<div class="modal fade" id="addKeyActivityModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Add Key Activity</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <form id="keyActivityForm">
+        {% csrf_token %}
+        <div class="modal-body">
+          <div class="mb-3">
+            <label class="form-label">Activity / Work Item *</label>
+            <textarea class="form-control" name="activity" rows="2" required></textarea>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Status *</label>
+            <select class="form-select" name="status" required>
+              <option value="completed">Completed</option>
+              <option value="in_progress" selected>In Progress</option>
+              <option value="not_started">Not Started</option>
+              <option value="delayed">Delayed</option>
+            </select>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Remarks</label>
+            <textarea class="form-control" name="remarks" rows="2"></textarea>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-primary">Add</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- Edit Key Activity Modal -->
+<div class="modal fade" id="editKeyActivityModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Edit Key Activity</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <form id="editKeyActivityForm">
+        {% csrf_token %}
+        <input type="hidden" name="item_id">
+        <div class="modal-body">
+          <div class="mb-3">
+            <label class="form-label">Activity / Work Item *</label>
+            <textarea class="form-control" name="activity" rows="2" required></textarea>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Status *</label>
+            <select class="form-select" name="status" required>
+              <option value="completed">Completed</option>
+              <option value="in_progress">In Progress</option>
+              <option value="not_started">Not Started</option>
+              <option value="delayed">Delayed</option>
+            </select>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Remarks</label>
+            <textarea class="form-control" name="remarks" rows="2"></textarea>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-primary">Save</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- Add Issue/Risk/Delay Modal -->
+<div class="modal fade" id="addIssueModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Add Issue / Risk / Delay</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <form id="issueForm">
+        {% csrf_token %}
+        <div class="modal-body">
+          <div class="mb-3">
+            <label class="form-label">Description *</label>
+            <textarea class="form-control" name="description" rows="2" required></textarea>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Impact</label>
+            <textarea class="form-control" name="impact" rows="2"></textarea>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Mitigation / Action</label>
+            <textarea class="form-control" name="mitigation" rows="2"></textarea>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-primary">Add</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- Edit Issue/Risk/Delay Modal -->
+<div class="modal fade" id="editIssueModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Edit Issue / Risk / Delay</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <form id="editIssueForm">
+        {% csrf_token %}
+        <input type="hidden" name="item_id">
+        <div class="modal-body">
+          <div class="mb-3">
+            <label class="form-label">Description *</label>
+            <textarea class="form-control" name="description" rows="2" required></textarea>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Impact</label>
+            <textarea class="form-control" name="impact" rows="2"></textarea>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Mitigation / Action</label>
+            <textarea class="form-control" name="mitigation" rows="2"></textarea>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-primary">Save</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- Generic Edit-Text Modal (Executive Summary / HSE / QC / Schedule Variance / Plan for Next Month) -->
+<div class="modal fade" id="editMonthlyTextModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="editMonthlyTextTitle">Edit</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <form id="editMonthlyTextForm">
+        {% csrf_token %}
+        <input type="hidden" name="field_name">
+        <div class="modal-body">
+          <textarea class="form-control" name="text_value" rows="6"></textarea>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-primary">Save</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- Add Photo Modal -->
+<div class="modal fade" id="addPhotoModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Add Photo</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <form id="addPhotoForm" enctype="multipart/form-data">
+        {% csrf_token %}
+        <div class="modal-body">
+          <div class="mb-3">
+            <label class="form-label">Phase *</label>
+            <select class="form-select" name="phase" required>
+              <option value="">Select phase...</option>
+              {% for phase in project_phases %}
+              <option value="{{ phase.id }}">{{ phase.code }}. {{ phase.name_en|default:phase.name_ar }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Photo *</label>
+            <input type="file" class="form-control" name="photo" accept="image/*" required>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Caption</label>
+            <input type="text" class="form-control" name="caption">
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Date Taken</label>
+            <input type="date" class="form-control" name="taken_date">
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-primary">Add</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- Edit Photo Modal -->
+<div class="modal fade" id="editPhotoModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Edit Photo</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <form id="editPhotoForm" enctype="multipart/form-data">
+        {% csrf_token %}
+        <input type="hidden" name="photo_id">
+        <div class="modal-body">
+          <div class="mb-3">
+            <label class="form-label">Phase *</label>
+            <select class="form-select" name="phase" required>
+              {% for phase in project_phases %}
+              <option value="{{ phase.id }}">{{ phase.code }}. {{ phase.name_en|default:phase.name_ar }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Replace Photo (optional)</label>
+            <input type="file" class="form-control" name="photo" accept="image/*">
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Caption</label>
+            <input type="text" class="form-control" name="caption">
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Date Taken</label>
+            <input type="date" class="form-control" name="taken_date">
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-primary">Save</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- Add Attachment Modal (Appendix) -->
+<div class="modal fade" id="addAttachmentModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Add Supporting Document</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <form id="addAttachmentForm" enctype="multipart/form-data">
+        {% csrf_token %}
+        <div class="modal-body">
+          <div class="mb-3">
+            <label class="form-label">File *</label>
+            <input type="file" class="form-control" name="file" required>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Type *</label>
+            <select class="form-select" name="attachment_type" required>
+              <option value="document" selected>Document</option>
+              <option value="photo">Photo</option>
+              <option value="video">Video</option>
+              <option value="other">Other</option>
+            </select>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Description</label>
+            <input type="text" class="form-control" name="caption">
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Location / Reference</label>
+            <input type="text" class="form-control" name="location">
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-primary">Add</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- Edit Attachment Modal -->
+<div class="modal fade" id="editAttachmentModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Edit Attachment</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <form id="editAttachmentForm" enctype="multipart/form-data">
+        {% csrf_token %}
+        <input type="hidden" name="attachment_id">
+        <div class="modal-body">
+          <div class="mb-3">
+            <label class="form-label">Replace File (optional)</label>
+            <input type="file" class="form-control" name="file">
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Type *</label>
+            <select class="form-select" name="attachment_type" required>
+              <option value="document">Document</option>
+              <option value="photo">Photo</option>
+              <option value="video">Video</option>
+              <option value="other">Other</option>
+            </select>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Description</label>
+            <input type="text" class="form-control" name="caption">
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Location / Reference</label>
+            <input type="text" class="form-control" name="location">
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-primary">Save</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- Add Review Comment Modal -->
+<div class="modal fade" id="addReviewCommentModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Add Supervision Comment</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <form id="reviewCommentForm">
+        {% csrf_token %}
+        <div class="modal-body">
+          <div class="mb-3">
+            <label class="form-label">Reference</label>
+            <input type="text" class="form-control" name="reference" placeholder="e.g. Photo-01 or Insulation Thickness">
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Comment *</label>
+            <textarea class="form-control" name="comment_text" rows="3" required></textarea>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Response</label>
+            <textarea class="form-control" name="response_text" rows="3"></textarea>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Status</label>
+            <select class="form-select" name="status">
+              <option value="open" selected>Open</option>
+              <option value="resolved">Resolved</option>
+            </select>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-primary">Add</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- Edit Review Comment Modal -->
+<div class="modal fade" id="editReviewCommentModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Edit Supervision Comment</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <form id="editReviewCommentForm">
+        {% csrf_token %}
+        <input type="hidden" name="item_id">
+        <div class="modal-body">
+          <div class="mb-3">
+            <label class="form-label">Reference</label>
+            <input type="text" class="form-control" name="reference">
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Comment *</label>
+            <textarea class="form-control" name="comment_text" rows="3" required></textarea>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Response</label>
+            <textarea class="form-control" name="response_text" rows="3"></textarea>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Status</label>
+            <select class="form-select" name="status">
+              <option value="open">Open</option>
+              <option value="resolved">Resolved</option>
+            </select>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-primary">Save</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- New Revision Modal -->
+<div class="modal fade" id="newRevisionModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Start New Revision</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <form id="newRevisionForm">
+        {% csrf_token %}
+        <div class="modal-body">
+          <p class="text-muted">
+            This will reissue the report as <strong>Rev{{ report.revision_number|add:1|stringformat:"02d" }}</strong>
+            after addressing the supervision comments above, and reset it to Draft so it can be edited and resubmitted
+            through this company's own approval workflow.
+          </p>
+          <div class="mb-3">
+            <label class="form-label">Revision Note</label>
+            <input type="text" class="form-control" name="revision_note" placeholder="e.g. Addressed EDGE comments on slab photos and insulation thickness">
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-warning">Confirm New Revision</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<script>
+const monthlyReportId = {{ report.pk }};
+const monthlyCsrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+
+function showMonthlyAlert(message, type = 'success') {
+    const alertDiv = document.createElement('div');
+    alertDiv.className = `alert alert-${type} alert-dismissible fade show`;
+    alertDiv.innerHTML = `${message}<button type="button" class="btn-close" data-bs-dismiss="alert"></button>`;
+    document.getElementById('alertContainer').appendChild(alertDiv);
+    setTimeout(() => alertDiv.remove(), 5000);
+}
+
+function monthlyDelete(url) {
+    if (!confirm('Delete this item?')) return;
+    fetch(url, {
+        method: 'DELETE',
+        headers: {'X-CSRFToken': monthlyCsrfToken}
+    }).then(response => {
+        if (response.ok) {
+            location.reload();
+        } else {
+            showMonthlyAlert('Error deleting item', 'danger');
+        }
+    }).catch(error => showMonthlyAlert('Error: ' + error.message, 'danger'));
+}
+
+function deleteExternalWork(id) {
+    monthlyDelete(`/reports/api/monthly/${monthlyReportId}/external-works/${id}/`);
+}
+function deleteMaterialSupply(id) {
+    monthlyDelete(`/reports/api/monthly/${monthlyReportId}/materials/${id}/`);
+}
+function deleteUpcomingWork(id) {
+    monthlyDelete(`/reports/api/monthly/${monthlyReportId}/upcoming-works/${id}/`);
+}
+function deleteProgressItem(id) {
+    monthlyDelete(`/reports/api/monthly/${monthlyReportId}/progress-items/${id}/`);
+}
+function deleteKeyActivity(id) {
+    monthlyDelete(`/reports/api/monthly/${monthlyReportId}/key-activities/${id}/`);
+}
+function deleteIssue(id) {
+    monthlyDelete(`/reports/api/monthly/${monthlyReportId}/issues-risks-delays/${id}/`);
+}
+function deleteReportPhoto(id) {
+    monthlyDelete(`/reports/api/monthly/${monthlyReportId}/photos/${id}/`);
+}
+function deleteMonthlyAttachment(id) {
+    monthlyDelete(`/reports/api/monthly/${monthlyReportId}/attachment/${id}/`);
+}
+
+document.getElementById('externalWorkForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const formData = new FormData(e.target);
+    try {
+        const response = await fetch(`/reports/api/monthly/${monthlyReportId}/external-works/`, {
+            method: 'POST',
+            headers: {'X-CSRFToken': monthlyCsrfToken},
+            body: formData
+        });
+        if (response.ok) {
+            location.reload();
+        } else {
+            const data = await response.json().catch(() => ({}));
+            showMonthlyAlert(data.error || 'Error adding external work', 'danger');
+        }
+    } catch (error) {
+        showMonthlyAlert('Error: ' + error.message, 'danger');
+    }
+});
+
+document.getElementById('materialSupplyForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const formData = new FormData(e.target);
+    try {
+        const response = await fetch(`/reports/api/monthly/${monthlyReportId}/materials/`, {
+            method: 'POST',
+            headers: {'X-CSRFToken': monthlyCsrfToken},
+            body: formData
+        });
+        if (response.ok) {
+            location.reload();
+        } else {
+            const data = await response.json().catch(() => ({}));
+            showMonthlyAlert(data.error || 'Error adding material', 'danger');
+        }
+    } catch (error) {
+        showMonthlyAlert('Error: ' + error.message, 'danger');
+    }
+});
+
+function openEditMaterial(id, materialType, description, unit, delivered, used, notes) {
+    const form = document.getElementById('editMaterialSupplyForm');
+    form.item_id.value = id;
+    form.material_type.value = materialType;
+    form.material_description.value = description;
+    form.unit.value = unit;
+    form.delivered_quantity.value = delivered;
+    form.used_quantity.value = used;
+    form.remaining_notes.value = notes;
+    new bootstrap.Modal(document.getElementById('editMaterialSupplyModal')).show();
+}
+
+document.getElementById('editMaterialSupplyForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const form = e.target;
+    try {
+        // PATCH bodies aren't auto-parsed into request.POST by Django (only
+        // POST is), so this sends JSON -- the server's _payload() helper
+        // handles JSON for any HTTP method.
+        const response = await fetch(`/reports/api/monthly/${monthlyReportId}/materials/${form.item_id.value}/`, {
+            method: 'PATCH',
+            headers: {'X-CSRFToken': monthlyCsrfToken, 'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                material_type: form.material_type.value,
+                material_description: form.material_description.value,
+                unit: form.unit.value,
+                delivered_quantity: form.delivered_quantity.value || null,
+                used_quantity: form.used_quantity.value || null,
+                remaining_notes: form.remaining_notes.value,
+            }),
+        });
+        if (response.ok) {
+            location.reload();
+        } else {
+            const data = await response.json().catch(() => ({}));
+            showMonthlyAlert(data.error || 'Error updating material', 'danger');
+        }
+    } catch (error) {
+        showMonthlyAlert('Error: ' + error.message, 'danger');
+    }
+});
+
+function openAddMaterialQuantity(itemId, itemName, currentQty) {
+    const form = document.getElementById('addMaterialQuantityForm');
+    form.reset();
+    form.item_id.value = itemId;
+    document.getElementById('addMatQtyItemName').textContent = '— ' + itemName;
+    document.getElementById('addMatQtyCurrent').textContent = currentQty;
+    new bootstrap.Modal(document.getElementById('addMaterialQuantityModal')).show();
+}
+
+document.getElementById('addMaterialQuantityForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const form = e.target;
+    try {
+        const response = await fetch(`/reports/api/monthly/${monthlyReportId}/materials/${form.item_id.value}/add-quantity/`, {
+            method: 'POST',
+            headers: {'X-CSRFToken': monthlyCsrfToken},
+            body: new FormData(form),
+        });
+        if (response.ok) {
+            location.reload();
+        } else {
+            const data = await response.json().catch(() => ({}));
+            showMonthlyAlert(data.error || 'Error adding quantity', 'danger');
+        }
+    } catch (error) {
+        showMonthlyAlert('Error: ' + error.message, 'danger');
+    }
+});
+
+document.getElementById('upcomingWorkForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const formData = new FormData(e.target);
+    try {
+        const response = await fetch(`/reports/api/monthly/${monthlyReportId}/upcoming-works/`, {
+            method: 'POST',
+            headers: {'X-CSRFToken': monthlyCsrfToken},
+            body: formData
+        });
+        if (response.ok) {
+            location.reload();
+        } else {
+            const data = await response.json().catch(() => ({}));
+            showMonthlyAlert(data.error || 'Error adding upcoming work', 'danger');
+        }
+    } catch (error) {
+        showMonthlyAlert('Error: ' + error.message, 'danger');
+    }
+});
+
+// ---- Progress Category Items ----
+document.getElementById('progressItemForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const formData = new FormData(e.target);
+    try {
+        const response = await fetch(`/reports/api/monthly/${monthlyReportId}/progress-items/`, {
+            method: 'POST',
+            headers: {'X-CSRFToken': monthlyCsrfToken},
+            body: formData
+        });
+        if (response.ok) {
+            location.reload();
+        } else {
+            showMonthlyAlert('Error adding progress row', 'danger');
+        }
+    } catch (error) {
+        showMonthlyAlert('Error: ' + error.message, 'danger');
+    }
+});
+
+function openEditProgressItem(id, itemName, planned, actual) {
+    const form = document.getElementById('editProgressItemForm');
+    form.item_id.value = id;
+    form.item_name.value = itemName;
+    form.planned_value.value = planned;
+    form.actual_value.value = actual;
+    new bootstrap.Modal(document.getElementById('editProgressItemModal')).show();
+}
+
+document.getElementById('editProgressItemForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const form = e.target;
+    try {
+        const response = await fetch(`/reports/api/monthly/${monthlyReportId}/progress-items/${form.item_id.value}/`, {
+            method: 'PATCH',
+            headers: {'X-CSRFToken': monthlyCsrfToken, 'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                item_name: form.item_name.value,
+                planned_value: form.planned_value.value,
+                actual_value: form.actual_value.value,
+            }),
+        });
+        if (response.ok) {
+            location.reload();
+        } else {
+            showMonthlyAlert('Error updating progress row', 'danger');
+        }
+    } catch (error) {
+        showMonthlyAlert('Error: ' + error.message, 'danger');
+    }
+});
+
+// ---- Key Activities ----
+document.getElementById('keyActivityForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const formData = new FormData(e.target);
+    try {
+        const response = await fetch(`/reports/api/monthly/${monthlyReportId}/key-activities/`, {
+            method: 'POST',
+            headers: {'X-CSRFToken': monthlyCsrfToken},
+            body: formData
+        });
+        if (response.ok) {
+            location.reload();
+        } else {
+            showMonthlyAlert('Error adding key activity', 'danger');
+        }
+    } catch (error) {
+        showMonthlyAlert('Error: ' + error.message, 'danger');
+    }
+});
+
+function openEditKeyActivity(id, activity, status, remarks) {
+    const form = document.getElementById('editKeyActivityForm');
+    form.item_id.value = id;
+    form.activity.value = activity;
+    form.status.value = status;
+    form.remarks.value = remarks;
+    new bootstrap.Modal(document.getElementById('editKeyActivityModal')).show();
+}
+
+document.getElementById('editKeyActivityForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const form = e.target;
+    try {
+        const response = await fetch(`/reports/api/monthly/${monthlyReportId}/key-activities/${form.item_id.value}/`, {
+            method: 'PATCH',
+            headers: {'X-CSRFToken': monthlyCsrfToken, 'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                activity: form.activity.value,
+                status: form.status.value,
+                remarks: form.remarks.value,
+            }),
+        });
+        if (response.ok) {
+            location.reload();
+        } else {
+            showMonthlyAlert('Error updating key activity', 'danger');
+        }
+    } catch (error) {
+        showMonthlyAlert('Error: ' + error.message, 'danger');
+    }
+});
+
+// ---- Issues / Risks / Delays ----
+document.getElementById('issueForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const formData = new FormData(e.target);
+    try {
+        const response = await fetch(`/reports/api/monthly/${monthlyReportId}/issues-risks-delays/`, {
+            method: 'POST',
+            headers: {'X-CSRFToken': monthlyCsrfToken},
+            body: formData
+        });
+        if (response.ok) {
+            location.reload();
+        } else {
+            showMonthlyAlert('Error adding issue', 'danger');
+        }
+    } catch (error) {
+        showMonthlyAlert('Error: ' + error.message, 'danger');
+    }
+});
+
+function openEditIssue(id, description, impact, mitigation) {
+    const form = document.getElementById('editIssueForm');
+    form.item_id.value = id;
+    form.description.value = description;
+    form.impact.value = impact;
+    form.mitigation.value = mitigation;
+    new bootstrap.Modal(document.getElementById('editIssueModal')).show();
+}
+
+document.getElementById('editIssueForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const form = e.target;
+    try {
+        const response = await fetch(`/reports/api/monthly/${monthlyReportId}/issues-risks-delays/${form.item_id.value}/`, {
+            method: 'PATCH',
+            headers: {'X-CSRFToken': monthlyCsrfToken, 'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                description: form.description.value,
+                impact: form.impact.value,
+                mitigation: form.mitigation.value,
+            }),
+        });
+        if (response.ok) {
+            location.reload();
+        } else {
+            showMonthlyAlert('Error updating issue', 'danger');
+        }
+    } catch (error) {
+        showMonthlyAlert('Error: ' + error.message, 'danger');
+    }
+});
+
+// ---- Generic narrative quick-edit (Executive Summary, HSE, QC, Schedule Variance, Plan for Next Month) ----
+function openEditMonthlyText(fieldName, label, currentText) {
+    const form = document.getElementById('editMonthlyTextForm');
+    form.field_name.value = fieldName;
+    form.text_value.value = currentText;
+    document.getElementById('editMonthlyTextTitle').textContent = 'Edit ' + label;
+    new bootstrap.Modal(document.getElementById('editMonthlyTextModal')).show();
+}
+
+document.getElementById('editMonthlyTextForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const form = e.target;
+    const payload = {};
+    payload[form.field_name.value] = form.text_value.value;
+    try {
+        const response = await fetch(`/reports/api/monthly/${monthlyReportId}/narrative/`, {
+            method: 'PATCH',
+            headers: {'X-CSRFToken': monthlyCsrfToken, 'Content-Type': 'application/json'},
+            body: JSON.stringify(payload),
+        });
+        if (response.ok) {
+            location.reload();
+        } else {
+            showMonthlyAlert('Error updating text', 'danger');
+        }
+    } catch (error) {
+        showMonthlyAlert('Error: ' + error.message, 'danger');
+    }
+});
+
+// ---- Photos ----
+document.getElementById('addPhotoForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const form = e.target;
+    try {
+        const response = await fetch(`/reports/api/monthly/${monthlyReportId}/photos/`, {
+            method: 'POST',
+            headers: {'X-CSRFToken': monthlyCsrfToken},
+            body: new FormData(form),
+        });
+        if (response.ok) {
+            location.reload();
+        } else {
+            const data = await response.json().catch(() => ({}));
+            showMonthlyAlert(data.error || 'Error adding photo', 'danger');
+        }
+    } catch (error) {
+        showMonthlyAlert('Error: ' + error.message, 'danger');
+    }
+});
+
+function openEditPhoto(id, phaseId, caption, takenDate) {
+    const form = document.getElementById('editPhotoForm');
+    form.reset();
+    form.photo_id.value = id;
+    form.phase.value = phaseId;
+    form.caption.value = caption;
+    form.taken_date.value = takenDate;
+    new bootstrap.Modal(document.getElementById('editPhotoModal')).show();
+}
+
+document.getElementById('editPhotoForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const form = e.target;
+    try {
+        // POST (not PATCH) is deliberate -- Django only parses a multipart
+        // body into request.POST/request.FILES for method == 'POST'.
+        const response = await fetch(`/reports/api/monthly/${monthlyReportId}/photos/${form.photo_id.value}/`, {
+            method: 'POST',
+            headers: {'X-CSRFToken': monthlyCsrfToken},
+            body: new FormData(form),
+        });
+        if (response.ok) {
+            location.reload();
+        } else {
+            const data = await response.json().catch(() => ({}));
+            showMonthlyAlert(data.error || 'Error updating photo', 'danger');
+        }
+    } catch (error) {
+        showMonthlyAlert('Error: ' + error.message, 'danger');
+    }
+});
+
+// ---- Appendix attachments ----
+document.getElementById('addAttachmentForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const form = e.target;
+    try {
+        const response = await fetch(`/reports/api/monthly/${monthlyReportId}/attachment/`, {
+            method: 'POST',
+            headers: {'X-CSRFToken': monthlyCsrfToken},
+            body: new FormData(form),
+        });
+        const data = await response.json().catch(() => ({}));
+        if (response.ok && data.success) {
+            location.reload();
+        } else {
+            showMonthlyAlert(data.message || 'Error adding attachment', 'danger');
+        }
+    } catch (error) {
+        showMonthlyAlert('Error: ' + error.message, 'danger');
+    }
+});
+
+function openEditAttachment(id, caption, location, attachmentType) {
+    const form = document.getElementById('editAttachmentForm');
+    form.reset();
+    form.attachment_id.value = id;
+    form.caption.value = caption;
+    form.location.value = location;
+    form.attachment_type.value = attachmentType;
+    new bootstrap.Modal(document.getElementById('editAttachmentModal')).show();
+}
+
+document.getElementById('editAttachmentForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const form = e.target;
+    try {
+        // POST (not PATCH) is deliberate -- see the matching note on the
+        // server-side view: Django only parses a multipart body into
+        // request.POST/request.FILES for method == 'POST'.
+        const response = await fetch(`/reports/api/monthly/${monthlyReportId}/attachment/${form.attachment_id.value}/edit/`, {
+            method: 'POST',
+            headers: {'X-CSRFToken': monthlyCsrfToken},
+            body: new FormData(form),
+        });
+        const data = await response.json().catch(() => ({}));
+        if (response.ok && data.success) {
+            location.reload();
+        } else {
+            showMonthlyAlert(data.message || 'Error updating attachment', 'danger');
+        }
+    } catch (error) {
+        showMonthlyAlert('Error: ' + error.message, 'danger');
+    }
+});
+
+// ---- Response to Comments (supervision review) ----
+document.getElementById('reviewCommentForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const formData = new FormData(e.target);
+    try {
+        const response = await fetch(`/reports/api/monthly/${monthlyReportId}/review-comments/`, {
+            method: 'POST',
+            headers: {'X-CSRFToken': monthlyCsrfToken},
+            body: formData
+        });
+        if (response.ok) {
+            location.reload();
+        } else {
+            showMonthlyAlert('Error adding comment', 'danger');
+        }
+    } catch (error) {
+        showMonthlyAlert('Error: ' + error.message, 'danger');
+    }
+});
+
+function deleteReviewComment(id) {
+    monthlyDelete(`/reports/api/monthly/${monthlyReportId}/review-comments/${id}/`);
+}
+
+function openEditReviewComment(id, reference, commentText, responseText, status) {
+    const form = document.getElementById('editReviewCommentForm');
+    form.item_id.value = id;
+    form.reference.value = reference;
+    form.comment_text.value = commentText;
+    form.response_text.value = responseText;
+    form.status.value = status;
+    new bootstrap.Modal(document.getElementById('editReviewCommentModal')).show();
+}
+
+document.getElementById('editReviewCommentForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const form = e.target;
+    try {
+        const response = await fetch(`/reports/api/monthly/${monthlyReportId}/review-comments/${form.item_id.value}/`, {
+            method: 'PATCH',
+            headers: {'X-CSRFToken': monthlyCsrfToken, 'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                reference: form.reference.value,
+                comment_text: form.comment_text.value,
+                response_text: form.response_text.value,
+                status: form.status.value,
+            }),
+        });
+        if (response.ok) {
+            location.reload();
+        } else {
+            showMonthlyAlert('Error updating comment', 'danger');
+        }
+    } catch (error) {
+        showMonthlyAlert('Error: ' + error.message, 'danger');
+    }
+});
+
+// ---- New Revision ----
+document.getElementById('newRevisionForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    if (!confirm('Start a new revision? This resets the report to Draft so it can be edited and resubmitted.')) return;
+    const form = e.target;
+    try {
+        const response = await fetch(`/reports/api/monthly/${monthlyReportId}/new-revision/`, {
+            method: 'POST',
+            headers: {'X-CSRFToken': monthlyCsrfToken, 'Content-Type': 'application/json'},
+            body: JSON.stringify({revision_note: form.revision_note.value}),
+        });
+        if (response.ok) {
+            location.reload();
+        } else {
+            const data = await response.json().catch(() => ({}));
+            showMonthlyAlert(data.error || 'Error starting new revision', 'danger');
+        }
+    } catch (error) {
+        showMonthlyAlert('Error: ' + error.message, 'danger');
+    }
+});
+
+// ---- Move section up/down (page layout, independent of any single section's own data) ----
+function moveSection(sectionId, direction) {
+    fetch(`/reports/api/monthly/${monthlyReportId}/reorder-section/`, {
+        method: 'POST',
+        headers: {'X-CSRFToken': monthlyCsrfToken, 'Content-Type': 'application/json'},
+        body: JSON.stringify({section_id: sectionId, direction: direction}),
+    }).then(async (response) => {
+        const data = await response.json().catch(() => ({}));
+        if (response.ok && data.section_order) {
+            applySectionOrder(data.section_order);
+        } else {
+            showMonthlyAlert(data.error || 'Error moving section', 'danger');
+        }
+    }).catch(error => showMonthlyAlert('Error: ' + error.message, 'danger'));
+}
+
+// Applies a new section order entirely client-side (no page reload) --
+// updates each pane's flex `order` and each Move Up/Down button's
+// disabled state at the new boundaries. Deliberately avoids
+// location.reload() here (unlike every other action on this page): a
+// full reload would also collapse back every section the viewer
+// currently has open and lose their scroll position, which is the one
+// thing this particular action shouldn't disturb.
+function applySectionOrder(order) {
+    order.forEach((sectionId, index) => {
+        const pane = document.querySelector(`[data-section-id="${sectionId}"]`);
+        if (!pane) return;
+        pane.style.order = index;
+        const bar = pane.querySelector('.section-reorder-bar');
+        if (!bar) return;
+        const [upBtn, downBtn] = bar.querySelectorAll('button');
+        if (upBtn) upBtn.disabled = index === 0;
+        if (downBtn) downBtn.disabled = index === order.length - 1;
+    });
+}
+</script>
+
+<style>
+  .card { border-radius: 10px; }
+  .progress { background-color: #e9ecef; border-radius: 6px; overflow: hidden; }
+
+  /* Grouped pill navigation for the many report sections: a two-column
+     grid keeps every row's label the same width and every row's pills
+     starting at the same x-position, with a divider between rows --
+     instead of each row starting wherever its own label text happens to
+     end (which is what made the plain flex version above look ragged). */
+  .monthly-tab-groups {
+    display: grid;
+    grid-template-columns: 152px 1fr;
+    background: #fff;
+    border: 1px solid #dee2e6;
+    border-radius: 10px;
+    padding: 0.25rem 1rem;
+  }
+  .tab-group { display: contents; }
+  .tab-group-label {
+    grid-column: 1;
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    color: #6c757d;
+    white-space: nowrap;
+    display: flex;
+    align-items: center;
+    padding: 0.6rem 0.75rem 0.6rem 0;
+    border-top: 1px solid #f1f3f5;
+  }
+  .tab-group:first-child .tab-group-label { border-top: none; }
+  .monthly-tab-groups .nav-pills {
+    grid-column: 2;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.5rem 0;
+    border-top: 1px solid #f1f3f5;
+  }
+  .tab-group:first-child .nav-pills { border-top: none; }
+  .monthly-tab-groups .nav-pills .nav-link {
+    white-space: nowrap;
+    font-weight: 600;
+    font-size: 0.85rem;
+    padding: 0.35rem 0.75rem;
+    border: 1px solid transparent;
+    color: #495057;
+  }
+  .monthly-tab-groups .nav-pills .nav-link:hover { background-color: #f1f3f5; }
+  /* Each button independently toggles its own section (Bootstrap
+     "collapse", not "tab" -- several sections can be open below at once).
+     Bootstrap's collapse JS keeps aria-expanded in sync with the actual
+     shown/hidden state of the section it controls, so that attribute
+     doubles as the "is this section currently open" style hook. */
+  .monthly-tab-groups .nav-pills .nav-link[aria-expanded="true"] {
+    background-color: #0d6efd;
+    color: #fff;
+  }
+
+  @media (max-width: 576px) {
+    .monthly-tab-groups { grid-template-columns: 1fr; }
+    .tab-group-label { grid-column: 1; border-top: 1px solid #f1f3f5; padding-top: 0.6rem; }
+    .tab-group:first-child .tab-group-label { border-top: none; }
+    .monthly-tab-groups .nav-pills { grid-column: 1; border-top: none; padding-top: 0; padding-bottom: 0.6rem; }
+  }
+
+  /* Each section's stacking position (which one shows above/below which
+     when several are open) is controlled by the inline `order` set per
+     pane from section_positions, via flex order -- see Move Up/Down. */
+  .tab-content { display: flex; flex-direction: column; }
+  .section-reorder-bar {
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.25rem;
+    margin-bottom: 0.4rem;
+  }
+  .section-reorder-bar .btn { padding: 0.15rem 0.5rem; }
+</style>
+{% endblock %}

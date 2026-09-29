@@ -1,0 +1,97 @@
+{% extends 'timesheets/_hr_base.html' %}
+{% load static %}
+
+{% block title %}Attendance - {{ worker.full_name }} - One Stop ERP{% endblock %}
+
+{% block hr_body %}
+<div class="row">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+            <h1 class="h2 mb-0">
+                <i class="fas fa-calendar-check me-2 text-primary"></i>
+                Worker Attendance
+            </h1>
+            <div class="d-flex align-items-center gap-2">
+                <form method="get" class="d-flex align-items-center gap-2">
+                    <input type="month" name="month" value="{{ month_param }}" class="form-control form-control-sm" style="width: auto;">
+                    <button type="submit" class="btn btn-sm btn-outline-primary">Load</button>
+                </form>
+                <a href="{% url 'timesheets:wages_run' %}?month={{ month_param }}" class="btn btn-sm btn-outline-success">
+                    <i class="fas fa-money-check-alt me-1"></i>Wages Run
+                </a>
+            </div>
+        </div>
+        <div class="mb-3">
+            <a href="{% url 'timesheets:daily_worker_list' %}" class="text-decoration-none">
+                <i class="fas fa-arrow-left me-1"></i>{{ worker.full_name }}
+            </a>
+            <span class="text-muted">&middot; {{ worker.trade|default:"—" }} &middot; {{ period_start|date:"F Y" }}</span>
+        </div>
+    </div>
+</div>
+
+<div class="row mb-3 text-center">
+    <div class="col-3">
+        <div class="card"><div class="card-body py-2"><div class="h5 mb-0 text-primary">{{ days_worked }}</div><div class="text-muted small">Days on Record</div></div></div>
+    </div>
+    <div class="col-3">
+        <div class="card"><div class="card-body py-2"><div class="h5 mb-0 text-success">{{ total_days }}</div><div class="text-muted small">Paid Days (8h)</div></div></div>
+    </div>
+    <div class="col-3">
+        <div class="card"><div class="card-body py-2"><div class="h5 mb-0">{{ total_regular_hours }}</div><div class="text-muted small">Regular Hours</div></div></div>
+    </div>
+    <div class="col-3">
+        <div class="card"><div class="card-body py-2"><div class="h5 mb-0 text-warning">{{ total_overtime_hours }}</div><div class="text-muted small">Overtime Hours</div></div></div>
+    </div>
+</div>
+
+<p class="text-muted small">
+    Pulled directly from the daily reports of every project this worker was logged on this month. To correct
+    a day, open that project's Daily Report and edit the worker's attendance row there -- this page is a
+    read-only ledger of what's already been entered.
+</p>
+
+<div class="card">
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0 align-middle">
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Project</th>
+                        <th>Time In</th>
+                        <th>Time Out</th>
+                        <th class="text-end">Break (h)</th>
+                        <th class="text-end">Overtime (h)</th>
+                        <th class="text-end">Total (h)</th>
+                        <th>Notes</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for e in entries %}
+                    <tr>
+                        <td>{{ e.report.report_date|date:"D, M j" }}</td>
+                        <td>{{ e.report.project.name|default:"—" }}</td>
+                        <td>{{ e.time_in|time:"H:i"|default:"—" }}</td>
+                        <td>{{ e.time_out|time:"H:i"|default:"—" }}</td>
+                        <td class="text-end">{{ e.break_hours }}</td>
+                        <td class="text-end">{{ e.overtime_hours }}</td>
+                        <td class="text-end fw-bold">{{ e.total_hours }}</td>
+                        <td class="text-muted small">{{ e.notes|default:"—" }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="8" class="text-center py-5">
+                            <div class="text-muted">
+                                <i class="fas fa-calendar-times fa-3x mb-3 opacity-50"></i>
+                                <p class="mb-0">No attendance recorded for this worker this month.</p>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

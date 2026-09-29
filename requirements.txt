@@ -1,0 +1,79 @@
+# Django Core
+Django==5.2.4
+djangorestframework==3.16.1
+
+# Static files in production (see WhiteNoiseMiddleware / STORAGES in config/settings.py)
+whitenoise==6.9.0
+
+# Database
+PyMySQL
+mysqlclient
+
+# API & Authentication
+djangorestframework-simplejwt==5.5.1
+django-cors-headers==4.8.0
+
+# WebSocket Support
+channels==4.2.2
+channels-redis==4.3.0
+daphne==4.2.1
+
+# Forms & Validation
+django-crispy-forms==2.4
+crispy-bootstrap4==2025.6
+
+# File Handling
+Pillow==11.3.0
+django-storages==1.14.6
+boto3==1.40.0
+dropbox==12.2.2   # all uploaded files (insurance/tender docs, drawings, report attachments, phase photos) go to the company's Dropbox instead of local disk -- see DROPBOX_* in .env
+
+# PDF Generation
+reportlab==4.4.3
+python-barcode==0.16.1
+arabic-reshaper==3.0.1
+python-bidi==0.6.11
+weasyprint==66.0
+xhtml2pdf==0.2.17
+
+# Excel Support
+openpyxl==3.1.5
+XlsxWriter==3.2.5
+
+# Date & Time
+python-dateutil==2.9.0.post0
+pytz==2025.2
+
+# Utilities
+python-decouple==3.8
+django-extensions==4.1
+django-filter==25.1
+
+# Testing
+pytest==8.4.1
+pytest-django==4.11.1
+factory-boy==3.3.3
+
+# Code Quality
+flake8==7.3.0
+black==25.1.0
+isort==6.0.1
+
+# Monitoring & Logging
+django-debug-toolbar==6.0.0
+sentry-sdk==2.35.0
+
+# Celery (for async tasks)
+celery==5.5.3
+redis==6.2.0
+
+# Rate Limiting
+django-ratelimit==4.1.0
+
+# Environment Variables
+python-dotenv==1.1.1
+
+# AI assistant (Claude API)
+anthropic>=1.7,<2
+requests>=2.31
+PyMuPDF>=1.24     # page counting and reading PDFs for the AI assistant

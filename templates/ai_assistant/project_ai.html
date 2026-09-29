@@ -1,0 +1,144 @@
+{% extends 'base.html' %}
+
+{% block title %}AI Assistant - {{ project.name }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+  <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+    <div>
+      <h1 class="mb-1"><i class="bi bi-stars"></i> AI Assistant</h1>
+      <p class="text-muted mb-0">{{ project.name }} ({{ project.project_symbol }})</p>
+    </div>
+    <div class="d-flex gap-2">
+      <a href="{% url 'reports:boq_editor' project_id=project.id %}" class="btn btn-outline-primary"><i class="bi bi-list-columns-reverse"></i> Manage BOQ</a>
+      <a href="{% url 'projects:project_detail' pk=project.id %}" class="btn btn-outline-secondary"><i class="bi bi-arrow-left"></i> Back to project</a>
+    </div>
+  </div>
+
+  {% if not configured %}
+  <div class="alert alert-warning">
+    <strong>The AI assistant isn't switched on yet.</strong> {{ hint }} The health checks below work without it.
+  </div>
+  {% else %}
+  {% if provider_status and not provider_status.ok %}
+  <div class="alert alert-warning py-2 small"><i class="bi bi-exclamation-triangle"></i> {{ provider_status.message }}</div>
+  {% endif %}
+  <div class="alert alert-info py-2 small">
+    <i class="bi bi-shield-lock"></i>
+    {% if provider.local %}
+    Everything here is processed by <strong>{{ provider.label }}</strong>: documents stay on your own server and nothing is sent to an outside company.
+    {% if provider_status.ok %}<span class="text-success">{{ provider_status.message }}</span>{% endif %}
+    A small local model makes more mistakes than a large cloud one, especially on tables and drawings: always check a draft against the document.
+    {% else %}
+    Documents you send here are uploaded to <strong>{{ provider.label }}</strong> to be read. Don't send anything the company doesn't want to leave its systems.
+    {% endif %}
+    The assistant only prepares <strong>drafts</strong> and reports; nothing changes in the BOQ until someone presses Import.
+  </div>
+  {% endif %}
+
+  <div class="row g-4">
+    <div class="col-lg-7">
+      {% if can_import %}
+      <div class="card shadow-sm mb-4">
+        <div class="card-header fw-semibold"><i class="bi bi-file-earmark-text"></i> Read a document with the AI</div>
+        <div class="card-body">
+          <form method="post" action="{% url 'ai_assistant:analyze' project.id %}" enctype="multipart/form-data">
+            {% csrf_token %}
+            <div class="mb-3">
+              <label class="form-label d-block">What should it produce?</label>
+              <div class="form-check form-check-inline">
+                <input class="form-check-input" type="radio" name="mode" id="modeBoq" value="boq" checked>
+                <label class="form-check-label" for="modeBoq">A draft BOQ (from a tender BOQ)</label>
+              </div>
+              <div class="form-check form-check-inline">
+                <input class="form-check-input" type="radio" name="mode" id="modeTakeoff" value="takeoff">
+                <label class="form-check-label" for="modeTakeoff">Materials, quantities &amp; green-building (EDGE) data (from a drawing or specification)</label>
+              </div>
+            </div>
+            <div class="mb-3">
+              <label class="form-label">Document already in the project</label>
+              <select name="source" class="form-select">
+                <option value="">— choose —</option>
+                {% if tender_documents %}
+                <optgroup label="Tender documents">
+                  {% for doc in tender_documents %}<option value="tender:{{ doc.id }}">{{ doc.get_category_display }}: {{ doc.title }}</option>{% endfor %}
+                </optgroup>
+                {% endif %}
+                {% if revisions %}
+                <optgroup label="Drawings">
+                  {% for rev in revisions %}<option value="revision:{{ rev.id }}">{{ rev.blueprint.drawing_number }} rev {{ rev.revision }} — {{ rev.blueprint.title }}</option>{% endfor %}
+                </optgroup>
+                {% endif %}
+              </select>
+            </div>
+            <div class="mb-3">
+              <label class="form-label">…or upload a file</label>
+              <input type="file" name="file" class="form-control" accept=".pdf,.png,.jpg,.jpeg,.webp,.gif,.xlsx,.xlsm,.csv,.txt">
+              <div class="form-text">PDF, image, Excel, CSV or text, up to {{ max_mb }} MB. For DWG/DXF drawings, export to PDF first.</div>
+            </div>
+            <div class="mb-3">
+              <label class="form-label">Notes for the reader <span class="text-muted">(optional)</span></label>
+              <textarea name="instructions" rows="2" class="form-control" maxlength="1000" placeholder="e.g. the quantities are in section 3 only; ignore the alternates"></textarea>
+            </div>
+            <button class="btn btn-primary" {% if not configured %}disabled{% endif %}><i class="bi bi-magic"></i> Read document</button>
+            <span class="text-muted small ms-2">Takes a minute or more for a large document.</span>
+          </form>
+        </div>
+      </div>
+      {% endif %}
+
+      <div class="card shadow-sm mb-4">
+        <div class="card-header fw-semibold"><i class="bi bi-tree"></i> Green building (EDGE)</div>
+        <div class="card-body">
+          <p class="text-muted mb-2">Every drawing and specification analyzed for materials and green data feeds one summary of the design facts an EDGE assessment needs, with the ones still missing.</p>
+          <a href="{% url 'ai_assistant:project_edge' project.id %}" class="btn btn-outline-success"><i class="bi bi-tree"></i> Open the green-building summary</a>
+        </div>
+      </div>
+
+      <div class="card shadow-sm mb-4">
+        <div class="card-header fw-semibold"><i class="bi bi-clipboard2-check"></i> Review the whole project</div>
+        <div class="card-body">
+          <p class="text-muted">The assistant reads the BOQ, costs, purchasing, progress, insurance and the documents it has already read, looks for problems and mismatches, and reports what needs attention. It changes nothing.</p>
+          <form method="post" action="{% url 'ai_assistant:start_review' project.id %}">
+            {% csrf_token %}
+            <div class="mb-3">
+              <input type="text" name="instructions" class="form-control" maxlength="1000" placeholder="Focus (optional), e.g. 'concentrate on electrical works'">
+            </div>
+            <button class="btn btn-dark" {% if not configured %}disabled{% endif %}><i class="bi bi-search"></i> Review project</button>
+          </form>
+        </div>
+      </div>
+
+      <div class="card shadow-sm">
+        <div class="card-header fw-semibold">Recent runs</div>
+        <div class="table-responsive">
+          <table class="table table-sm align-middle mb-0">
+            <thead><tr><th>When</th><th>What</th><th>Status</th><th>By</th><th></th></tr></thead>
+            <tbody>
+              {% for run in runs %}
+              <tr>
+                <td class="text-nowrap">{{ run.created_at|date:"Y-m-d H:i" }}</td>
+                <td>{{ run.get_kind_display }}{% if run.source_label and run.kind != 'project_review' %}<br><small class="text-muted">{{ run.source_label }}</small>{% endif %}</td>
+                <td>
+                  {% if run.status == 'done' %}<span class="badge bg-success">Done</span>{% if run.imported_at %} <span class="badge bg-primary">Imported</span>{% endif %}
+                  {% elif run.status == 'failed' %}<span class="badge bg-danger">Failed</span>
+                  {% else %}<span class="badge bg-secondary">{{ run.get_status_display }}</span>{% endif %}
+                </td>
+                <td>{{ run.created_by.get_full_name|default:run.created_by.username }}</td>
+                <td><a href="{% url 'ai_assistant:run_detail' run.id %}" class="btn btn-sm btn-outline-primary">Open</a></td>
+              </tr>
+              {% empty %}
+              <tr><td colspan="5" class="text-center text-muted py-3">Nothing has been run yet.</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-lg-5">
+      {% include 'ai_assistant/_findings.html' with findings=health title='Project health checks' subtitle='Exact rule-based checks. No AI, no cost.' %}
+    </div>
+  </div>
+</div>
+{% endblock %}

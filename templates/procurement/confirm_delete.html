@@ -1,0 +1,6 @@
+{% extends 'base.html' %}
+{% block title %}Confirm Delete - One Stop ERP{% endblock %}
+{% block content %}
+<div class="my-4"><h1 class="h3">Confirm Delete</h1></div>
+<div class="card"><div class="card-body"><p>Delete <strong>{{ object }}</strong>? This action cannot be undone.</p><form method="post">{% csrf_token %}<button class="btn btn-danger">Delete</button> <a class="btn btn-outline-secondary" href="javascript:history.back()">Cancel</a></form></div></div>
+{% endblock %}

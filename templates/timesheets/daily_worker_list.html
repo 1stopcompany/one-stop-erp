@@ -1,0 +1,81 @@
+{% extends 'timesheets/_hr_base.html' %}
+{% load static %}
+
+{% block title %}Day-Labor Workers - One Stop ERP{% endblock %}
+
+{% block hr_body %}
+<div class="row">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h1 class="h2 mb-0">
+                <i class="fas fa-hard-hat me-2 text-primary"></i>
+                Day-Labor Workers
+            </h1>
+            <div class="d-flex gap-2">
+                <a href="{% url 'timesheets:wages_run' %}" class="btn btn-success">
+                    <i class="fas fa-money-check-alt me-2"></i>Wages Run
+                </a>
+                {% if can_add %}
+                <a href="{% url 'timesheets:daily_worker_add' %}" class="btn btn-primary">
+                    <i class="fas fa-plus me-2"></i>Add Worker
+                </a>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>National ID</th>
+                        <th>Trade</th>
+                        <th>Daily Rate</th>
+                        <th>Status</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for worker in workers %}
+                    <tr>
+                        <td class="fw-bold">
+                            <a href="{% url 'timesheets:daily_worker_attendance' worker.pk %}" class="text-decoration-none">{{ worker.full_name }}</a>
+                        </td>
+                        <td>{{ worker.national_id|default:"—" }}</td>
+                        <td>{{ worker.trade|default:"—" }}</td>
+                        <td>₪{{ worker.daily_rate }}</td>
+                        <td>
+                            {% if worker.is_active %}<span class="badge bg-success">Active</span>
+                            {% else %}<span class="badge bg-secondary">Inactive</span>{% endif %}
+                        </td>
+                        <td>
+                            <a href="{% url 'timesheets:daily_worker_attendance' worker.pk %}" class="btn btn-sm btn-outline-primary" title="Attendance">
+                                <i class="fas fa-calendar-check"></i>
+                            </a>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="6" class="text-center py-5">
+                            <div class="text-muted">
+                                <i class="fas fa-hard-hat fa-3x mb-3 opacity-50"></i>
+                                <p class="mb-0">No day-labor workers on the roster yet.</p>
+                                {% if can_add %}
+                                <a href="{% url 'timesheets:daily_worker_add' %}" class="btn btn-primary mt-3">
+                                    <i class="fas fa-plus me-2"></i>Add First Worker
+                                </a>
+                                {% endif %}
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

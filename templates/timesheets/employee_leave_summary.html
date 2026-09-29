@@ -1,0 +1,121 @@
+{% extends 'timesheets/_hr_base.html' %}
+{% load static %}
+
+{% block title %}Leave Summary - {{ employee.full_name }} - One Stop ERP{% endblock %}
+
+{% block hr_body %}
+<div class="row">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+            <h1 class="h2 mb-0">
+                <i class="fas fa-calendar-alt me-2 text-primary"></i>
+                Annual Leave Summary <span class="text-muted fs-6">(كشف ملخص الإجازات)</span>
+            </h1>
+            <div class="d-flex align-items-center gap-2">
+                <form method="get" class="d-flex align-items-center gap-2">
+                    <select name="year" class="form-select form-select-sm" style="width: auto;" onchange="this.form.submit()">
+                        {% for y in available_years %}
+                        <option value="{{ y }}" {% if y == year %}selected{% endif %}>{{ y }}</option>
+                        {% endfor %}
+                    </select>
+                    <noscript><button type="submit" class="btn btn-sm btn-outline-primary">Load</button></noscript>
+                </form>
+                <a href="{% url 'timesheets:employee_leave_summary_pdf' employee.pk %}?year={{ year }}" target="_blank" class="btn btn-sm btn-outline-danger">
+                    <i class="fas fa-file-pdf me-1"></i>Export PDF
+                </a>
+            </div>
+        </div>
+        <div class="mb-3">
+            <a href="{% url 'timesheets:employee_detail' employee.pk %}" class="text-decoration-none">
+                <i class="fas fa-arrow-left me-1"></i>{{ employee.full_name }}
+            </a>
+            <span class="text-muted">&middot; {{ employee.position.title }} &middot; {{ year }}</span>
+        </div>
+    </div>
+</div>
+
+<div class="row mb-4 text-center">
+    <div class="col-md">
+        <div class="card"><div class="card-body"><div class="h3 mb-0">{{ summary.annual_leave_days }}</div><div class="text-muted small">Annual Leave Days</div></div></div>
+    </div>
+    <div class="col-md">
+        <div class="card"><div class="card-body"><div class="h3 mb-0 text-info">+{{ summary.carried_over }}</div><div class="text-muted small">Carried Over from {{ summary.year|add:"-1" }}</div></div></div>
+    </div>
+    <div class="col-md">
+        <div class="card"><div class="card-body"><div class="h3 mb-0 text-danger">-{{ summary.undertime_deducted_days }}</div><div class="text-muted small">Undertime Deduction</div></div></div>
+    </div>
+    <div class="col-md">
+        <div class="card"><div class="card-body"><div class="h3 mb-0">{{ summary.total_allowance }}</div><div class="text-muted small">Total Allowance</div></div></div>
+    </div>
+    <div class="col-md">
+        <div class="card"><div class="card-body"><div class="h3 mb-0 text-warning">{{ summary.total_used }}</div><div class="text-muted small">Used in {{ year }}</div></div></div>
+    </div>
+    <div class="col-md">
+        <div class="card"><div class="card-body"><div class="h3 mb-0 text-success">{{ summary.remaining }}</div><div class="text-muted small">Remaining</div></div></div>
+    </div>
+</div>
+{% if summary.undertime_minutes > 0 %}
+<p class="text-muted small">
+    <i class="fas fa-hourglass-half me-1"></i>
+    {{ summary.undertime_minutes }} minute(s) of accumulated undertime this year ({{ summary.undertime_deducted_days }} full 8-hour block(s) deducted so far, {{ summary.undertime_remainder_minutes }} minute(s) remaining toward the next deduction).
+</p>
+{% endif %}
+
+<div class="card mb-4">
+    <div class="card-header"><i class="fas fa-calendar-week me-2"></i>Days Taken Per Month</div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-sm mb-0 text-center">
+                <thead>
+                    <tr>
+                        {% for row in month_rows %}<th>{{ row.name|slice:":3" }}</th>{% endfor %}
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        {% for row in month_rows %}
+                        <td class="{% if row.days > 0 %}fw-bold text-primary{% else %}text-muted{% endif %}">{{ row.days }}</td>
+                        {% endfor %}
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header"><i class="fas fa-list me-2"></i>Approved Leave Requests This Year</div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead><tr><th>Type</th><th>From</th><th>To</th><th class="text-end">Days</th></tr></thead>
+                <tbody>
+                    {% for req in summary.requests %}
+                    <tr>
+                        <td>{{ req.get_request_type_display }}</td>
+                        <td>{{ req.start_date|date:"M d, Y" }}</td>
+                        <td>{{ req.end_date|date:"M d, Y" }}</td>
+                        <td class="text-end">{{ req.days }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="4" class="text-center py-5">
+                            <div class="text-muted">
+                                <i class="fas fa-calendar-times fa-3x mb-3 opacity-50"></i>
+                                <p class="mb-0">No approved leave requests for {{ year }}.</p>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<p class="text-muted small mt-3">
+    Friday is excluded from every count above, even when it falls inside a request's date range.
+    Annual allocation is tenure-based (14 days/year under 5 years of service, 21 days/year at 5+).
+    Unused days carry over for up to 2 years before expiring.
+</p>
+{% endblock %}

@@ -1,0 +1,177 @@
+{% extends 'base.html' %}
+
+{% block title %}AI run #{{ run.id }} - {{ project.name }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+  <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+    <div>
+      <h1 class="mb-1"><i class="bi bi-stars"></i> {{ run.get_kind_display }}</h1>
+      <p class="text-muted mb-0">{{ project.name }}{% if run.kind == 'boq_extract' or run.kind == 'drawing_takeoff' %} — {{ run.source_label }}{% endif %}</p>
+    </div>
+    <a href="{% url 'ai_assistant:project_ai' project.id %}" class="btn btn-outline-secondary"><i class="bi bi-arrow-left"></i> AI Assistant</a>
+  </div>
+
+  {% if run.status == 'pending' or run.status == 'running' %}
+  <div class="card shadow-sm" id="working">
+    <div class="card-body text-center py-5">
+      <div class="spinner-border mb-3" role="status"></div>
+      <h5>{% if run.kind == 'boq_extract' %}Reading the document…{% elif run.kind == 'drawing_takeoff' %}Reading the document for materials, quantities and green-building data…{% else %}Reviewing the project…{% endif %}</h5>
+      <p class="text-muted mb-0">This can take a few minutes. You can leave this page; the result will be in "Recent runs".</p>
+    </div>
+  </div>
+  <script>
+    (function poll() {
+      fetch("{% url 'ai_assistant:run_status' run.id %}", {credentials: "same-origin"})
+        .then(function (r) { return r.json(); })
+        .then(function (s) { if (s.finished) { location.reload(); } else { setTimeout(poll, 3000); } })
+        .catch(function () { setTimeout(poll, 6000); });
+    })();
+  </script>
+
+  {% elif run.status == 'failed' %}
+  <div class="alert alert-danger"><strong>This run didn't finish.</strong><br>{{ run.error }}</div>
+
+  {% elif run.kind == 'project_review' %}
+  {% if review %}
+  <div class="card shadow-sm mb-4">
+    <div class="card-header fw-semibold">Summary</div>
+    <div class="card-body">{{ review.summary|linebreaksbr }}</div>
+  </div>
+  {% include 'ai_assistant/_findings.html' with findings=review.findings title='What needs attention' subtitle='Written by the AI from the project data. Check anything important against the source before acting.' %}
+  {% include 'ai_assistant/_findings.html' with findings=review.health_checks title='Rule-based health checks (at the time of the review)' subtitle='' %}
+  {% endif %}
+
+  {% elif run.kind == 'drawing_takeoff' %}
+  {% include 'ai_assistant/_takeoff.html' %}
+
+  {% else %}
+  {# ---- a finished draft BOQ ---- #}
+  <div class="alert alert-info small">
+    <i class="bi bi-info-circle"></i> This is a <strong>draft</strong> read by AI. Check it against the document before importing.
+    {% if draft.document_summary %}<hr class="my-2">{{ draft.document_summary }}{% endif %}
+  </div>
+
+  {% if run.imported_at %}
+  <div class="alert alert-success">
+    Imported {{ run.imported_at|date:"Y-m-d H:i" }}{% if run.imported_by %} by {{ run.imported_by.get_full_name|default:run.imported_by.username }}{% endif %}:
+    {{ run.import_summary.created_phases }} main item(s), {{ run.import_summary.created_sub_items }} line(s).
+    {% if run.import_summary.skipped %}
+    <details class="mt-1"><summary>{{ run.import_summary.skipped|length }} skipped</summary>
+      <ul class="mb-0">{% for s in run.import_summary.skipped %}<li>{{ s.code }} {{ s.name }} — {{ s.reason }}</li>{% endfor %}</ul>
+    </details>
+    {% endif %}
+  </div>
+  {% endif %}
+
+  <div class="row g-4">
+    <div class="col-xl-9">
+      <form method="post" action="{% url 'ai_assistant:run_import' run.id %}">
+        {% csrf_token %}
+        <div class="card shadow-sm mb-3">
+          <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+            <span class="fw-semibold">Draft BOQ — {{ draft.totals.items }} item(s), {{ draft.totals.sub_items }} sub-line(s) in {{ draft.totals.sections }} section(s)</span>
+            {% if can_import %}
+            <div class="d-flex align-items-center gap-3 flex-wrap">
+              <label class="form-check-label small"><input type="checkbox" class="form-check-input me-1" id="checkAll" checked> Select all new</label>
+              <label class="form-check-label small"><input type="checkbox" class="form-check-input me-1" name="use_prices" value="1"> Use prices printed in the document</label>
+              <button class="btn btn-success" onclick="return confirm('Add the ticked items to the project BOQ?')"><i class="bi bi-box-arrow-in-down"></i> Import ticked items</button>
+            </div>
+            {% endif %}
+          </div>
+          <div class="table-responsive">
+            <table class="table table-sm align-middle mb-0">
+              <thead class="table-light">
+                <tr>{% if can_import %}<th style="width:32px"></th>{% endif %}<th>No.</th><th>Description</th><th>Unit</th><th class="text-end">Quantity</th><th class="text-end">Printed price</th><th>Page</th><th></th></tr>
+              </thead>
+              <tbody>
+                {% for section in draft.sections %}
+                <tr class="table-secondary"><td colspan="8" class="fw-semibold">{{ section.name|default:"(no section)" }}</td></tr>
+                {% for item in section.items %}
+                <tr {% if item.exists %}class="text-muted"{% endif %}>
+                  {% if can_import %}<td><input type="checkbox" class="form-check-input pick" name="keys" value="{{ item.key }}" {% if item.exists or not item.code %}disabled{% elif item.confidence != 'low' %}checked{% endif %}></td>{% endif %}
+                  <td class="text-nowrap fw-semibold">{{ item.code }}</td>
+                  <td>{{ item.name_ar }}{% if item.name_en and item.name_en != item.name_ar %}<br><small class="text-muted">{{ item.name_en }}</small>{% endif %}
+                    {% if item.notes %}<br><small class="text-muted">{{ item.notes }}</small>{% endif %}</td>
+                  <td>{{ item.unit }}</td>
+                  <td class="text-end">{{ item.quantity|default_if_none:"" }}</td>
+                  <td class="text-end">{{ item.unit_price|default_if_none:"" }}</td>
+                  <td>{{ item.source_page|default_if_none:"" }}</td>
+                  <td class="text-nowrap">
+                    {% if item.exists %}<span class="badge bg-secondary">Already in BOQ</span>{% elif not item.code %}<span class="badge bg-warning text-dark">No number</span>{% endif %}
+                    {% if item.confidence == 'low' %}<span class="badge bg-danger">Unsure</span>{% elif item.confidence == 'medium' %}<span class="badge bg-warning text-dark">Check</span>{% endif %}
+                  </td>
+                </tr>
+                {% for sub in item.sub_items %}
+                <tr class="small">
+                  {% if can_import %}<td></td>{% endif %}
+                  <td class="text-nowrap ps-4">{{ sub.code }}</td>
+                  <td>{{ sub.name_ar }}{% if sub.name_en and sub.name_en != sub.name_ar %}<br><span class="text-muted">{{ sub.name_en }}</span>{% endif %}</td>
+                  <td>{{ sub.unit }}</td>
+                  <td class="text-end">{{ sub.quantity|default_if_none:"" }}</td>
+                  <td class="text-end">{{ sub.unit_price|default_if_none:"" }}</td>
+                  <td>{{ sub.source_page|default_if_none:"" }}</td>
+                  <td>{% if sub.confidence == 'low' %}<span class="badge bg-danger">Unsure</span>{% elif sub.confidence == 'medium' %}<span class="badge bg-warning text-dark">Check</span>{% endif %}</td>
+                </tr>
+                {% endfor %}
+                {% endfor %}
+                {% empty %}
+                <tr><td colspan="8" class="text-center text-muted py-4">No items were found in this document.</td></tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <p class="text-muted small">Items whose number already exists in this project are never overwritten. Sub-lines come in with their main item. Items marked "Unsure" start unticked.
+          Prices are not imported unless you tick the box: the project's budget and contract prices are set in Manage BOQ.</p>
+      </form>
+    </div>
+
+    <div class="col-xl-3">
+      {% if draft.issues %}
+      <div class="card shadow-sm mb-3">
+        <div class="card-header fw-semibold">Things the reader noticed</div>
+        <ul class="list-group list-group-flush small">
+          {% for issue in draft.issues %}
+          <li class="list-group-item">
+            <span class="badge {% if issue.severity == 'error' %}bg-danger{% elif issue.severity == 'warning' %}bg-warning text-dark{% else %}bg-info text-dark{% endif %}">{{ issue.severity }}</span>
+            {% if issue.item_code %}<strong>{{ issue.item_code }}</strong> {% endif %}{{ issue.message }}
+          </li>
+          {% endfor %}
+        </ul>
+      </div>
+      {% endif %}
+
+      <div class="card shadow-sm mb-3">
+        <div class="card-header fw-semibold">Compared with the current BOQ</div>
+        <div class="card-body small">
+          {% if not comparison.only_in_document and not comparison.only_in_boq and not comparison.quantity_differences %}
+          <span class="text-success"><i class="bi bi-check-circle"></i> The document and the BOQ line up.</span>
+          {% endif %}
+          {% if comparison.only_in_document %}<p class="mb-2"><strong>{{ comparison.only_in_document|length }} in the document, not in the BOQ:</strong><br>{{ comparison.only_in_document|join:", " }}</p>{% endif %}
+          {% if comparison.only_in_boq %}<p class="mb-2"><strong>{{ comparison.only_in_boq|length }} in the BOQ, not in the document:</strong><br>{{ comparison.only_in_boq|join:", " }}</p>{% endif %}
+          {% if comparison.quantity_differences %}
+          <p class="mb-1"><strong>Different quantities:</strong></p>
+          <ul class="mb-0">{% for d in comparison.quantity_differences %}<li>{{ d.code }}: document {{ d.document }}, BOQ {{ d.boq }}</li>{% endfor %}</ul>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+  <script>
+    (function () {
+      var all = document.getElementById('checkAll');
+      if (!all) return;
+      all.addEventListener('change', function () {
+        document.querySelectorAll('.pick:not(:disabled)').forEach(function (box) { box.checked = all.checked; });
+      });
+    })();
+  </script>
+  {% endif %}
+
+  <p class="text-muted small mt-3">
+    Started {{ run.created_at|date:"Y-m-d H:i" }}{% if run.created_by %} by {{ run.created_by.get_full_name|default:run.created_by.username }}{% endif %}
+    {% if run.model_name %} · {{ run.model_name }}{% endif %}{% if run.input_tokens %} · {{ run.input_tokens }} tokens in / {{ run.output_tokens }} out{% endif %}
+  </p>
+</div>
+{% endblock %}

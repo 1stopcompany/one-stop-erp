@@ -1,0 +1,1 @@
+{% extends 'timesheets/_hr_base.html' %}{% block title %}Employee Document{% endblock %}{% block hr_body %}<div class="my-4"><h1 class="h3">Add Employee Document</h1></div><div class="card"><div class="card-body"><form method="post" enctype="multipart/form-data">{% csrf_token %}{{ form.as_p }}<button class="btn btn-primary">Save</button></form></div></div>{% endblock %}

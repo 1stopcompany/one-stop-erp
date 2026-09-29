@@ -1,0 +1,32 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.venv/
+venv/
+
+# Django runtime
+*.log
+media/
+staticfiles/
+
+# Environment / secrets
+.env
+.env.*
+!.env.example
+!.env.sqlite.example
+!.env.mysql.example
+
+# Databases and local backups
+*.sqlite3
+*.sqlite3.*
+
+# Old ad-hoc patch archives, not part of the tracked source
+One_Stop_ERP_Stage*.zip
+
+# IDE / OS
+.vscode/
+.idea/
+.claude/
+.DS_Store
+Thumbs.db

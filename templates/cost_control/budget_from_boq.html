@@ -1,0 +1,18 @@
+{% extends 'base.html' %}
+{% block title %}Budgets - One Stop ERP{% endblock %}
+{% block content %}
+<div class="my-4"><h1 class="h3 mb-0">Budgets come from the project's BOQ</h1></div>
+<div class="card"><div class="card-body">
+  <p>Nothing is entered in Cost Control. A project's quantities and prices live <strong>once</strong>, in its BOQ (<em>Manage BOQ</em>, from the project page),
+     on the phase or on its sub-items &mdash; budget (cost) price and contract (sell) price side by side. Cost Control reads them from there.</p>
+  <ol>
+    <li>Open the project's <em>Manage BOQ</em> and price each phase, or its sub-items.</li>
+    <li>When buying material, choose the <em>BOQ item</em> the purchase is charged to, on the requisition or order line.</li>
+    <li>Follow it here under <em>Budget vs Actual</em>.</li>
+  </ol>
+  <div class="d-flex flex-wrap gap-2">
+    {% for p in projects %}<a class="btn btn-outline-primary btn-sm" href="{% url 'reports:boq_editor' p.pk %}"><i class="bi bi-list-columns-reverse"></i> {{ p.name }}</a>{% endfor %}
+    <a class="btn btn-primary" href="{% url 'cost_control:budget_list' %}">Budget vs Actual</a>
+  </div>
+</div></div>
+{% endblock %}

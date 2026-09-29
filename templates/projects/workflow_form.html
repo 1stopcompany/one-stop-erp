@@ -1,0 +1,27 @@
+{% extends 'base.html' %}
+{% block title %}{{ title }} - {{ project.name }}{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center my-4">
+  <div>
+    <h1 class="h3 mb-0">{{ title }}</h1>
+    <p class="text-muted mb-0">{{ project.name }} ({{ project.project_symbol }})</p>
+  </div>
+  <a href="{% url 'projects:workflow' project.pk %}" class="btn btn-outline-secondary">Back to workflow</a>
+</div>
+<div class="card"><div class="card-body">
+  <form method="post" enctype="multipart/form-data" novalidate>{% csrf_token %}
+    {% if form.non_field_errors %}<div class="alert alert-danger">{{ form.non_field_errors }}</div>{% endif %}
+    {% for field in form %}
+    <div class="mb-3">
+      <label class="form-label" for="{{ field.id_for_label }}">{{ field.label }}</label>
+      {{ field }}
+      {% if field.help_text %}<div class="form-text">{{ field.help_text }}</div>{% endif %}
+      {% for error in field.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+    </div>
+    {% endfor %}
+    <div class="form-text mb-3">Accepted: PDF, Office files, images, DWG/DXF/RVT/IFC, ZIP &mdash; up to 50 MB.</div>
+    <button type="submit" class="btn btn-primary">Save</button>
+    <a href="{% url 'projects:workflow' project.pk %}" class="btn btn-outline-secondary">Cancel</a>
+  </form>
+</div></div>
+{% endblock %}

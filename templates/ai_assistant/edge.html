@@ -1,0 +1,57 @@
+{% extends 'base.html' %}
+
+{% block title %}Green building (EDGE) data - {{ project.name }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+  <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+    <div>
+      <h1 class="mb-1"><i class="bi bi-tree"></i> Green-building (EDGE) data</h1>
+      <p class="text-muted mb-0">{{ project.name }} ({{ project.project_symbol }})</p>
+    </div>
+    <div class="d-flex gap-2 flex-wrap">
+      <a href="{% url 'ai_assistant:project_edge_csv' project.id %}" class="btn btn-outline-dark"><i class="bi bi-file-earmark-spreadsheet"></i> Download (Excel / CSV)</a>
+      <a href="{% url 'ai_assistant:project_ai' project.id %}" class="btn btn-outline-secondary"><i class="bi bi-arrow-left"></i> AI Assistant</a>
+    </div>
+  </div>
+
+  <div class="alert alert-info small">
+    <i class="bi bi-info-circle"></i>
+    <strong>What this page is:</strong> EDGE (from the IFC / World Bank Group) certifies buildings that use at least 20% less energy, water and material-embodied energy
+    than a local reference building. The savings are calculated inside the official EDGE app, not here, and nothing on this page is an EDGE result.
+    This page gathers the design facts that app asks for from the documents you analyzed with the AI Assistant, and shows which ones are still missing,
+    so you can ask the designer for them before entering the project in the EDGE app.
+  </div>
+
+  <div class="row g-3 mb-3">
+    <div class="col-md-4"><div class="card shadow-sm h-100"><div class="card-body py-2">
+      <div class="text-muted small">Data points stated</div><div class="fs-3 fw-bold">{{ edge.found }} / {{ edge.total }}</div>
+      <div class="progress" style="height:8px"><div class="progress-bar bg-success" style="width: {% widthratio edge.found edge.total 100 %}%"></div></div></div></div></div>
+    {% for d in edge.domains %}
+    <div class="col-md-2"><div class="card shadow-sm h-100"><div class="card-body py-2">
+      <div class="text-muted small">{{ d.label }}</div><div class="fs-4 fw-bold">{{ d.found }} / {{ d.total }}</div></div></div></div>
+    {% endfor %}
+  </div>
+
+  {% if not edge.documents %}
+  <div class="alert alert-warning">No document has been analyzed yet. Upload a drawing (it is analyzed automatically when the AI Assistant is switched on), or choose
+    <em>Materials, quantities &amp; green data</em> on the AI Assistant page for a drawing or a specification.</div>
+  {% else %}
+  <p class="small text-muted">Built from {{ edge.documents|length }} analyzed document(s):
+    {% for doc in edge.documents %}<a href="{% url 'ai_assistant:run_detail' doc.run_id %}">{{ doc.label }}</a>{% if not forloop.last %}, {% endif %}{% endfor %}.</p>
+  {% endif %}
+
+  <div class="card shadow-sm mb-4"><div class="card-body">
+    {% include 'ai_assistant/_edge_points.html' with domains=edge.domains show_source=True %}
+  </div></div>
+
+  {% if edge.missing %}
+  <div class="card shadow-sm mb-4">
+    <div class="card-header fw-semibold">Still missing: ask the designer for these ({{ edge.missing|length }})</div>
+    <ul class="list-group list-group-flush small">
+      {% for m in edge.missing %}<li class="list-group-item"><strong>{{ m.label }}</strong> <span class="text-muted">&mdash; {{ m.hint }}</span></li>{% endfor %}
+    </ul>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

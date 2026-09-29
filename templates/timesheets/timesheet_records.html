@@ -1,0 +1,132 @@
+{% extends 'timesheets/_hr_base.html' %}
+{% load static %}
+
+{% block title %}Timesheet Records - One Stop ERP{% endblock %}
+
+{% block hr_body %}
+<div class="row">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h1 class="h2 mb-0">
+                <i class="fas fa-clock me-2 text-primary"></i>
+                Timesheet Records
+            </h1>
+        </div>
+    </div>
+</div>
+
+<!-- Filters -->
+<div class="card mb-4">
+    <div class="card-body">
+        <form method="get" class="row g-3">
+            <div class="col-md-3">
+                <label class="form-label">Employee</label>
+                {{ filter.form.employee }}
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">Check Type</label>
+                {{ filter.form.check_type }}
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">From</label>
+                {{ filter.form.timestamp__date__gte }}
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">To</label>
+                {{ filter.form.timestamp__date__lte }}
+            </div>
+            <div class="col-md-1 d-flex align-items-end">
+                <button class="btn btn-primary w-100">
+                    <i class="fas fa-search"></i>
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Records Table -->
+<div class="card">
+    <div class="table-responsive">
+        <table class="table table-hover mb-0">
+            <thead>
+                <tr>
+                    <th>Employee</th>
+                    <th>Type</th>
+                    <th>Date & Time</th>
+                    <th>Location</th>
+                    <th>Geofence</th>
+                    <th>Accuracy</th>
+                    <th>Notes</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for record in records %}
+                <tr>
+                    <td>
+                        <strong>{{ record.employee.full_name }}</strong><br>
+                        <small class="text-muted">{{ record.employee.employee_id }}</small>
+                    </td>
+                    <td>
+                        <span class="badge {% if record.check_type == 'in' %}bg-success{% else %}bg-danger{% endif %}">
+                            {{ record.get_check_type_display }}
+                        </span>
+                    </td>
+                    <td>
+                        {{ record.timestamp|date:"M d, Y" }}<br>
+                        <small class="text-muted">{{ record.timestamp|time:"H:i:s" }}</small>
+                    </td>
+                    <td>
+                        {{ record.address|default:record.location_string }}
+                    </td>
+                    <td>
+                        {% if record.is_within_geofence %}
+                            <span class="badge bg-success">Inside</span>
+                        {% else %}
+                            <span class="badge bg-warning">Outside</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if record.accuracy %}
+                            {{ record.accuracy }} m
+                        {% else %}
+                            —
+                        {% endif %}
+                    </td>
+                    <td>{{ record.notes|default:"—" }}</td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="7" class="text-center py-5 text-muted">
+                        <i class="fas fa-clock fa-3x mb-3 opacity-50"></i>
+                        <p>No timesheet records found.</p>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Pagination -->
+{% if is_paginated %}
+<nav class="mt-4">
+    <ul class="pagination justify-content-center">
+        {% if page_obj.has_previous %}
+        <li class="page-item">
+            <a class="page-link" href="?page={{ page_obj.previous_page_number }}">‹</a>
+        </li>
+        {% endif %}
+
+        <li class="page-item active">
+            <span class="page-link">{{ page_obj.number }}</span>
+        </li>
+
+        {% if page_obj.has_next %}
+        <li class="page-item">
+            <a class="page-link" href="?page={{ page_obj.next_page_number }}">›</a>
+        </li>
+        {% endif %}
+    </ul>
+</nav>
+{% endif %}
+{% endblock %}

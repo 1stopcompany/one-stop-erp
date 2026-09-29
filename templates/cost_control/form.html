@@ -1,0 +1,6 @@
+{% extends 'base.html' %}
+{% block title %}Cost Control Form - One Stop ERP{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center my-4"><h1 class="h3 mb-0">Cost Control Form</h1><a class="btn btn-outline-secondary" href="javascript:history.back()">Back</a></div>
+<div class="card"><div class="card-body"><form method="post" novalidate>{% csrf_token %}{{ form.non_field_errors }}{% for field in form %}<div class="mb-3"><label class="form-label" for="{{ field.id_for_label }}">{{ field.label }}</label>{{ field }}{% if field.help_text %}<div class="form-text">{{ field.help_text|safe }}</div>{% endif %}{% for error in field.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}</div>{% endfor %}<button class="btn btn-primary">Save</button> <a class="btn btn-outline-secondary" href="javascript:history.back()">Cancel</a></form></div></div>
+{% endblock %}

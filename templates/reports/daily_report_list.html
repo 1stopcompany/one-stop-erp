@@ -1,0 +1,172 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Daily Construction Reports{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col-md-8">
+            <h1 class="h3 mb-0">
+                <i class="fas fa-calendar-day"></i> Daily Construction Reports
+            </h1>
+        </div>
+        <div class="col-md-4 text-end">
+            {% if request.user.is_site_engineer %}
+            <a href="{% url 'reports:daily_report_create' %}" class="btn btn-primary">
+                <i class="fas fa-plus"></i> New Daily Report
+            </a>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Search and Filter -->
+    <div class="card mb-4">
+        <div class="card-body">
+            <form method="get" class="row g-3">
+                <div class="col-md-4">
+                    <input type="text" name="search" class="form-control" placeholder="Search by report number or project..." 
+                           value="{{ request.GET.search }}">
+                </div>
+                <div class="col-md-3">
+                    <select name="status" class="form-control">
+                        <option value="">All Statuses</option>
+                        <option value="draft" {% if request.GET.status == 'draft' %}selected{% endif %}>Draft</option>
+                        <option value="submitted" {% if request.GET.status == 'submitted' %}selected{% endif %}>Submitted</option>
+                        <option value="engineering_approved" {% if request.GET.status == 'engineering_approved' %}selected{% endif %}>Approved by Engineering Manager</option>
+                        <option value="approved" {% if request.GET.status == 'approved' %}selected{% endif %}>Approved</option>
+                        <option value="rejected" {% if request.GET.status == 'rejected' %}selected{% endif %}>Rejected</option>
+                        <option value="archived" {% if request.GET.status == 'archived' %}selected{% endif %}>Archived</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <select name="project" class="form-control">
+                        <option value="">All Projects</option>
+                        {% for project in request.user.projects.all %}
+                        <option value="{{ project.id }}" {% if request.GET.project == project.id|stringformat:"s" %}selected{% endif %}>
+                            {{ project.name }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <button type="submit" class="btn btn-outline-primary w-100">
+                        <i class="fas fa-search"></i> Filter
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Reports Table -->
+    <div class="card">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>Report Number</th>
+                        <th>Date</th>
+                        <th>Project</th>
+                        <th>Engineer</th>
+                        <th>Status</th>
+                        <th>Created</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for report in reports %}
+                    <tr>
+                        <td>
+                            <strong>{{ report.report_number }}</strong>
+                        </td>
+                        <td>{{ report.report_date|date:"d M Y" }}</td>
+                        <td>{{ report.project.name }}</td>
+                        <td>{{ report.site_engineer.get_full_name }}</td>
+                        <td>
+                            {% if report.status == 'draft' %}
+                                <span class="badge bg-secondary">Draft</span>
+                            {% elif report.status == 'submitted' %}
+                                <span class="badge bg-warning">Submitted</span>
+                            {% elif report.status == 'engineering_approved' %}
+                                <span class="badge bg-info">Eng. Approved</span>
+                            {% elif report.status == 'approved' %}
+                                <span class="badge bg-success">Approved</span>
+                            {% elif report.status == 'rejected' %}
+                                <span class="badge bg-danger">Rejected</span>
+                            {% elif report.status == 'archived' %}
+                                <span class="badge bg-dark">Archived</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ report.created_at|date:"d M Y H:i" }}</td>
+                        <td>
+                            <a href="{% url 'reports:daily_report_detail' report.pk %}" class="btn btn-sm btn-info" title="View">
+                                <i class="fas fa-eye"></i>
+                            </a>
+                            {% if report.status == 'draft' and request.user == report.site_engineer %}
+                            <a href="{% url 'reports:daily_report_update' report.pk %}" class="btn btn-sm btn-warning" title="Edit">
+                                <i class="fas fa-edit"></i>
+                            </a>
+                            {% endif %}
+                            {% if report.status == 'submitted' and request.user.is_engineering_manager %}
+                            <a href="{% url 'reports:review_daily_report' report.pk %}" class="btn btn-sm btn-info" title="Review">
+                                <i class="fas fa-search"></i>
+                            </a>
+                            {% endif %}
+                            {% if report.status == 'engineering_approved' and request.user.is_general_manager %}
+                            <a href="{% url 'reports:approve_daily_report' report.pk %}" class="btn btn-sm btn-success" title="Final Approve">
+                                <i class="fas fa-check"></i>
+                            </a>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="7" class="text-center py-4 text-muted">
+                            <i class="fas fa-inbox"></i> No daily reports found
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Pagination -->
+    {% if is_paginated %}
+    <nav aria-label="Page navigation" class="mt-4">
+        <ul class="pagination justify-content-center">
+            {% if page_obj.has_previous %}
+            <li class="page-item">
+                <a class="page-link" href="?page=1">First</a>
+            </li>
+            <li class="page-item">
+                <a class="page-link" href="?page={{ page_obj.previous_page_number }}">Previous</a>
+            </li>
+            {% endif %}
+
+            {% for num in page_obj.paginator.page_range %}
+                {% if page_obj.number == num %}
+                <li class="page-item active">
+                    <span class="page-link">{{ num }}</span>
+                </li>
+                {% else %}
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ num }}">{{ num }}</a>
+                </li>
+                {% endif %}
+            {% endfor %}
+
+            {% if page_obj.has_next %}
+            <li class="page-item">
+                <a class="page-link" href="?page={{ page_obj.next_page_number }}">Next</a>
+            </li>
+            <li class="page-item">
+                <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}">Last</a>
+            </li>
+            {% endif %}
+        </ul>
+    </nav>
+    {% endif %}
+</div>
+{% endblock %}

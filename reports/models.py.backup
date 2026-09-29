@@ -1,0 +1,1498 @@
+"""
+Reports Module Models
+
+This module contains all database models for the monthly maintenance report system.
+It includes models for monthly reports, floor activities, external works, material supplies,
+upcoming works, and report attachments.
+
+Models:
+    - MonthlyReport: Main monthly maintenance report
+    - FloorActivity: Activities on specific floors
+    - ExternalWork: External and miscellaneous works
+    - MaterialSupply: Materials delivered during reporting period
+    - UpcomingWork: Planned activities for next month
+    - ReportAttachment: Photos and documents attached to reports
+"""
+
+from django.db import models
+from django.utils.translation import gettext_lazy as _
+from django.core.validators import MinValueValidator, MaxValueValidator
+from django.utils import timezone
+from accounts.models import CustomUser
+from projects.models import Project, ProjectFloor
+import uuid
+from datetime import datetime, timedelta
+
+
+class MonthlyReport(models.Model):
+    """
+    Monthly Maintenance Report Model
+    
+    Represents a monthly maintenance report for a construction project.
+    Each report covers a specific reporting period and includes activities,
+    materials, and upcoming works for that period.
+    
+    Attributes:
+        report_number (str): Auto-generated unique report identifier
+        project (ForeignKey): Associated construction project
+        site_engineer (ForeignKey): Site engineer who created the report
+        report_date (DateField): Date when report was created
+        reporting_period_from (DateField): Start date of reporting period
+        reporting_period_to (DateField): End date of reporting period
+        weather_conditions (str): Weather conditions during period
+        general_description (TextField): Summary of activities (supports Arabic)
+        status (str): Report status (draft, submitted, approved, archived)
+        approved_by (ForeignKey): Project manager who approved the report
+        approval_date (DateTimeField): When report was approved
+        created_at (DateTimeField): Timestamp of creation
+        updated_at (DateTimeField): Timestamp of last update
+    """
+    
+    STATUS_CHOICES = (
+        ('draft', _('Draft')),
+        ('submitted', _('Submitted')),
+        ('approved', _('Approved')),
+        ('archived', _('Archived')),
+    )
+    
+    WEATHER_CHOICES = (
+        ('sunny', _('Sunny')),
+        ('rainy', _('Rainy')),
+        ('cloudy', _('Cloudy')),
+        ('windy', _('Windy')),
+        ('mixed', _('Mixed')),
+    )
+    
+    # Auto-generated fields
+    report_number = models.CharField(
+        max_length=50,
+        unique=True,
+        help_text=_('Auto-generated report number in format: RPT-SYMBOL-TIMESTAMP-UUID')
+    )
+    
+    # Reference fields
+    project = models.ForeignKey(
+        Project,
+        on_delete=models.CASCADE,
+        related_name='monthly_reports',
+        help_text=_('Associated construction project')
+    )
+    
+    site_engineer = models.ForeignKey(
+        CustomUser,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name='submitted_reports',
+        limit_choices_to={'role': 'site_engineer'},
+        help_text=_('Site engineer who created and submitted the report')
+    )
+    
+    # Report information
+    report_date = models.DateField(
+        auto_now_add=True,
+        help_text=_('Date when report was created (auto-set to today)')
+    )
+    
+    reporting_period_from = models.DateField(
+        help_text=_('Start date of the reporting period')
+    )
+    
+    reporting_period_to = models.DateField(
+        help_text=_('End date of the reporting period')
+    )
+    
+    weather_conditions = models.CharField(
+        max_length=20,
+        choices=WEATHER_CHOICES,
+        default='sunny',
+        help_text=_('Predominant weather conditions during reporting period')
+    )
+    
+    # General description (supports Arabic and English)
+    general_description = models.TextField(
+        blank=True,
+        help_text=_('Summary of completed activities and expected activities for next month (supports Arabic)')
+    )
+    
+    # Status and approval
+    status = models.CharField(
+        max_length=20,
+        choices=STATUS_CHOICES,
+        default='draft',
+        help_text=_('Current status of the report: Draft, Submitted, Approved, or Archived')
+    )
+    
+    approved_by = models.ForeignKey(
+        CustomUser,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='approved_reports',
+        limit_choices_to={'role': 'project_manager'},
+        help_text=_('Project manager who approved the report')
+    )
+    
+    approval_date = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text=_('Date and time when report was approved')
+    )
+    
+    # Audit fields
+    created_at = models.DateTimeField(
+        auto_now_add=True,
+        help_text=_('Timestamp of report creation')
+    )
+    
+    updated_at = models.DateTimeField(
+        auto_now=True,
+        help_text=_('Timestamp of last update')
+    )
+    
+    class Meta:
+        verbose_name = _('Monthly Report')
+        verbose_name_plural = _('Monthly Reports')
+        ordering = ['-report_date']
+        indexes = [
+            models.Index(fields=['project', '-report_date']),
+            models.Index(fields=['status']),
+            models.Index(fields=['site_engineer']),
+            models.Index(fields=['approved_by']),
+        ]
+        unique_together = ('project', 'reporting_period_from', 'reporting_period_to')
+        permissions = [
+            ('can_approve_report', _('Can approve monthly reports')),
+            ('can_archive_report', _('Can archive monthly reports')),
+            ('can_view_all_reports', _('Can view all reports')),
+        ]
+    
+    def __str__(self):
+        """String representation of the report"""
+        return f"Report {self.report_number} - {self.project.name}"
+    
+    def __repr__(self):
+        """Developer-friendly representation"""
+        return f"<MonthlyReport: {self.report_number} ({self.get_status_display()})>"
+    
+    def save(self, *args, **kwargs):
+        """
+        Override save method to auto-generate report number if not set
+        """
+        if not self.report_number:
+            self.report_number = self._generate_report_number()
+        super().save(*args, **kwargs)
+    
+    def _generate_report_number(self):
+        """
+        Generate unique report number in format: RPT-SYMBOL-TIMESTAMP-UUID
+        
+        Returns:
+            str: Unique report number
+        """
+        timestamp = datetime.now().strftime('%Y%m%d%H%M%S')
+        unique_id = str(uuid.uuid4())[:8].upper()
+        return f"RPT-{self.project.project_symbol}-{timestamp}-{unique_id}"
+    
+    # Status checking methods
+    def is_draft(self):
+        """Check if report is in draft status"""
+        return self.status == 'draft'
+    
+    def is_submitted(self):
+        """Check if report has been submitted"""
+        return self.status == 'submitted'
+    
+    def is_approved(self):
+        """Check if report has been approved"""
+        return self.status == 'approved'
+    
+    def is_archived(self):
+        """Check if report has been archived"""
+        return self.status == 'archived'
+    
+    # Business logic methods
+    def can_edit(self):
+        """
+        Check if report can be edited
+        Only draft reports can be edited
+        
+        Returns:
+            bool: True if report can be edited
+        """
+        return self.status == 'draft'
+    
+    def can_submit(self):
+        """
+        Check if report can be submitted
+        Only draft reports with complete data can be submitted
+        
+        Returns:
+            bool: True if report can be submitted
+        """
+        if self.status != 'draft':
+            return False
+        # Check if report has at least one activity or external work
+        return (self.floor_activities.exists() or self.external_works.exists())
+    
+    def can_approve(self):
+        """
+        Check if report can be approved
+        Only submitted reports can be approved
+        
+        Returns:
+            bool: True if report can be approved
+        """
+        return self.status == 'submitted'
+    
+    def submit(self):
+        """
+        Submit the report for approval
+        Changes status from draft to submitted
+        """
+        if self.can_submit():
+            self.status = 'submitted'
+            self.save()
+            return True
+        return False
+    
+    def approve(self, approved_by_user):
+        """
+        Approve the report
+        Changes status from submitted to approved
+        
+        Args:
+            approved_by_user (CustomUser): Project manager approving the report
+        """
+        if self.can_approve():
+            self.status = 'approved'
+            self.approved_by = approved_by_user
+            self.approval_date = timezone.now()
+            self.save()
+            return True
+        return False
+    
+    def archive(self):
+        """
+        Archive the report
+        Changes status to archived
+        """
+        self.status = 'archived'
+        self.save()
+        return True
+    
+    # Data aggregation methods
+    def get_total_activities_count(self):
+        """
+        Get total count of all activities (floor + external)
+        
+        Returns:
+            int: Total number of activities
+        """
+        return self.floor_activities.count() + self.external_works.count()
+    
+    def get_average_completion_percentage(self):
+        """
+        Calculate average completion percentage across all activities
+        
+        Returns:
+            float: Average completion percentage
+        """
+        floor_activities = self.floor_activities.all()
+        external_works = self.external_works.all()
+        
+        all_activities = list(floor_activities) + list(external_works)
+        
+        if not all_activities:
+            return 0
+        
+        total_percentage = sum(activity.completion_percentage for activity in all_activities)
+        return round(total_percentage / len(all_activities), 2)
+    
+    def get_total_materials_count(self):
+        """
+        Get total count of materials supplied
+        
+        Returns:
+            int: Number of material entries
+        """
+        return self.material_supplies.count()
+    
+    def get_total_upcoming_works_count(self):
+        """
+        Get total count of upcoming works
+        
+        Returns:
+            int: Number of upcoming work entries
+        """
+        return self.upcoming_works.count()
+    
+    def get_attachments_count(self):
+        """
+        Get total count of attachments
+        
+        Returns:
+            int: Number of attachments
+        """
+        return self.attachments.count()
+    
+    def get_high_priority_upcoming_works(self):
+        """
+        Get all high priority upcoming works
+        
+        Returns:
+            QuerySet: High priority upcoming works
+        """
+        return self.upcoming_works.filter(priority='high')
+    
+    def get_reporting_period_days(self):
+        """
+        Calculate number of days in reporting period
+        
+        Returns:
+            int: Number of days
+        """
+        delta = self.reporting_period_to - self.reporting_period_from
+        return delta.days + 1
+    
+    def get_summary_stats(self):
+        """
+        Get comprehensive summary statistics for the report
+        
+        Returns:
+            dict: Dictionary containing various statistics
+        """
+        return {
+            'total_activities': self.get_total_activities_count(),
+            'average_completion': self.get_average_completion_percentage(),
+            'total_materials': self.get_total_materials_count(),
+            'total_upcoming_works': self.get_total_upcoming_works_count(),
+            'total_attachments': self.get_attachments_count(),
+            'high_priority_works': self.get_high_priority_upcoming_works().count(),
+            'reporting_period_days': self.get_reporting_period_days(),
+        }
+
+
+class FloorActivity(models.Model):
+    """
+    Floor Activity Model
+    
+    Represents activities performed on a specific floor/level during a reporting period.
+    Each floor activity is associated with a monthly report and a specific floor.
+    
+    Attributes:
+        report (ForeignKey): Associated monthly report
+        floor (ForeignKey): Specific floor/level
+        activity_description (TextField): Detailed description of activity
+        completion_percentage (IntegerField): Percentage of completion (0-100)
+        notes (TextField): Additional notes or comments
+        created_at (DateTimeField): Timestamp of creation
+        updated_at (DateTimeField): Timestamp of last update
+    """
+    
+    report = models.ForeignKey(
+        MonthlyReport,
+        on_delete=models.CASCADE,
+        related_name='floor_activities',
+        help_text=_('Monthly report this activity belongs to')
+    )
+    
+    floor = models.ForeignKey(
+        ProjectFloor,
+        on_delete=models.CASCADE,
+        related_name='activities',
+        help_text=_('Floor or level where activity was performed')
+    )
+    
+    activity_description = models.TextField(
+        help_text=_('Detailed description of the activity performed (supports Arabic)')
+    )
+    
+    completion_percentage = models.IntegerField(
+        validators=[MinValueValidator(0), MaxValueValidator(100)],
+        help_text=_('Completion percentage of this activity (0-100%)')
+    )
+    
+    notes = models.TextField(
+        blank=True,
+        help_text=_('Additional notes, observations, or comments')
+    )
+    
+    created_at = models.DateTimeField(
+        auto_now_add=True,
+        help_text=_('Timestamp of activity creation')
+    )
+    
+    updated_at = models.DateTimeField(
+        auto_now=True,
+        help_text=_('Timestamp of last update')
+    )
+    
+    class Meta:
+        verbose_name = _('Floor Activity')
+        verbose_name_plural = _('Floor Activities')
+        ordering = ['report', 'floor']
+        indexes = [
+            models.Index(fields=['report', 'floor']),
+            models.Index(fields=['completion_percentage']),
+        ]
+    
+    def __str__(self):
+        """String representation of the floor activity"""
+        return f"{self.report.report_number} - Floor {self.floor.floor_number}"
+    
+    def __repr__(self):
+        """Developer-friendly representation"""
+        return f"<FloorActivity: Report {self.report.report_number}, Floor {self.floor.floor_number}>"
+    
+    def is_completed(self):
+        """
+        Check if activity is 100% completed
+        
+        Returns:
+            bool: True if completion percentage is 100
+        """
+        return self.completion_percentage == 100
+    
+    def is_in_progress(self):
+        """
+        Check if activity is in progress (0 < completion < 100)
+        
+        Returns:
+            bool: True if activity is partially completed
+        """
+        return 0 < self.completion_percentage < 100
+    
+    def is_not_started(self):
+        """
+        Check if activity has not started (0% completion)
+        
+        Returns:
+            bool: True if completion percentage is 0
+        """
+        return self.completion_percentage == 0
+    
+    def get_status_label(self):
+        """
+        Get human-readable status label
+        
+        Returns:
+            str: Status label (Not Started, In Progress, Completed)
+        """
+        if self.is_not_started():
+            return _('Not Started')
+        elif self.is_in_progress():
+            return _('In Progress')
+        else:
+            return _('Completed')
+    
+    def get_progress_color(self):
+        """
+        Get Bootstrap color class based on completion percentage
+        
+        Returns:
+            str: Bootstrap color class (danger, warning, success)
+        """
+        if self.completion_percentage < 33:
+            return 'danger'
+        elif self.completion_percentage < 66:
+            return 'warning'
+        else:
+            return 'success'
+
+
+class ExternalWork(models.Model):
+    """
+    External Work Model
+    
+    Represents external or miscellaneous works performed during a reporting period.
+    These are works that are not specific to any particular floor.
+    
+    Attributes:
+        report (ForeignKey): Associated monthly report
+        activity_description (TextField): Description of external work
+        completion_percentage (IntegerField): Percentage of completion (0-100)
+        notes (TextField): Additional notes
+        created_at (DateTimeField): Timestamp of creation
+        updated_at (DateTimeField): Timestamp of last update
+    """
+    
+    report = models.ForeignKey(
+        MonthlyReport,
+        on_delete=models.CASCADE,
+        related_name='external_works',
+        help_text=_('Monthly report this work belongs to')
+    )
+    
+    activity_description = models.TextField(
+        help_text=_('Description of external or miscellaneous work (supports Arabic)')
+    )
+    
+    completion_percentage = models.IntegerField(
+        validators=[MinValueValidator(0), MaxValueValidator(100)],
+        help_text=_('Completion percentage of this work (0-100%)')
+    )
+    
+    notes = models.TextField(
+        blank=True,
+        help_text=_('Additional notes, observations, or comments')
+    )
+    
+    created_at = models.DateTimeField(
+        auto_now_add=True,
+        help_text=_('Timestamp of work creation')
+    )
+    
+    updated_at = models.DateTimeField(
+        auto_now=True,
+        help_text=_('Timestamp of last update')
+    )
+    
+    class Meta:
+        verbose_name = _('External Work')
+        verbose_name_plural = _('External Works')
+        ordering = ['report', '-created_at']
+        indexes = [
+            models.Index(fields=['report']),
+            models.Index(fields=['completion_percentage']),
+        ]
+    
+    def __str__(self):
+        """String representation of external work"""
+        return f"{self.report.report_number} - External Work"
+    
+    def __repr__(self):
+        """Developer-friendly representation"""
+        return f"<ExternalWork: Report {self.report.report_number}>"
+    
+    def is_completed(self):
+        """
+        Check if work is 100% completed
+        
+        Returns:
+            bool: True if completion percentage is 100
+        """
+        return self.completion_percentage == 100
+    
+    def is_in_progress(self):
+        """
+        Check if work is in progress (0 < completion < 100)
+        
+        Returns:
+            bool: True if work is partially completed
+        """
+        return 0 < self.completion_percentage < 100
+    
+    def is_not_started(self):
+        """
+        Check if work has not started (0% completion)
+        
+        Returns:
+            bool: True if completion percentage is 0
+        """
+        return self.completion_percentage == 0
+    
+    def get_status_label(self):
+        """
+        Get human-readable status label
+        
+        Returns:
+            str: Status label (Not Started, In Progress, Completed)
+        """
+        if self.is_not_started():
+            return _('Not Started')
+        elif self.is_in_progress():
+            return _('In Progress')
+        else:
+            return _('Completed')
+
+
+class MaterialSupply(models.Model):
+    """
+    Material Supply Model
+    
+    Represents materials delivered to the project during a reporting period.
+    Tracks material type, quantity, supplier, and delivery date.
+    
+    Attributes:
+        report (ForeignKey): Associated monthly report
+        material_description (CharField): Description of material
+        quantity (DecimalField): Quantity supplied
+        unit (CharField): Unit of measurement (m3, kg, pieces, etc.)
+        supplier (CharField): Name of supplier
+        delivery_date (DateField): Date of delivery
+        notes (TextField): Additional notes
+        created_at (DateTimeField): Timestamp of creation
+        updated_at (DateTimeField): Timestamp of last update
+    """
+    
+    report = models.ForeignKey(
+        MonthlyReport,
+        on_delete=models.CASCADE,
+        related_name='material_supplies',
+        help_text=_('Monthly report this material supply belongs to')
+    )
+    
+    material_description = models.CharField(
+        max_length=255,
+        help_text=_('Description of material supplied (e.g., Concrete, Steel, Paint)')
+    )
+    
+    quantity = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        validators=[MinValueValidator(0)],
+        help_text=_('Quantity of material supplied')
+    )
+    
+    unit = models.CharField(
+        max_length=50,
+        help_text=_('Unit of measurement (e.g., m3, kg, pieces, liters, bags)')
+    )
+    
+    supplier = models.CharField(
+        max_length=255,
+        blank=True,
+        help_text=_('Name of the supplier or vendor')
+    )
+    
+    delivery_date = models.DateField(
+        help_text=_('Date when material was delivered to the project')
+    )
+    
+    notes = models.TextField(
+        blank=True,
+        help_text=_('Additional notes, quality remarks, or observations')
+    )
+    
+    created_at = models.DateTimeField(
+        auto_now_add=True,
+        help_text=_('Timestamp of material record creation')
+    )
+    
+    updated_at = models.DateTimeField(
+        auto_now=True,
+        help_text=_('Timestamp of last update')
+    )
+    
+    class Meta:
+        verbose_name = _('Material Supply')
+        verbose_name_plural = _('Material Supplies')
+        ordering = ['report', 'delivery_date']
+        indexes = [
+            models.Index(fields=['report', 'delivery_date']),
+            models.Index(fields=['material_description']),
+        ]
+    
+    def __str__(self):
+        """String representation of material supply"""
+        return f"{self.report.report_number} - {self.material_description} ({self.quantity} {self.unit})"
+    
+    def __repr__(self):
+        """Developer-friendly representation"""
+        return f"<MaterialSupply: {self.material_description}, {self.quantity} {self.unit}>"
+    
+    def get_display_quantity(self):
+        """
+        Get formatted quantity display
+        
+        Returns:
+            str: Formatted quantity with unit
+        """
+        return f"{self.quantity} {self.unit}"
+    
+    def is_recent(self, days=7):
+        """
+        Check if material was delivered recently
+        
+        Args:
+            days (int): Number of days to consider as recent (default: 7)
+        
+        Returns:
+            bool: True if delivery date is within specified days
+        """
+        cutoff_date = timezone.now().date() - timedelta(days=days)
+        return self.delivery_date >= cutoff_date
+
+
+class UpcomingWork(models.Model):
+    """
+    Upcoming Work Model
+    
+    Represents planned activities for the next reporting period.
+    Includes planned dates and priority levels.
+    
+    Attributes:
+        report (ForeignKey): Associated monthly report
+        activity_description (TextField): Description of planned activity
+        planned_start_date (DateField): Planned start date
+        planned_end_date (DateField): Planned end date
+        priority (CharField): Priority level (low, medium, high)
+        notes (TextField): Additional notes
+        created_at (DateTimeField): Timestamp of creation
+        updated_at (DateTimeField): Timestamp of last update
+    """
+    
+    PRIORITY_CHOICES = (
+        ('low', _('Low')),
+        ('medium', _('Medium')),
+        ('high', _('High')),
+    )
+    
+    report = models.ForeignKey(
+        MonthlyReport,
+        on_delete=models.CASCADE,
+        related_name='upcoming_works',
+        help_text=_('Monthly report this upcoming work belongs to')
+    )
+    
+    activity_description = models.TextField(
+        help_text=_('Description of planned activity for next month (supports Arabic)')
+    )
+    
+    planned_start_date = models.DateField(
+        null=True,
+        blank=True,
+        help_text=_('Planned start date for this activity')
+    )
+    
+    planned_end_date = models.DateField(
+        null=True,
+        blank=True,
+        help_text=_('Planned end date for this activity')
+    )
+    
+    priority = models.CharField(
+        max_length=20,
+        choices=PRIORITY_CHOICES,
+        default='medium',
+        help_text=_('Priority level: Low, Medium, or High')
+    )
+    
+    notes = models.TextField(
+        blank=True,
+        help_text=_('Additional notes, requirements, or special instructions')
+    )
+    
+    created_at = models.DateTimeField(
+        auto_now_add=True,
+        help_text=_('Timestamp of upcoming work creation')
+    )
+    
+    updated_at = models.DateTimeField(
+        auto_now=True,
+        help_text=_('Timestamp of last update')
+    )
+    
+    class Meta:
+        verbose_name = _('Upcoming Work')
+        verbose_name_plural = _('Upcoming Works')
+        ordering = ['report', 'priority', 'planned_start_date']
+        indexes = [
+            models.Index(fields=['report', 'priority']),
+            models.Index(fields=['planned_start_date']),
+        ]
+    
+    def __str__(self):
+        """String representation of upcoming work"""
+        return f"{self.report.report_number} - Upcoming Work ({self.get_priority_display()})"
+    
+    def __repr__(self):
+        """Developer-friendly representation"""
+        return f"<UpcomingWork: Report {self.report.report_number}, Priority {self.priority}>"
+    
+    def get_priority_color(self):
+        """
+        Get Bootstrap color class based on priority
+        
+        Returns:
+            str: Bootstrap color class (info, warning, danger)
+        """
+        if self.priority == 'low':
+            return 'info'
+        elif self.priority == 'medium':
+            return 'warning'
+        else:
+            return 'danger'
+    
+    def get_planned_duration_days(self):
+        """
+        Calculate planned duration in days
+        
+        Returns:
+            int: Number of days (0 if dates not set)
+        """
+        if self.planned_start_date and self.planned_end_date:
+            delta = self.planned_end_date - self.planned_start_date
+            return delta.days + 1
+        return 0
+    
+    def is_high_priority(self):
+        """
+        Check if work is high priority
+        
+        Returns:
+            bool: True if priority is high
+        """
+        return self.priority == 'high'
+    
+    def is_overdue(self):
+        """
+        Check if planned start date has passed
+        
+        Returns:
+            bool: True if planned start date is in the past
+        """
+        if self.planned_start_date:
+            return self.planned_start_date < timezone.now().date()
+        return False
+
+
+class ReportAttachment(models.Model):
+    """
+    Report Attachment Model
+    
+    Represents photos, documents, or other files attached to a monthly report.
+    Supports various attachment types for different purposes.
+    
+    Attributes:
+        report (ForeignKey): Associated monthly report
+        attachment_type (CharField): Type of attachment
+        file (FileField): Uploaded file
+        description (CharField): Description of attachment
+        uploaded_by (ForeignKey): User who uploaded the file
+        uploaded_at (DateTimeField): Timestamp of upload
+    """
+    
+    ATTACHMENT_TYPE_CHOICES = (
+        ('floor_activity', _('Floor Activity Photo')),
+        ('external_work', _('External Work Photo')),
+        ('material', _('Material Photo')),
+        ('document', _('Document')),
+        ('other', _('Other')),
+    )
+    
+    report = models.ForeignKey(
+        MonthlyReport,
+        on_delete=models.CASCADE,
+        related_name='attachments',
+        help_text=_('Monthly report this attachment belongs to')
+    )
+    
+    attachment_type = models.CharField(
+        max_length=20,
+        choices=ATTACHMENT_TYPE_CHOICES,
+        help_text=_('Type of attachment')
+    )
+    
+    file = models.FileField(
+        upload_to='reports/%Y/%m/',
+        help_text=_('Uploaded file (image or document)')
+    )
+    
+    description = models.CharField(
+        max_length=255,
+        blank=True,
+        help_text=_('Description or caption for the attachment')
+    )
+    
+    uploaded_by = models.ForeignKey(
+        CustomUser,
+        on_delete=models.SET_NULL,
+        null=True,
+        help_text=_('User who uploaded this file')
+    )
+    
+    uploaded_at = models.DateTimeField(
+        auto_now_add=True,
+        help_text=_('Timestamp of file upload')
+    )
+    
+    class Meta:
+        verbose_name = _('Report Attachment')
+        verbose_name_plural = _('Report Attachments')
+        ordering = ['report', '-uploaded_at']
+        indexes = [
+            models.Index(fields=['report', 'attachment_type']),
+            models.Index(fields=['uploaded_by']),
+        ]
+    
+    def __str__(self):
+        """String representation of attachment"""
+        return f"{self.report.report_number} - {self.get_attachment_type_display()}"
+    
+    def __repr__(self):
+        """Developer-friendly representation"""
+        return f"<ReportAttachment: {self.get_attachment_type_display()}>"
+    
+    def get_file_extension(self):
+        """
+        Get file extension
+        
+        Returns:
+            str: File extension (e.g., 'pdf', 'jpg')
+        """
+        if self.file:
+            return self.file.name.split('.')[-1].lower()
+        return None
+    
+    def is_image(self):
+        """
+        Check if attachment is an image
+        
+        Returns:
+            bool: True if file is an image
+        """
+        image_extensions = ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp']
+        return self.get_file_extension() in image_extensions
+    
+    def is_document(self):
+        """
+        Check if attachment is a document
+        
+        Returns:
+            bool: True if file is a document
+        """
+        doc_extensions = ['pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'txt']
+        return self.get_file_extension() in doc_extensions
+    
+    def get_file_size_mb(self):
+        """
+        Get file size in megabytes
+        
+        Returns:
+            float: File size in MB
+        """
+        if self.file:
+            return round(self.file.size / (1024 * 1024), 2)
+        return 0
+
+
+
+# ============================================================================
+# DAILY CONSTRUCTION REPORT (DCR) MODELS
+# ============================================================================
+
+class DailyConstructionReport(models.Model):
+    """
+    Daily Construction Report (DCR) Model
+    
+    Represents a daily construction report for a project.
+    Includes workforce, equipment, activities, materials, and visitors information.
+    
+    Attributes:
+        report_number (str): Auto-generated unique report identifier (DCR-XXXX-XXXX)
+        project (ForeignKey): Associated construction project
+        site_engineer (ForeignKey): Site engineer who created the report
+        report_date (DateField): Date of the daily report
+        weather_conditions (TextField): Weather conditions on the day
+        status (str): Report status (draft, submitted, approved, archived)
+        approved_by (ForeignKey): Project manager who approved the report
+        approval_date (DateTimeField): When report was approved
+        remarks (TextField): General remarks and observations
+        created_at (DateTimeField): Timestamp of creation
+        updated_at (DateTimeField): Timestamp of last update
+    """
+    
+    REPORT_STATUS_CHOICES = [
+        ('draft', _('Draft')),
+        ('submitted', _('Submitted')),
+        ('approved', _('Approved')),
+        ('archived', _('Archived')),
+    ]
+    
+    report_number = models.CharField(
+        max_length=50,
+        unique=True,
+        editable=False,
+        help_text=_('Auto-generated unique report identifier')
+    )
+    
+    project = models.ForeignKey(
+        Project,
+        on_delete=models.CASCADE,
+        related_name='daily_reports',
+        help_text=_('Construction project this report belongs to')
+    )
+    
+    site_engineer = models.ForeignKey(
+        CustomUser,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name='daily_reports_created',
+        help_text=_('Site engineer who created this report')
+    )
+    
+    report_date = models.DateField(
+        default=timezone.now,
+        help_text=_('Date of the daily report')
+    )
+    
+    weather_conditions = models.TextField(
+        blank=True,
+        help_text=_('Weather conditions on the day (supports Arabic)')
+    )
+    
+    status = models.CharField(
+        max_length=20,
+        choices=REPORT_STATUS_CHOICES,
+        default='draft',
+        help_text=_('Current status of the report')
+    )
+    
+    approved_by = models.ForeignKey(
+        CustomUser,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='daily_reports_approved',
+        help_text=_('Project manager who approved this report')
+    )
+    
+    approval_date = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text=_('Timestamp when report was approved')
+    )
+    
+    remarks = models.TextField(
+        blank=True,
+        help_text=_('General remarks and observations (supports Arabic)')
+    )
+    
+    created_at = models.DateTimeField(
+        auto_now_add=True,
+        help_text=_('Timestamp of report creation')
+    )
+    
+    updated_at = models.DateTimeField(
+        auto_now=True,
+        help_text=_('Timestamp of last update')
+    )
+    
+    class Meta:
+        verbose_name = _('Daily Construction Report')
+        verbose_name_plural = _('Daily Construction Reports')
+        ordering = ['-report_date', '-created_at']
+        indexes = [
+            models.Index(fields=['project', 'report_date']),
+            models.Index(fields=['status']),
+            models.Index(fields=['site_engineer']),
+        ]
+        permissions = [
+            ('can_approve_daily_report', _('Can approve daily reports')),
+            ('can_archive_daily_report', _('Can archive daily reports')),
+        ]
+    
+    def save(self, *args, **kwargs):
+        """Generate report number on creation"""
+        if not self.report_number:
+            self.report_number = self._generate_report_number()
+        super().save(*args, **kwargs)
+    
+    def _generate_report_number(self):
+        """Generate unique report number in format DCR-SYMBOL-TIMESTAMP"""
+        symbol = self.project.project_symbol or 'PRJ'
+        timestamp = timezone.now().strftime('%Y%m%d%H%M%S')
+        return f"DCR-{symbol}-{timestamp}"
+    
+    def __str__(self):
+        """String representation"""
+        return f"{self.report_number} - {self.report_date}"
+    
+    def __repr__(self):
+        """Developer-friendly representation"""
+        return f"<DailyConstructionReport: {self.report_number}>"
+    
+    def is_draft(self):
+        """Check if report is in draft status"""
+        return self.status == 'draft'
+    
+    def is_submitted(self):
+        """Check if report is submitted"""
+        return self.status == 'submitted'
+    
+    def is_approved(self):
+        """Check if report is approved"""
+        return self.status == 'approved'
+    
+    def is_archived(self):
+        """Check if report is archived"""
+        return self.status == 'archived'
+    
+    def can_edit(self, user):
+        """Check if user can edit this report"""
+        return self.is_draft() and (self.site_engineer == user or user.is_admin)
+    
+    def can_submit(self):
+        """Check if report can be submitted"""
+        return self.is_draft()
+    
+    def can_approve(self):
+        """Check if report can be approved"""
+        return self.is_submitted()
+    
+    def submit(self):
+        """Submit report for approval"""
+        if self.can_submit():
+            self.status = 'submitted'
+            self.save()
+            return True
+        return False
+    
+    def approve(self, approved_by_user):
+        """Approve report"""
+        if self.can_approve():
+            self.status = 'approved'
+            self.approved_by = approved_by_user
+            self.approval_date = timezone.now()
+            self.save()
+            return True
+        return False
+    
+    def archive(self):
+        """Archive report"""
+        self.status = 'archived'
+        self.save()
+        return True
+
+
+class WorkForce(models.Model):
+    """
+    Work Force Model
+    
+    Tracks workforce information for a daily report.
+    Includes management and labor categories.
+    
+    Attributes:
+        report (ForeignKey): Associated daily report
+        category (str): Category of workforce (management, labor)
+        designation (str): Job designation or title
+        count (int): Number of workers in this category
+    """
+    
+    CATEGORY_CHOICES = [
+        ('management', _('Management')),
+        ('labor', _('Labor')),
+    ]
+    
+    report = models.ForeignKey(
+        DailyConstructionReport,
+        on_delete=models.CASCADE,
+        related_name='workforce',
+        help_text=_('Daily report this workforce belongs to')
+    )
+    
+    category = models.CharField(
+        max_length=20,
+        choices=CATEGORY_CHOICES,
+        help_text=_('Category of workforce')
+    )
+    
+    designation = models.CharField(
+        max_length=255,
+        help_text=_('Job designation or title (e.g., Site Manager, Laborer)')
+    )
+    
+    count = models.IntegerField(
+        validators=[MinValueValidator(0)],
+        help_text=_('Number of workers in this category')
+    )
+    
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        verbose_name = _('Work Force')
+        verbose_name_plural = _('Work Forces')
+        ordering = ['report', 'category', 'designation']
+        indexes = [
+            models.Index(fields=['report', 'category']),
+        ]
+    
+    def __str__(self):
+        """String representation"""
+        return f"{self.report.report_number} - {self.designation} ({self.count})"
+
+
+class Equipment(models.Model):
+    """
+    Equipment Model
+    
+    Tracks equipment on site for a daily report.
+    Includes hours worked and quantity idle.
+    
+    Attributes:
+        report (ForeignKey): Associated daily report
+        equipment_name (str): Name of equipment
+        hours_worked (decimal): Hours the equipment worked
+        quantity_idle (int): Quantity of equipment idle
+    """
+    
+    report = models.ForeignKey(
+        DailyConstructionReport,
+        on_delete=models.CASCADE,
+        related_name='equipment',
+        help_text=_('Daily report this equipment belongs to')
+    )
+    
+    equipment_name = models.CharField(
+        max_length=255,
+        help_text=_('Name of equipment (e.g., Excavator, Crane, Mixer)')
+    )
+    
+    hours_worked = models.DecimalField(
+        max_digits=6,
+        decimal_places=2,
+        validators=[MinValueValidator(0)],
+        help_text=_('Hours the equipment worked')
+    )
+    
+    quantity_idle = models.IntegerField(
+        validators=[MinValueValidator(0)],
+        default=0,
+        help_text=_('Quantity of equipment idle')
+    )
+    
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        verbose_name = _('Equipment')
+        verbose_name_plural = _('Equipment')
+        ordering = ['report', 'equipment_name']
+        indexes = [
+            models.Index(fields=['report']),
+        ]
+    
+    def __str__(self):
+        """String representation"""
+        return f"{self.report.report_number} - {self.equipment_name}"
+
+
+class DailyActivity(models.Model):
+    """
+    Daily Activity Model
+    
+    Tracks construction and pre-construction activities for a daily report.
+    
+    Attributes:
+        report (ForeignKey): Associated daily report
+        activity_type (str): Type of activity (pre-construction, construction)
+        activity_description (TextField): Description of activity
+        location (str): Location where activity was performed
+    """
+    
+    ACTIVITY_TYPE_CHOICES = [
+        ('pre_construction', _('Pre-Construction')),
+        ('construction', _('Construction')),
+    ]
+    
+    report = models.ForeignKey(
+        DailyConstructionReport,
+        on_delete=models.CASCADE,
+        related_name='daily_activities',
+        help_text=_('Daily report this activity belongs to')
+    )
+    
+    activity_type = models.CharField(
+        max_length=20,
+        choices=ACTIVITY_TYPE_CHOICES,
+        help_text=_('Type of activity')
+    )
+    
+    activity_description = models.TextField(
+        help_text=_('Detailed description of activity (supports Arabic)')
+    )
+    
+    location = models.CharField(
+        max_length=255,
+        blank=True,
+        help_text=_('Location where activity was performed')
+    )
+    
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        verbose_name = _('Daily Activity')
+        verbose_name_plural = _('Daily Activities')
+        ordering = ['report', 'activity_type', '-created_at']
+        indexes = [
+            models.Index(fields=['report', 'activity_type']),
+        ]
+    
+    def __str__(self):
+        """String representation"""
+        return f"{self.report.report_number} - {self.get_activity_type_display()}"
+
+
+class DailyMaterial(models.Model):
+    """
+    Daily Material Model
+    
+    Tracks materials delivered to site for a daily report.
+    
+    Attributes:
+        report (ForeignKey): Associated daily report
+        material_description (str): Description of material
+        quantity (decimal): Quantity delivered
+        unit (str): Unit of measurement
+    """
+    
+    report = models.ForeignKey(
+        DailyConstructionReport,
+        on_delete=models.CASCADE,
+        related_name='daily_materials',
+        help_text=_('Daily report this material belongs to')
+    )
+    
+    material_description = models.CharField(
+        max_length=255,
+        help_text=_('Description of material')
+    )
+    
+    quantity = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        validators=[MinValueValidator(0)],
+        help_text=_('Quantity delivered')
+    )
+    
+    unit = models.CharField(
+        max_length=50,
+        help_text=_('Unit of measurement (e.g., m3, kg, pieces)')
+    )
+    
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        verbose_name = _('Daily Material')
+        verbose_name_plural = _('Daily Materials')
+        ordering = ['report', '-created_at']
+        indexes = [
+            models.Index(fields=['report']),
+        ]
+    
+    def __str__(self):
+        """String representation"""
+        return f"{self.report.report_number} - {self.material_description}"
+
+
+class Visitor(models.Model):
+    """
+    Visitor Model
+    
+    Tracks visitors to the site for a daily report.
+    
+    Attributes:
+        report (ForeignKey): Associated daily report
+        visit_time (TimeField): Time of visit
+        visitor_name (str): Name of visitor
+        representing (str): Organization/company visitor represents
+        remarks (TextField): Remarks about the visit
+    """
+    
+    report = models.ForeignKey(
+        DailyConstructionReport,
+        on_delete=models.CASCADE,
+        related_name='visitors',
+        help_text=_('Daily report this visitor belongs to')
+    )
+    
+    visit_time = models.TimeField(
+        help_text=_('Time of visit')
+    )
+    
+    visitor_name = models.CharField(
+        max_length=255,
+        help_text=_('Name of visitor')
+    )
+    
+    representing = models.CharField(
+        max_length=255,
+        blank=True,
+        help_text=_('Organization or company the visitor represents')
+    )
+    
+    remarks = models.TextField(
+        blank=True,
+        help_text=_('Remarks about the visit (supports Arabic)')
+    )
+    
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        verbose_name = _('Visitor')
+        verbose_name_plural = _('Visitors')
+        ordering = ['report', 'visit_time']
+        indexes = [
+            models.Index(fields=['report']),
+        ]
+    
+    def __str__(self):
+        """String representation"""
+        return f"{self.report.report_number} - {self.visitor_name}"
+
+
+class DailyReportAttachment(models.Model):
+    """
+    Daily Report Attachment Model
+    
+    Stores photos and documents for daily reports.
+    
+    Attributes:
+        report (ForeignKey): Associated daily report
+        file (FileField): Attached file (photo or document)
+        file_type (str): Type of file (photo, document)
+        caption (str): Caption or description
+        uploaded_at (DateTimeField): Upload timestamp
+    """
+    
+    FILE_TYPE_CHOICES = [
+        ('photo', _('Photo')),
+        ('document', _('Document')),
+    ]
+    
+    report = models.ForeignKey(
+        DailyConstructionReport,
+        on_delete=models.CASCADE,
+        related_name='attachments',
+        help_text=_('Daily report this attachment belongs to')
+    )
+    
+    file = models.FileField(
+        upload_to='daily_reports/%Y/%m/%d/',
+        help_text=_('Photo or document file')
+    )
+    
+    file_type = models.CharField(
+        max_length=20,
+        choices=FILE_TYPE_CHOICES,
+        default='photo',
+        help_text=_('Type of file')
+    )
+    
+    caption = models.CharField(
+        max_length=255,
+        blank=True,
+        help_text=_('Caption or description of the file')
+    )
+    
+    uploaded_at = models.DateTimeField(
+        auto_now_add=True,
+        help_text=_('Timestamp of upload')
+    )
+    
+    class Meta:
+        verbose_name = _('Daily Report Attachment')
+        verbose_name_plural = _('Daily Report Attachments')
+        ordering = ['report', '-uploaded_at']
+        indexes = [
+            models.Index(fields=['report', 'file_type']),
+        ]
+    
+    def __str__(self):
+        """String representation"""
+        return f"{self.report.report_number} - {self.get_file_type_display()}"

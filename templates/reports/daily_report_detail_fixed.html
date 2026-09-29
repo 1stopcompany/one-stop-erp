@@ -1,0 +1,864 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Daily Report {{ report.report_number }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col-md-8">
+            <h1 class="h3 mb-2">
+                <i class="fas fa-calendar-day"></i> {{ report.report_number }}
+            </h1>
+            <p class="text-muted">
+                <i class="fas fa-calendar"></i> {{ report.report_date|date:"d F Y" }} | 
+                <i class="fas fa-building"></i> {{ report.project.name }}
+            </p>
+        </div>
+        <div class="col-md-4 text-end">
+            <!-- Status Badge -->
+            {% if report.status == 'draft' %}
+                <span class="badge bg-secondary fs-6">Draft</span>
+            {% elif report.status == 'submitted' %}
+                <span class="badge bg-warning fs-6">Submitted</span>
+            {% elif report.status == 'approved' %}
+                <span class="badge bg-success fs-6">Approved</span>
+            {% elif report.status == 'archived' %}
+                <span class="badge bg-dark fs-6">Archived</span>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Alert Messages -->
+    <div id="alertContainer"></div>
+
+    <!-- Action Buttons -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="btn-group" role="group">
+                {% if report.status == 'draft' and request.user == report.site_engineer %}
+                <a href="{% url 'reports:daily_report_update' report.pk %}" class="btn btn-warning">
+                    <i class="fas fa-edit"></i> Edit
+                </a>
+                <a href="{% url 'reports:submit_daily_report' report.pk %}" class="btn btn-info">
+                    <i class="fas fa-paper-plane"></i> Submit for Approval
+                </a>
+                {% endif %}
+
+                {% if report.status == 'submitted' and request.user == report.project.manager %}
+                <a href="{% url 'reports:approve_daily_report' report.pk %}" class="btn btn-success">
+                    <i class="fas fa-check"></i> Approve
+                </a>
+                {% endif %}
+
+                {% if report.status != 'archived' %}
+                <a href="{% url 'reports:export_daily_pdf' report.pk %}" class="btn btn-danger">
+                    <i class="fas fa-file-pdf"></i> Export PDF
+                </a>
+                {% endif %}
+
+                <a href="{% url 'reports:daily_report_list' %}" class="btn btn-secondary">
+                    <i class="fas fa-arrow-left"></i> Back to List
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Report Information -->
+    <div class="row mb-4">
+        <div class="col-lg-8">
+            <div class="card">
+                <div class="card-header bg-light">
+                    <h5 class="mb-0"><i class="fas fa-info-circle"></i> Report Information</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <p class="text-muted mb-1">Report Number</p>
+                            <p class="fs-5"><strong>{{ report.report_number }}</strong></p>
+                        </div>
+                        <div class="col-md-6">
+                            <p class="text-muted mb-1">Report Date</p>
+                            <p class="fs-5"><strong>{{ report.report_date|date:"d F Y" }}</strong></p>
+                        </div>
+                    </div>
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <p class="text-muted mb-1">Site Engineer</p>
+                            <p class="fs-5"><strong>{{ report.site_engineer.get_full_name }}</strong></p>
+                        </div>
+                        <div class="col-md-6">
+                            <p class="text-muted mb-1">Project</p>
+                            <p class="fs-5"><strong>{{ report.project.name }}</strong></p>
+                        </div>
+                    </div>
+                    {% if report.weather_conditions %}
+                    <div class="mb-3">
+                        <p class="text-muted mb-1"><i class="fas fa-cloud"></i> Weather Conditions</p>
+                        <p>{{ report.weather_conditions }}</p>
+                    </div>
+                    {% endif %}
+                    {% if report.remarks %}
+                    <div class="mb-3">
+                        <p class="text-muted mb-1"><i class="fas fa-sticky-note"></i> Remarks</p>
+                        <p>{{ report.remarks }}</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Metadata -->
+        <div class="col-lg-4">
+            <div class="card">
+                <div class="card-header bg-light">
+                    <h5 class="mb-0"><i class="fas fa-history"></i> Metadata</h5>
+                </div>
+                <div class="card-body">
+                    <p class="text-muted mb-1">Status</p>
+                    <p class="mb-3">
+                        {% if report.status == 'draft' %}
+                            <span class="badge bg-secondary">Draft</span>
+                        {% elif report.status == 'submitted' %}
+                            <span class="badge bg-warning">Submitted</span>
+                        {% elif report.status == 'approved' %}
+                            <span class="badge bg-success">Approved</span>
+                        {% elif report.status == 'archived' %}
+                            <span class="badge bg-dark">Archived</span>
+                        {% endif %}
+                    </p>
+
+                    <p class="text-muted mb-1">Created</p>
+                    <p class="mb-3">{{ report.created_at|date:"d M Y H:i" }}</p>
+
+                    <p class="text-muted mb-1">Last Updated</p>
+                    <p class="mb-3">{{ report.updated_at|date:"d M Y H:i" }}</p>
+
+                    {% if report.approved_by %}
+                    <p class="text-muted mb-1">Approved By</p>
+                    <p class="mb-3">{{ report.approved_by.get_full_name }}</p>
+
+                    <p class="text-muted mb-1">Approval Date</p>
+                    <p>{{ report.approval_date|date:"d M Y H:i" }}</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Workforce Section -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header bg-light d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0"><i class="fas fa-users"></i> Workforce</h5>
+                    {% if report.status == 'draft' and request.user == report.site_engineer %}
+                    <button type="button" class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#addWorkforceModal">
+                        <i class="fas fa-plus"></i> Add
+                    </button>
+                    {% endif %}
+                </div>
+                <div class="card-body">
+                    {% if workforce %}
+                    <div class="table-responsive">
+                        <table class="table table-sm mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Category</th>
+                                    <th>Designation</th>
+                                    <th>Count</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="workforceTable">
+                                {% for item in workforce %}
+                                <tr id="workforce-{{ item.id }}">
+                                    <td><strong>{{ item.get_category_display }}</strong></td>
+                                    <td>{{ item.designation }}</td>
+                                    <td>{{ item.count }}</td>
+                                    <td>
+                                        {% if report.status == 'draft' and request.user == report.site_engineer %}
+                                        <button class="btn btn-sm btn-danger" onclick="deleteWorkforce({{ item.id }})">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <p class="text-muted text-center py-3">No workforce recorded</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Equipment Section -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header bg-light d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0"><i class="fas fa-cogs"></i> Equipment on Site</h5>
+                    {% if report.status == 'draft' and request.user == report.site_engineer %}
+                    <button type="button" class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#addEquipmentModal">
+                        <i class="fas fa-plus"></i> Add
+                    </button>
+                    {% endif %}
+                </div>
+                <div class="card-body">
+                    {% if equipment %}
+                    <div class="table-responsive">
+                        <table class="table table-sm mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Equipment Name</th>
+                                    <th>Hours Worked</th>
+                                    <th>Quantity Idle</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="equipmentTable">
+                                {% for item in equipment %}
+                                <tr id="equipment-{{ item.id }}">
+                                    <td><strong>{{ item.equipment_name }}</strong></td>
+                                    <td>{{ item.hours_worked }} hrs</td>
+                                    <td>{{ item.quantity_idle }}</td>
+                                    <td>
+                                        {% if report.status == 'draft' and request.user == report.site_engineer %}
+                                        <button class="btn btn-sm btn-danger" onclick="deleteEquipment({{ item.id }})">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <p class="text-muted text-center py-3">No equipment recorded</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Activities Section -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header bg-light d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0"><i class="fas fa-tasks"></i> Daily Activities</h5>
+                    {% if report.status == 'draft' and request.user == report.site_engineer %}
+                    <button type="button" class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#addActivityModal">
+                        <i class="fas fa-plus"></i> Add
+                    </button>
+                    {% endif %}
+                </div>
+                <div class="card-body">
+                    {% if activities %}
+                    <div class="table-responsive">
+                        <table class="table table-sm mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Description</th>
+                                    <th>Progress %</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="activityTable">
+                                {% for item in activities %}
+                                <tr id="activity-{{ item.id }}">
+                                    <td>{{ item.description }}</td>
+                                    <td>
+                                        <div class="progress" style="height: 20px;">
+                                            <div class="progress-bar" role="progressbar" style="width: {{ item.progress_percentage }}%;" aria-valuenow="{{ item.progress_percentage }}" aria-valuemin="0" aria-valuemax="100">
+                                                {{ item.progress_percentage }}%
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        {% if report.status == 'draft' and request.user == report.site_engineer %}
+                                        <button class="btn btn-sm btn-danger" onclick="deleteActivity({{ item.id }})">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <p class="text-muted text-center py-3">No activities recorded</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Materials Section -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header bg-light d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0"><i class="fas fa-boxes"></i> Materials Used</h5>
+                    {% if report.status == 'draft' and request.user == report.site_engineer %}
+                    <button type="button" class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#addMaterialModal">
+                        <i class="fas fa-plus"></i> Add
+                    </button>
+                    {% endif %}
+                </div>
+                <div class="card-body">
+                    {% if materials %}
+                    <div class="table-responsive">
+                        <table class="table table-sm mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Material Name</th>
+                                    <th>Quantity</th>
+                                    <th>Unit</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="materialTable">
+                                {% for item in materials %}
+                                <tr id="material-{{ item.id }}">
+                                    <td><strong>{{ item.material_name }}</strong></td>
+                                    <td>{{ item.quantity }}</td>
+                                    <td>{{ item.unit }}</td>
+                                    <td>
+                                        {% if report.status == 'draft' and request.user == report.site_engineer %}
+                                        <button class="btn btn-sm btn-danger" onclick="deleteMaterial({{ item.id }})">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <p class="text-muted text-center py-3">No materials recorded</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Visitors Section -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header bg-light d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0"><i class="fas fa-user-tie"></i> Visitors</h5>
+                    {% if report.status == 'draft' and request.user == report.site_engineer %}
+                    <button type="button" class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#addVisitorModal">
+                        <i class="fas fa-plus"></i> Add
+                    </button>
+                    {% endif %}
+                </div>
+                <div class="card-body">
+                    {% if visitors %}
+                    <div class="table-responsive">
+                        <table class="table table-sm mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Visitor Name</th>
+                                    <th>Purpose</th>
+                                    <th>Time In</th>
+                                    <th>Time Out</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="visitorTable">
+                                {% for item in visitors %}
+                                <tr id="visitor-{{ item.id }}">
+                                    <td><strong>{{ item.visitor_name }}</strong></td>
+                                    <td>{{ item.purpose_of_visit }}</td>
+                                    <td>{{ item.time_in|time:"H:i" }}</td>
+                                    <td>{{ item.time_out|time:"H:i"|default:"--" }}</td>
+                                    <td>
+                                        {% if report.status == 'draft' and request.user == report.site_engineer %}
+                                        <button class="btn btn-sm btn-danger" onclick="deleteVisitor({{ item.id }})">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <p class="text-muted text-center py-3">No visitors recorded</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Attachments Section -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header bg-light d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0"><i class="fas fa-paperclip"></i> Attachments</h5>
+                    {% if report.status == 'draft' and request.user == report.site_engineer %}
+                    <button type="button" class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#addAttachmentModal">
+                        <i class="fas fa-plus"></i> Add
+                    </button>
+                    {% endif %}
+                </div>
+                <div class="card-body">
+                    {% if attachments %}
+                    <div class="row" id="attachmentContainer">
+                        {% for item in attachments %}
+                        <div class="col-md-6 col-lg-4 mb-3" id="attachment-{{ item.id }}">
+                            <div class="card h-100">
+                                <div class="card-body">
+                                    <p class="text-muted mb-1">
+                                        {% if item.file_type == 'photo' %}
+                                        <i class="fas fa-image"></i> Photo
+                                        {% else %}
+                                        <i class="fas fa-file"></i> Document
+                                        {% endif %}
+                                    </p>
+                                    <p class="card-text"><strong>{{ item.caption|default:"Untitled" }}</strong></p>
+                                    <p class="text-muted small">{{ item.uploaded_at|date:"d M Y H:i" }}</p>
+                                    <a href="{{ item.file.url }}" class="btn btn-sm btn-primary" target="_blank">
+                                        <i class="fas fa-download"></i> Download
+                                    </a>
+                                    {% if report.status == 'draft' and request.user == report.site_engineer %}
+                                    <button class="btn btn-sm btn-danger" onclick="deleteAttachment({{ item.id }})">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <p class="text-muted text-center py-3">No attachments</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- MODALS FOR ADDING ITEMS -->
+
+<!-- Add Workforce Modal -->
+<div class="modal fade" id="addWorkforceModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Add Workforce</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="workforceForm">
+                {% csrf_token %}
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="workforceCategory" class="form-label">Category *</label>
+                        <input type="text" class="form-control" id="workforceCategory" name="category" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="workforceDesignation" class="form-label">Designation</label>
+                        <input type="text" class="form-control" id="workforceDesignation" name="designation">
+                    </div>
+                    <div class="mb-3">
+                        <label for="workforceCount" class="form-label">Count *</label>
+                        <input type="number" class="form-control" id="workforceCount" name="count" min="1" required>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Add Workforce</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Add Equipment Modal -->
+<div class="modal fade" id="addEquipmentModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Add Equipment</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="equipmentForm">
+                {% csrf_token %}
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="equipmentName" class="form-label">Equipment Name *</label>
+                        <input type="text" class="form-control" id="equipmentName" name="equipment_name" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="hoursWorked" class="form-label">Hours Worked *</label>
+                        <input type="number" class="form-control" id="hoursWorked" name="hours_worked" min="0" step="0.5" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="quantityIdle" class="form-label">Quantity Idle</label>
+                        <input type="number" class="form-control" id="quantityIdle" name="quantity_idle" min="0">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Add Equipment</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Add Activity Modal -->
+<div class="modal fade" id="addActivityModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Add Activity</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="activityForm">
+                {% csrf_token %}
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="activityDescription" class="form-label">Description *</label>
+                        <textarea class="form-control" id="activityDescription" name="description" rows="3" required></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label for="progressPercentage" class="form-label">Progress % *</label>
+                        <input type="number" class="form-control" id="progressPercentage" name="progress_percentage" min="0" max="100" required>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Add Activity</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Add Material Modal -->
+<div class="modal fade" id="addMaterialModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Add Material</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="materialForm">
+                {% csrf_token %}
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="materialName" class="form-label">Material Name *</label>
+                        <input type="text" class="form-control" id="materialName" name="material_name" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="materialQuantity" class="form-label">Quantity *</label>
+                        <input type="number" class="form-control" id="materialQuantity" name="quantity" min="0" step="0.01" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="materialUnit" class="form-label">Unit *</label>
+                        <input type="text" class="form-control" id="materialUnit" name="unit" placeholder="e.g., kg, liters, pieces" required>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Add Material</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Add Visitor Modal -->
+<div class="modal fade" id="addVisitorModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Add Visitor</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="visitorForm">
+                {% csrf_token %}
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="visitorName" class="form-label">Visitor Name *</label>
+                        <input type="text" class="form-control" id="visitorName" name="visitor_name" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="purposeOfVisit" class="form-label">Purpose of Visit *</label>
+                        <input type="text" class="form-control" id="purposeOfVisit" name="purpose_of_visit" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="timeIn" class="form-label">Time In *</label>
+                        <input type="time" class="form-control" id="timeIn" name="time_in" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="timeOut" class="form-label">Time Out</label>
+                        <input type="time" class="form-control" id="timeOut" name="time_out">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Add Visitor</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Add Attachment Modal -->
+<div class="modal fade" id="addAttachmentModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Add Attachment</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="attachmentForm" enctype="multipart/form-data">
+                {% csrf_token %}
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="attachmentFile" class="form-label">File *</label>
+                        <input type="file" class="form-control" id="attachmentFile" name="file" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="attachmentCaption" class="form-label">Caption</label>
+                        <input type="text" class="form-control" id="attachmentCaption" name="caption">
+                    </div>
+                    <div class="mb-3">
+                        <label for="fileType" class="form-label">File Type *</label>
+                        <select class="form-select" id="fileType" name="file_type" required>
+                            <option value="">Select type...</option>
+                            <option value="photo">Photo</option>
+                            <option value="document">Document</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Upload Attachment</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+const reportId = {{ report.pk }};
+const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+
+// Show alert message
+function showAlert(message, type = 'success') {
+    const alertDiv = document.createElement('div');
+    alertDiv.className = `alert alert-${type} alert-dismissible fade show`;
+    alertDiv.innerHTML = `
+        ${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    `;
+    document.getElementById('alertContainer').appendChild(alertDiv);
+    setTimeout(() => alertDiv.remove(), 5000);
+}
+
+// Add Workforce
+document.getElementById('workforceForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const formData = new FormData(this);
+    
+    try {
+        const response = await fetch(`/reports/api/daily/${reportId}/workforce/`, {
+            method: 'POST',
+            headers: {'X-CSRFToken': csrfToken},
+            body: formData
+        });
+        
+        if (response.ok) {
+            const data = await response.json();
+            location.reload();
+        } else {
+            showAlert('Error adding workforce', 'danger');
+        }
+    } catch (error) {
+        showAlert('Error: ' + error.message, 'danger');
+    }
+});
+
+// Add Equipment
+document.getElementById('equipmentForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const formData = new FormData(this);
+    
+    try {
+        const response = await fetch(`/reports/api/daily/${reportId}/equipment/`, {
+            method: 'POST',
+            headers: {'X-CSRFToken': csrfToken},
+            body: formData
+        });
+        
+        if (response.ok) {
+            location.reload();
+        } else {
+            showAlert('Error adding equipment', 'danger');
+        }
+    } catch (error) {
+        showAlert('Error: ' + error.message, 'danger');
+    }
+});
+
+// Add Activity
+document.getElementById('activityForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const formData = new FormData(this);
+    
+    try {
+        const response = await fetch(`/reports/api/daily/${reportId}/activity/`, {
+            method: 'POST',
+            headers: {'X-CSRFToken': csrfToken},
+            body: formData
+        });
+        
+        if (response.ok) {
+            location.reload();
+        } else {
+            showAlert('Error adding activity', 'danger');
+        }
+    } catch (error) {
+        showAlert('Error: ' + error.message, 'danger');
+    }
+});
+
+// Add Material
+document.getElementById('materialForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const formData = new FormData(this);
+    
+    try {
+        const response = await fetch(`/reports/api/daily/${reportId}/material/`, {
+            method: 'POST',
+            headers: {'X-CSRFToken': csrfToken},
+            body: formData
+        });
+        
+        if (response.ok) {
+            location.reload();
+        } else {
+            showAlert('Error adding material', 'danger');
+        }
+    } catch (error) {
+        showAlert('Error: ' + error.message, 'danger');
+    }
+});
+
+// Add Visitor
+document.getElementById('visitorForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const formData = new FormData(this);
+    
+    try {
+        const response = await fetch(`/reports/api/daily/${reportId}/visitor/`, {
+            method: 'POST',
+            headers: {'X-CSRFToken': csrfToken},
+            body: formData
+        });
+        
+        if (response.ok) {
+            location.reload();
+        } else {
+            showAlert('Error adding visitor', 'danger');
+        }
+    } catch (error) {
+        showAlert('Error: ' + error.message, 'danger');
+    }
+});
+
+// Add Attachment
+document.getElementById('attachmentForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const formData = new FormData(this);
+    
+    try {
+        const response = await fetch(`/reports/api/daily/${reportId}/attachment/`, {
+            method: 'POST',
+            headers: {'X-CSRFToken': csrfToken},
+            body: formData
+        });
+        
+        if (response.ok) {
+            location.reload();
+        } else {
+            showAlert('Error adding attachment', 'danger');
+        }
+    } catch (error) {
+        showAlert('Error: ' + error.message, 'danger');
+    }
+});
+
+// Delete functions
+function deleteWorkforce(id) {
+    if (confirm('Are you sure you want to delete this workforce entry?')) {
+        fetch(`/reports/api/daily/${reportId}/workforce/${id}/`, {
+            method: 'DELETE',
+            headers: {'X-CSRFToken': csrfToken}
+        }).then(r => r.ok ? location.reload() : showAlert('Error deleting', 'danger'));
+    }
+}
+
+function deleteEquipment(id) {
+    if (confirm('Are you sure you want to delete this equipment entry?')) {
+        fetch(`/reports/api/daily/${reportId}/equipment/${id}/`, {
+            method: 'DELETE',
+            headers: {'X-CSRFToken': csrfToken}
+        }).then(r => r.ok ? location.reload() : showAlert('Error deleting', 'danger'));
+    }
+}
+
+function deleteActivity(id) {
+    if (confirm('Are you sure you want to delete this activity?')) {
+        fetch(`/reports/api/daily/${reportId}/activity/${id}/`, {
+            method: 'DELETE',
+            headers: {'X-CSRFToken': csrfToken}
+        }).then(r => r.ok ? location.reload() : showAlert('Error deleting', 'danger'));
+    }
+}
+
+function deleteMaterial(id) {
+    if (confirm('Are you sure you want to delete this material?')) {
+        fetch(`/reports/api/daily/${reportId}/material/${id}/`, {
+            method: 'DELETE',
+            headers: {'X-CSRFToken': csrfToken}
+        }).then(r => r.ok ? location.reload() : showAlert('Error deleting', 'danger'));
+    }
+}
+
+function deleteVisitor(id) {
+    if (confirm('Are you sure you want to delete this visitor?')) {
+        fetch(`/reports/api/daily/${reportId}/visitor/${id}/`, {
+            method: 'DELETE',
+            headers: {'X-CSRFToken': csrfToken}
+        }).then(r => r.ok ? location.reload() : showAlert('Error deleting', 'danger'));
+    }
+}
+
+function deleteAttachment(id) {
+    if (confirm('Are you sure you want to delete this attachment?')) {
+        fetch(`/reports/api/daily/${reportId}/attachment/${id}/`, {
+            method: 'DELETE',
+            headers: {'X-CSRFToken': csrfToken}
+        }).then(r => r.ok ? location.reload() : showAlert('Error deleting', 'danger'));
+    }
+}
+</script>
+{% endblock %}

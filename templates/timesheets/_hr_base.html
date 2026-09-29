@@ -1,0 +1,76 @@
+{% extends 'base.html' %}
+{% comment %}
+Shared HR module shell: every timesheets/*.html page should extend this
+(instead of 'base.html' directly) and fill {% block hr_body %} with its
+own content -- this is what puts a consistent Departments/Positions/etc.
+sub-navigation on every HR page, not just the dashboard. Without it,
+those pages are only reachable by typing their URL directly.
+{% endcomment %}
+
+{% block content %}
+<ul class="nav nav-pills mb-4 flex-wrap gap-1">
+    <li class="nav-item">
+        <a class="nav-link {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}"
+           href="{% url 'timesheets:dashboard' %}">
+            <i class="fas fa-th-large me-1"></i>Overview
+        </a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link {% if request.resolver_match.url_name in 'employee_list,employee_detail,employee_add,employee_edit,employee_attendance' %}active{% endif %}"
+           href="{% url 'timesheets:employee_list' %}">
+            <i class="fas fa-users me-1"></i>Employees
+        </a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link {% if request.resolver_match.url_name in 'department_list,department_add' %}active{% endif %}"
+           href="{% url 'timesheets:department_list' %}">
+            <i class="fas fa-building me-1"></i>Departments
+        </a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link {% if request.resolver_match.url_name in 'position_list,position_add' %}active{% endif %}"
+           href="{% url 'timesheets:position_list' %}">
+            <i class="fas fa-briefcase me-1"></i>Positions
+        </a>
+    </li>
+    <li class="nav-item dropdown">
+        <a class="nav-link dropdown-toggle {% if request.resolver_match.url_name in 'attendance_map,geofence_list,geofence_add,location_tracking,location_history,payroll_run,wages_run,daily_worker_attendance,daily_time_record' %}active{% endif %}"
+           href="#" role="button" data-bs-toggle="dropdown">
+            <i class="fas fa-map-marker-alt me-1"></i>Attendance
+        </a>
+        <ul class="dropdown-menu">
+            <li><a class="dropdown-item fw-bold text-primary" href="{% url 'timesheets:payroll_run' %}"><i class="fas fa-money-check-alt me-1"></i>Salaries</a></li>
+            <li><a class="dropdown-item fw-bold text-success" href="{% url 'timesheets:wages_run' %}"><i class="fas fa-hard-hat me-1"></i>Wages</a></li>
+            <li><hr class="dropdown-divider"></li>
+            <li><a class="dropdown-item" href="{% url 'timesheets:attendance_map' %}">Live Map</a></li>
+            <li><a class="dropdown-item" href="{% url 'timesheets:location_tracking' %}">Location Tracking</a></li>
+            <li><a class="dropdown-item" href="{% url 'timesheets:geofence_list' %}">Geofences</a></li>
+        </ul>
+    </li>
+    <li class="nav-item dropdown">
+        <a class="nav-link dropdown-toggle {% if request.resolver_match.url_name in 'payslip_list,salary_structure_list,salary_structure_add,holiday_list,holiday_add' %}active{% endif %}"
+           href="#" role="button" data-bs-toggle="dropdown">
+            <i class="fas fa-money-check-alt me-1"></i>Payroll
+        </a>
+        <ul class="dropdown-menu">
+            <li><a class="dropdown-item" href="{% url 'timesheets:payslip_list' %}">All Payslips</a></li>
+            <li><a class="dropdown-item" href="{% url 'timesheets:salary_structure_list' %}">Salary Structures</a></li>
+            <li><a class="dropdown-item" href="{% url 'timesheets:holiday_list' %}">Holidays</a></li>
+        </ul>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link {% if request.resolver_match.url_name == 'leave_request_list' %}active{% endif %}"
+           href="{% url 'timesheets:leave_request_list' %}">
+            <i class="fas fa-plane-departure me-1"></i>Leave Requests
+        </a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link {% if request.resolver_match.url_name in 'daily_worker_list,daily_worker_add' %}active{% endif %}"
+           href="{% url 'timesheets:daily_worker_list' %}">
+            <i class="fas fa-hard-hat me-1"></i>Day-Labor Workers
+        </a>
+    </li>
+</ul>
+
+{% block hr_body %}{% endblock %}
+{% endblock %}

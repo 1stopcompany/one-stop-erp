@@ -1,0 +1,82 @@
+{% extends 'timesheets/_hr_base.html' %}
+{% load static %}
+
+{% block title %}{{ title }} - One Stop ERP{% endblock %}
+
+{% block hr_body %}
+<div class="row">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h1 class="h2 mb-0">
+                <i class="fas fa-sliders-h me-2 text-primary"></i>
+                {{ title }}
+            </h1>
+            <a href="{% url 'timesheets:salary_structure_list' %}" class="btn btn-outline-secondary">
+                <i class="fas fa-arrow-left me-2"></i>Back to List
+            </a>
+        </div>
+    </div>
+</div>
+
+<div class="row justify-content-center">
+    <div class="col-lg-8">
+        <div class="card">
+            <div class="card-body">
+                <form method="post" class="needs-validation" novalidate>
+                    {% csrf_token %}
+                    <div class="row g-3">
+                        <div class="col-12">
+                            <label for="{{ form.name.id_for_label }}" class="form-label">
+                                Name <span class="text-danger">*</span>
+                            </label>
+                            {{ form.name }}
+                            {% if form.name.errors %}<div class="invalid-feedback d-block">{{ form.name.errors.0 }}</div>{% endif %}
+                        </div>
+                        <div class="col-md-6">
+                            <label for="{{ form.monthly_working_hours.id_for_label }}" class="form-label">Monthly Working Hours</label>
+                            {{ form.monthly_working_hours }}
+                            <div class="form-text">Salary ÷ this = hourly rate. 30-day month × 8h/day = 240.</div>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="{{ form.daily_working_hours.id_for_label }}" class="form-label">Daily Working Hours</label>
+                            {{ form.daily_working_hours }}
+                        </div>
+                        <div class="col-md-3">
+                            <label for="{{ form.break_hours.id_for_label }}" class="form-label">Unpaid Break (hours)</label>
+                            {{ form.break_hours }}
+                        </div>
+                        <div class="col-md-3">
+                            <label for="{{ form.overtime_multiplier.id_for_label }}" class="form-label">Overtime ×</label>
+                            {{ form.overtime_multiplier }}
+                        </div>
+                        <div class="col-md-3">
+                            <label for="{{ form.weekend_multiplier.id_for_label }}" class="form-label">Weekend ×</label>
+                            {{ form.weekend_multiplier }}
+                        </div>
+                        <div class="col-md-3">
+                            <label for="{{ form.holiday_multiplier.id_for_label }}" class="form-label">Holiday ×</label>
+                            {{ form.holiday_multiplier }}
+                        </div>
+                        <div class="col-md-6 form-check ms-2">
+                            {{ form.is_default }}
+                            <label for="{{ form.is_default.id_for_label }}" class="form-check-label">Default (used when an employee has no structure of their own)</label>
+                        </div>
+                        <div class="col-md-6 form-check ms-2">
+                            {{ form.is_active }}
+                            <label for="{{ form.is_active.id_for_label }}" class="form-check-label">Active</label>
+                        </div>
+                    </div>
+                    <div class="d-flex justify-content-between mt-4">
+                        <a href="{% url 'timesheets:salary_structure_list' %}" class="btn btn-outline-secondary">
+                            <i class="fas fa-times me-2"></i>Cancel
+                        </a>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-save me-2"></i>{{ submit_text }}
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,505 @@
+{% extends 'base.html' %}
+{% load l10n %}
+
+{% block title %}BOQ Editor - {{ project.name }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+
+  <div id="alertContainer"></div>
+
+  <div class="d-flex flex-wrap justify-content-between align-items-center mb-3">
+    <div>
+      <h1 class="h3 mb-1"><i class="bi bi-list-columns-reverse"></i> BOQ Editor</h1>
+      <p class="text-muted mb-0">
+        {{ project.name }} <span class="badge bg-primary">{{ project.project_symbol }}</span>
+        — total phase weight:
+        <strong class="{% if total_weight == 100 %}text-success{% else %}text-danger{% endif %}">{{ total_weight }}%</strong>
+        {% if total_weight != 100 %}<span class="text-danger">(should total 100%)</span>{% endif %}
+      </p>
+    </div>
+    <div class="d-flex flex-wrap gap-2">
+      <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addPhaseModal">
+        <i class="bi bi-plus-circle"></i> Add Phase
+      </button>
+      <button class="btn btn-outline-success" onclick="recalculateWeights()" title="Set every weight to its share of the total contract value">
+        <i class="bi bi-percent"></i> Weights from prices
+      </button>
+      {% if user.is_admin or user.is_project_manager or user.is_engineering_manager or user.is_general_manager %}
+      <a href="{% url 'ai_assistant:project_ai' project.id %}" class="btn btn-outline-primary" title="Read tender documents and drawings into a draft BOQ">
+        <i class="bi bi-stars"></i> AI Assistant
+      </a>
+      {% endif %}
+      <a href="{% url 'reports:boq_pdf' project.id %}" target="_blank" class="btn btn-dark">
+        <i class="bi bi-printer"></i> Print BOQ
+      </a>
+      <a href="{% url 'cost_control:budget_list' %}?project={{ project.id }}" class="btn btn-outline-secondary">
+        <i class="bi bi-graph-up-arrow"></i> Budget vs Actual
+      </a>
+      <a href="{% url 'projects:project_detail' pk=project.id %}" class="btn btn-outline-secondary">
+        <i class="bi bi-arrow-left"></i> Back to Project
+      </a>
+    </div>
+  </div>
+
+  <div class="row g-3 mb-4">
+    <div class="col-md-4"><div class="card"><div class="card-body py-2"><div class="text-muted small">Budget (cost)</div><div class="fs-5 fw-bold">{{ total_budget|floatformat:"2g" }}</div></div></div></div>
+    <div class="col-md-4"><div class="card"><div class="card-body py-2"><div class="text-muted small">Contract (sell)</div><div class="fs-5 fw-bold">{{ total_contract|floatformat:"2g" }}</div></div></div></div>
+    <div class="col-md-4"><div class="card {% if total_margin < 0 %}border-danger{% endif %}"><div class="card-body py-2"><div class="text-muted small">Planned margin</div><div class="fs-5 fw-bold {% if total_margin < 0 %}text-danger{% endif %}">{{ total_margin|floatformat:"2g" }}</div></div></div></div>
+  </div>
+
+  <div class="alert alert-light border small">
+    Price <strong>each phase as a whole</strong> (a lump sum or a single quantity) <em>or</em> price its <strong>sub-items</strong> one by one &mdash; the phase total is
+    always the sum of its sub-items. A phase priced as a whole gets one automatic <em>whole item</em> line so progress can still be recorded on it.
+    Purchases are assigned to these items, and Cost Control compares them with the budget.
+  </div>
+
+  {% for phase in phases %}
+  {% ifchanged phase.section %}{% if phase.section %}<h2 class="h5 mt-4 mb-2 text-primary border-bottom pb-1">{{ phase.section }}</h2>{% endif %}{% endifchanged %}
+  <div class="card shadow-sm mb-4">
+    <div class="card-header bg-light d-flex flex-wrap justify-content-between align-items-center gap-2">
+      <div>
+        <span class="fw-bold text-primary">{{ phase.code }}. {{ phase.name_ar }}</span>
+        {% if phase.name_en %}<span class="text-muted"> — {{ phase.name_en }}</span>{% endif %}
+        <span class="badge bg-secondary ms-2">{{ phase.weight_percentage }}%</span>
+        {% with sub_total=phase.sub_items_weight_total %}
+        <span class="badge {% if sub_total == phase.weight_percentage %}bg-success{% else %}bg-warning text-dark{% endif %} ms-1">
+          sub-items total: {{ sub_total }}%
+        </span>
+        {% endwith %}
+        {% if phase.budget_sum or phase.contract_sum %}
+        <span class="badge bg-light text-dark border ms-1">budget {{ phase.budget_sum|floatformat:"2g" }}</span>
+        <span class="badge bg-light text-dark border">contract {{ phase.contract_sum|floatformat:"2g" }}</span>
+        {% endif %}
+        {% if not phase.has_real_sub_items and phase.quantity is not None %}
+        <span class="badge bg-info text-dark ms-1">priced as a whole: {{ phase.quantity|floatformat:"-3" }} {{ phase.unit }}</span>
+        {% endif %}
+      </div>
+      <div class="d-flex gap-2">
+        <button class="btn btn-sm btn-outline-primary"
+                data-id="{{ phase.id }}" data-code="{{ phase.code }}" data-name-ar="{{ phase.name_ar }}" data-name-en="{{ phase.name_en }}"
+                data-section="{{ phase.section }}" data-weight="{{ phase.weight_percentage|unlocalize }}" data-unit="{{ phase.unit }}"
+                data-qty="{{ phase.quantity|default_if_none:''|unlocalize }}" data-budget="{{ phase.budget_unit_price|unlocalize }}"
+                data-contract="{{ phase.contract_unit_price|unlocalize }}" data-real="{% if phase.has_real_sub_items %}1{% else %}0{% endif %}"
+                onclick="openEditPhase(this)">
+          <i class="bi bi-pencil"></i> Edit
+        </button>
+        <button class="btn btn-sm btn-outline-success" onclick="openAddSubItem({{ phase.id }})">
+          <i class="bi bi-plus-circle"></i> Add Sub-item
+        </button>
+        <button class="btn btn-sm btn-outline-danger" onclick="deletePhase({{ phase.id }})">
+          <i class="bi bi-trash"></i>
+        </button>
+      </div>
+    </div>
+    <div class="card-body p-0">
+      <div class="table-responsive">
+        <table class="table table-sm table-hover mb-0 align-middle">
+          <thead class="table-light">
+            <tr>
+              <th style="width:70px;">No.</th>
+              <th>Sub-item</th>
+              <th style="width:70px;">Unit</th>
+              <th class="text-end" style="width:90px;">Qty</th>
+              <th class="text-end" style="width:100px;">Budget price</th>
+              <th class="text-end" style="width:100px;">Contract price</th>
+              <th class="text-end" style="width:110px;">Contract total</th>
+              <th style="width:80px;">Weight %</th>
+              <th style="width:90px;">Current %</th>
+              <th style="width:200px;"></th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for sub_item in phase.sub_items.all %}
+            <tr>
+              <td class="small text-muted">{{ sub_item.code }}</td>
+              <td>{{ sub_item.name_ar }}{% if sub_item.name_en %} <span class="text-muted small">({{ sub_item.name_en }})</span>{% endif %}
+                {% if sub_item.is_whole %}<span class="badge bg-info text-dark">whole item</span>{% endif %}</td>
+              <td>{{ sub_item.unit|default:"—" }}</td>
+              <td class="text-end">{% if sub_item.quantity is not None %}{{ sub_item.quantity|floatformat:"-3" }}{% else %}—{% endif %}</td>
+              <td class="text-end">{{ sub_item.budget_unit_price|floatformat:"2g" }}</td>
+              <td class="text-end">{{ sub_item.contract_unit_price|floatformat:"2g" }}</td>
+              <td class="text-end">{{ sub_item.contract_total|floatformat:"2g" }}</td>
+              <td>{{ sub_item.weight_percentage }}%</td>
+              <td>
+                <span class="badge bg-info text-dark">{{ sub_item.latest_execution_percentage|floatformat:1 }}%</span>
+              </td>
+              <td class="text-end text-nowrap">
+                <button class="btn btn-sm btn-outline-success" onclick="openUpdateProgress({{ sub_item.id }}, '{{ sub_item.name_ar|escapejs }}')">
+                  <i class="bi bi-graph-up"></i> Update %
+                </button>
+                {% if not sub_item.is_whole %}
+                <button class="btn btn-sm btn-outline-primary"
+                        data-id="{{ sub_item.id }}" data-code="{{ sub_item.code }}" data-name-ar="{{ sub_item.name_ar }}" data-name-en="{{ sub_item.name_en }}"
+                        data-weight="{{ sub_item.weight_percentage|unlocalize }}" data-unit="{{ sub_item.unit }}"
+                        data-qty="{{ sub_item.quantity|default_if_none:''|unlocalize }}" data-budget="{{ sub_item.budget_unit_price|unlocalize }}"
+                        data-contract="{{ sub_item.contract_unit_price|unlocalize }}"
+                        data-start="{{ sub_item.planned_start_date|date:'Y-m-d' }}" data-end="{{ sub_item.planned_completion_date|date:'Y-m-d' }}"
+                        onclick="openEditSubItem(this)">
+                  <i class="bi bi-pencil"></i>
+                </button>
+                <button class="btn btn-sm btn-outline-danger" onclick="deleteSubItem({{ sub_item.id }})">
+                  <i class="bi bi-trash"></i>
+                </button>
+                {% endif %}
+              </td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="10" class="text-center text-muted py-3">No sub-items yet. Price the phase as a whole (Edit) or add sub-items.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+  {% empty %}
+  <div class="alert alert-info">No BOQ phases defined for this project yet. Click "Add Phase" to start.</div>
+  {% endfor %}
+
+</div>
+
+<!-- Add Phase Modal -->
+<div class="modal fade" id="addPhaseModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Add Phase</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <form id="addPhaseForm">
+        {% csrf_token %}
+        <div class="modal-body">
+          <div class="mb-3"><label class="form-label">Code *</label><input type="text" class="form-control" name="code" required placeholder="e.g. 1"></div>
+          <div class="mb-3"><label class="form-label">Name (Arabic) *</label><input type="text" class="form-control" name="name_ar" required></div>
+          <div class="mb-3"><label class="form-label">Name (English)</label><input type="text" class="form-control" name="name_en"></div>
+          <div class="mb-3"><label class="form-label">Weight % of contract value</label><input type="number" step="0.001" class="form-control" name="weight_percentage" value="0"><div class="form-text">Leave 0 and use "Weights from prices" once the items are priced.</div></div>
+          <div class="mb-3"><label class="form-label">Section</label><input type="text" class="form-control" name="section" list="sectionList" placeholder="e.g. Civil Works"></div>
+          <div class="row">
+            <div class="col-4 mb-3"><label class="form-label">Unit</label><input type="text" class="form-control" name="unit" list="unitList" placeholder="m2"></div>
+            <div class="col-8 mb-3"><label class="form-label">Quantity</label><input type="number" step="0.001" min="0" class="form-control" name="quantity"></div>
+          </div>
+          <div class="row">
+            <div class="col-6 mb-3"><label class="form-label">Budget unit price (cost)</label><input type="number" step="0.01" min="0" class="form-control" name="budget_unit_price"></div>
+            <div class="col-6 mb-3"><label class="form-label">Contract unit price (sell)</label><input type="number" step="0.01" min="0" class="form-control" name="contract_unit_price"></div>
+          </div>
+          <div class="form-text mb-3">Fill unit, quantity and prices only if this phase is priced <em>as a whole</em>. If you price its sub-items, leave them empty.</div>
+          <div class="mb-3"><label class="form-label">Display Order</label><input type="number" class="form-control" name="order" value="0"></div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-primary">Add</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- Edit Phase Modal -->
+<div class="modal fade" id="editPhaseModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Edit Phase</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <form id="editPhaseForm">
+        {% csrf_token %}
+        <input type="hidden" name="phase_id">
+        <div class="modal-body">
+          <div class="mb-3"><label class="form-label">Code *</label><input type="text" class="form-control" name="code" required></div>
+          <div class="mb-3"><label class="form-label">Name (Arabic) *</label><input type="text" class="form-control" name="name_ar" required></div>
+          <div class="mb-3"><label class="form-label">Name (English)</label><input type="text" class="form-control" name="name_en"></div>
+          <div class="mb-3"><label class="form-label">Weight % of contract value *</label><input type="number" step="0.001" class="form-control" name="weight_percentage" required></div>
+          <div class="mb-3"><label class="form-label">Section</label><input type="text" class="form-control" name="section" list="sectionList" placeholder="e.g. Civil Works"></div>
+          <div class="row">
+            <div class="col-4 mb-3"><label class="form-label">Unit</label><input type="text" class="form-control" name="unit" list="unitList" placeholder="m2"></div>
+            <div class="col-8 mb-3"><label class="form-label">Quantity</label><input type="number" step="0.001" min="0" class="form-control" name="quantity"></div>
+          </div>
+          <div class="row">
+            <div class="col-6 mb-3"><label class="form-label">Budget unit price (cost)</label><input type="number" step="0.01" min="0" class="form-control" name="budget_unit_price"></div>
+            <div class="col-6 mb-3"><label class="form-label">Contract unit price (sell)</label><input type="number" step="0.01" min="0" class="form-control" name="contract_unit_price"></div>
+          </div>
+          <div class="form-text mb-3">Fill unit, quantity and prices only if this phase is priced <em>as a whole</em>. If you price its sub-items, leave them empty.</div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-primary">Save</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- Add Sub-item Modal -->
+<div class="modal fade" id="addSubItemModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Add Sub-item</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <form id="addSubItemForm">
+        {% csrf_token %}
+        <input type="hidden" name="phase_id">
+        <div class="modal-body">
+          <div class="mb-3"><label class="form-label">Name (Arabic) *</label><input type="text" class="form-control" name="name_ar" required></div>
+          <div class="mb-3"><label class="form-label">Name (English)</label><input type="text" class="form-control" name="name_en"></div>
+          <div class="row">
+            <div class="col-4 mb-3"><label class="form-label">No.</label><input type="text" class="form-control" name="code" placeholder="1.17.1"></div>
+            <div class="col-8 mb-3"><label class="form-label">Unit</label><input type="text" class="form-control" name="unit" list="unitList" placeholder="No."></div>
+          </div>
+          <div class="mb-3"><label class="form-label">Quantity</label><input type="number" step="0.001" min="0" class="form-control" name="quantity"></div>
+          <div class="row">
+            <div class="col-6 mb-3"><label class="form-label">Budget unit price (cost)</label><input type="number" step="0.01" min="0" class="form-control" name="budget_unit_price"></div>
+            <div class="col-6 mb-3"><label class="form-label">Contract unit price (sell)</label><input type="number" step="0.01" min="0" class="form-control" name="contract_unit_price"></div>
+          </div>
+          <div class="mb-3"><label class="form-label">Weight % of contract value</label><input type="number" step="0.001" class="form-control" name="weight_percentage" value="0"><div class="form-text">Leave 0 and use "Weights from prices" once the items are priced.</div></div>
+          <div class="mb-3"><label class="form-label">Planned Start Date</label><input type="date" class="form-control" name="planned_start_date"></div>
+          <div class="mb-3"><label class="form-label">Planned Completion Date</label><input type="date" class="form-control" name="planned_completion_date"></div>
+          <div class="mb-3"><label class="form-label">Display Order</label><input type="number" class="form-control" name="order" value="0"></div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-primary">Add</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- Edit Sub-item Modal -->
+<div class="modal fade" id="editSubItemModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Edit Sub-item</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <form id="editSubItemForm">
+        {% csrf_token %}
+        <input type="hidden" name="subitem_id">
+        <div class="modal-body">
+          <div class="mb-3"><label class="form-label">Name (Arabic) *</label><input type="text" class="form-control" name="name_ar" required></div>
+          <div class="mb-3"><label class="form-label">Name (English)</label><input type="text" class="form-control" name="name_en"></div>
+          <div class="row">
+            <div class="col-4 mb-3"><label class="form-label">No.</label><input type="text" class="form-control" name="code" placeholder="1.17.1"></div>
+            <div class="col-8 mb-3"><label class="form-label">Unit</label><input type="text" class="form-control" name="unit" list="unitList" placeholder="No."></div>
+          </div>
+          <div class="mb-3"><label class="form-label">Quantity</label><input type="number" step="0.001" min="0" class="form-control" name="quantity"></div>
+          <div class="row">
+            <div class="col-6 mb-3"><label class="form-label">Budget unit price (cost)</label><input type="number" step="0.01" min="0" class="form-control" name="budget_unit_price"></div>
+            <div class="col-6 mb-3"><label class="form-label">Contract unit price (sell)</label><input type="number" step="0.01" min="0" class="form-control" name="contract_unit_price"></div>
+          </div>
+          <div class="mb-3"><label class="form-label">Weight % of contract value *</label><input type="number" step="0.001" class="form-control" name="weight_percentage" required></div>
+          <div class="mb-3"><label class="form-label">Planned Start Date</label><input type="date" class="form-control" name="planned_start_date"></div>
+          <div class="mb-3"><label class="form-label">Planned Completion Date</label><input type="date" class="form-control" name="planned_completion_date"></div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-primary">Save</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- Update Progress % Modal -->
+<div class="modal fade" id="updateProgressModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Update Execution % <span id="progressSubItemName" class="text-muted"></span></h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <form id="updateProgressForm">
+        {% csrf_token %}
+        <input type="hidden" name="subitem_id">
+        <div class="modal-body">
+          <div class="mb-3">
+            <label class="form-label">Cumulative execution % (of this sub-item's own scope) *</label>
+            <input type="number" step="0.01" min="0" max="100" class="form-control" name="execution_percentage" required>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">As of date *</label>
+            <input type="date" class="form-control" name="report_date" required>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Notes (required if this % is lower than the previous reading)</label>
+            <textarea class="form-control" name="notes" rows="2"></textarea>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-primary">Save</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<datalist id="unitList">
+  <option value="m2"></option><option value="m"></option><option value="m3"></option><option value="No."></option>
+  <option value="L.S."></option><option value="kg"></option><option value="ton"></option>
+  <option value="م²"></option><option value="م.ط"></option><option value="عدد"></option><option value="مقطوع"></option>
+</datalist>
+<datalist id="sectionList">
+  <option value="Civil Works"></option><option value="Electrical Works"></option><option value="Mechanical Works"></option>
+  <option value="الأعمال المدنية"></option><option value="الأعمال الكهربائية"></option><option value="الأعمال الميكانيكية"></option>
+</datalist>
+
+<script>
+const projectId = {{ project.id }};
+const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+
+function showAlert(message, type = 'success') {
+    const alertDiv = document.createElement('div');
+    alertDiv.className = `alert alert-${type} alert-dismissible fade show`;
+    alertDiv.innerHTML = `${message}<button type="button" class="btn-close" data-bs-dismiss="alert"></button>`;
+    document.getElementById('alertContainer').appendChild(alertDiv);
+    setTimeout(() => alertDiv.remove(), 5000);
+}
+
+async function apiCall(url, method, body) {
+    const opts = {method, headers: {'X-CSRFToken': csrfToken}};
+    if (body) opts.body = body;
+    const response = await fetch(url, opts);
+    if (!response.ok) {
+        let msg = 'Request failed';
+        try { msg = (await response.json()).error || msg; } catch (e) {}
+        throw new Error(msg);
+    }
+    return response.json();
+}
+
+// PATCH/PUT bodies aren't auto-parsed into request.POST by Django (only
+// POST is), so edit calls send JSON instead of FormData -- the server's
+// _payload() helper handles JSON for any HTTP method.
+async function apiCallJson(url, method, formData) {
+    const opts = {
+        method,
+        headers: {'X-CSRFToken': csrfToken, 'Content-Type': 'application/json'},
+        body: JSON.stringify(Object.fromEntries(formData)),
+    };
+    const response = await fetch(url, opts);
+    if (!response.ok) {
+        let msg = 'Request failed';
+        try { msg = (await response.json()).error || msg; } catch (e) {}
+        throw new Error(msg);
+    }
+    return response.json();
+}
+
+document.getElementById('addPhaseForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    try {
+        await apiCall(`/reports/api/project/${projectId}/boq/phases/`, 'POST', new FormData(e.target));
+        location.reload();
+    } catch (err) { showAlert(err.message, 'danger'); }
+});
+
+function openEditPhase(btn) {
+    const d = btn.dataset, form = document.getElementById('editPhaseForm');
+    form.phase_id.value = d.id;
+    form.code.value = d.code;
+    form.name_ar.value = d.nameAr;
+    form.name_en.value = d.nameEn;
+    form.section.value = d.section;
+    form.weight_percentage.value = d.weight;
+    form.unit.value = d.unit;
+    form.quantity.value = d.qty;
+    form.budget_unit_price.value = (d.budget && d.budget !== '0' && d.budget !== '0.00') ? d.budget : '';
+    form.contract_unit_price.value = (d.contract && d.contract !== '0' && d.contract !== '0.00') ? d.contract : '';
+    new bootstrap.Modal(document.getElementById('editPhaseModal')).show();
+}
+
+async function recalculateWeights() {
+    if (!confirm('Set every phase and sub-item weight to its share of the total contract value?')) return;
+    try {
+        await apiCall(`/reports/api/project/${projectId}/boq/recalculate-weights/`, 'POST');
+        location.reload();
+    } catch (err) { showAlert(err.message, 'danger'); }
+}
+
+document.getElementById('editPhaseForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const form = e.target;
+    try {
+        await apiCallJson(`/reports/api/project/${projectId}/boq/phases/${form.phase_id.value}/`, 'PATCH', new FormData(form));
+        location.reload();
+    } catch (err) { showAlert(err.message, 'danger'); }
+});
+
+function deletePhase(id) {
+    if (!confirm('Delete this phase and all its sub-items?')) return;
+    apiCall(`/reports/api/project/${projectId}/boq/phases/${id}/`, 'DELETE')
+        .then(() => location.reload())
+        .catch(err => showAlert(err.message, 'danger'));
+}
+
+function openAddSubItem(phaseId) {
+    const form = document.getElementById('addSubItemForm');
+    form.reset();
+    form.phase_id.value = phaseId;
+    new bootstrap.Modal(document.getElementById('addSubItemModal')).show();
+}
+
+document.getElementById('addSubItemForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const form = e.target;
+    try {
+        await apiCall(`/reports/api/project/${projectId}/boq/phases/${form.phase_id.value}/sub-items/`, 'POST', new FormData(form));
+        location.reload();
+    } catch (err) { showAlert(err.message, 'danger'); }
+});
+
+function openEditSubItem(btn) {
+    const d = btn.dataset, form = document.getElementById('editSubItemForm');
+    form.subitem_id.value = d.id;
+    form.code.value = d.code;
+    form.name_ar.value = d.nameAr;
+    form.name_en.value = d.nameEn;
+    form.weight_percentage.value = d.weight;
+    form.unit.value = d.unit;
+    form.quantity.value = d.qty;
+    form.budget_unit_price.value = (d.budget && d.budget !== '0' && d.budget !== '0.00') ? d.budget : '';
+    form.contract_unit_price.value = (d.contract && d.contract !== '0' && d.contract !== '0.00') ? d.contract : '';
+    form.planned_start_date.value = d.start || '';
+    form.planned_completion_date.value = d.end || '';
+    new bootstrap.Modal(document.getElementById('editSubItemModal')).show();
+}
+
+document.getElementById('editSubItemForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const form = e.target;
+    try {
+        await apiCallJson(`/reports/api/project/${projectId}/boq/sub-items/${form.subitem_id.value}/`, 'PATCH', new FormData(form));
+        location.reload();
+    } catch (err) { showAlert(err.message, 'danger'); }
+});
+
+function deleteSubItem(id) {
+    if (!confirm('Delete this sub-item?')) return;
+    apiCall(`/reports/api/project/${projectId}/boq/sub-items/${id}/`, 'DELETE')
+        .then(() => location.reload())
+        .catch(err => showAlert(err.message, 'danger'));
+}
+
+function openUpdateProgress(subItemId, name) {
+    const form = document.getElementById('updateProgressForm');
+    form.reset();
+    form.subitem_id.value = subItemId;
+    document.getElementById('progressSubItemName').textContent = '— ' + name;
+    form.report_date.value = new Date().toISOString().slice(0, 10);
+    new bootstrap.Modal(document.getElementById('updateProgressModal')).show();
+}
+
+document.getElementById('updateProgressForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const form = e.target;
+    try {
+        await apiCall(`/reports/api/project/${projectId}/boq/sub-items/${form.subitem_id.value}/progress/`, 'POST', new FormData(form));
+        location.reload();
+    } catch (err) { showAlert(err.message, 'danger'); }
+});
+</script>
+{% endblock %}

@@ -1,0 +1,11 @@
+-r requirements-sqlite.txt
+
+# Pure-Python MySQL driver, config/__init__.py registers it as MySQLdb only when mysqlclient itself
+# isn't importable (e.g. shared hosting that denies execute permission on gcc, so mysqlclient's C
+# extension can never be compiled there) -- always installable since it needs no compiler.
+PyMySQL
+
+# Django's recommended native MySQL driver -- faster than PyMySQL, used automatically whenever it's
+# importable (see config/__init__.py). Needs a C compiler at install time.
+# Version 2.2.8 provides a Windows CPython 3.14 wheel.
+mysqlclient==2.2.8

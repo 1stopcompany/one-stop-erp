@@ -1,0 +1,99 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ module_name }} - ERP System{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-5">
+    <!-- Module Header -->
+    <div class="row mb-4">
+        <div class="col-md-12">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body">
+                    <div class="d-flex align-items-center justify-content-between">
+                        <div>
+                            <h1 class="card-title mb-0">
+                                <span style="font-size: 2.5rem;">{{ module_icon }}</span>
+                                {{ module_name }}
+                            </h1>
+                            <p class="text-muted mt-2">Welcome to {{ module_name }} Module</p>
+                        </div>
+                        <div>
+                            <a href="{% url 'home' %}" class="btn btn-outline-secondary">
+                                <i class="bi bi-house"></i> Back to Dashboard
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Module Content -->
+    <div class="row">
+        <div class="col-md-12">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body">
+                    <div class="alert alert-info" role="alert">
+                        <i class="bi bi-info-circle"></i>
+                        <strong>Module Status:</strong> This module is under development and will be available soon.
+                    </div>
+
+                    <div class="text-center py-5">
+                        <p class="text-muted" style="font-size: 1.1rem;">
+                            {{ module_name }} features are being configured.
+                        </p>
+                        <p class="text-muted">
+                            Check back soon for updates!
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quick Links -->
+    <div class="row mt-4">
+        <div class="col-md-12">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-light">
+                    <h5 class="mb-0">Quick Navigation</h5>
+                </div>
+                <div class="card-body">
+                    <div class="btn-group" role="group">
+                        <a href="{% url 'home' %}" class="btn btn-outline-primary">
+                            <i class="bi bi-house"></i> Home
+                        </a>
+                        <a href="{% url 'dashboard' %}" class="btn btn-outline-primary">
+                            <i class="bi bi-speedometer2"></i> Dashboard
+                        </a>
+                        <a href="{% url 'projects:project_list' %}" class="btn btn-outline-primary">
+                            <i class="bi bi-building"></i> Projects
+                        </a>
+                        <a href="{% url 'reports:report_type_selection' %}" class="btn btn-outline-primary">
+                            <i class="bi bi-file-text"></i> Reports
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .card {
+        border-radius: 10px;
+        transition: all 0.3s ease;
+    }
+
+    .card:hover {
+        box-shadow: 0 8px 20px rgba(0, 0, 0, 0.1) !important;
+    }
+
+    .btn-group .btn {
+        margin-right: 5px;
+        margin-bottom: 5px;
+    }
+</style>
+{% endblock %}

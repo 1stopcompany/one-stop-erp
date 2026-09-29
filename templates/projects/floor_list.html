@@ -1,0 +1,6 @@
+{% extends 'base.html' %}
+{% block title %}Project Floors - One Stop ERP{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center my-4"><div><h1 class="h3 mb-1">Project Floors</h1><p class="text-muted mb-0">{{ project.name }}</p></div><div><a class="btn btn-outline-secondary" href="{% url 'projects:project_detail' project.pk %}">Project</a> <a class="btn btn-primary" href="{% url 'projects:floor_create' project.pk %}">Add Floor</a></div></div>
+<div class="card"><div class="table-responsive"><table class="table table-hover mb-0"><thead><tr><th>Floor</th><th>Name</th><th>Area (m²)</th><th>Description</th></tr></thead><tbody>{% for floor in floors %}<tr><td>{{ floor.floor_number }}</td><td>{{ floor.floor_name|default:'—' }}</td><td>{{ floor.area_sqm|default:'—' }}</td><td>{{ floor.description|default:'—' }}</td></tr>{% empty %}<tr><td colspan="4" class="text-center text-muted py-4">No floors have been added.</td></tr>{% endfor %}</tbody></table></div></div>
+{% endblock %}

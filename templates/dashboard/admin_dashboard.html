@@ -1,0 +1,316 @@
+{% extends 'base.html' %}
+
+{% block title %}Administration - One Stop ERP{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- Page Header -->
+    <div class="row mb-4">
+        <div class="col-md-8">
+            <h1 class="h2">
+                <i class="bi bi-gear"></i> Administration
+            </h1>
+            <p class="text-muted">System overview and management</p>
+        </div>
+        <div class="col-md-4 text-end">
+            <a href="{% url 'admin:index' %}" class="btn btn-primary">
+                <i class="bi bi-sliders"></i> Admin Panel
+            </a>
+        </div>
+    </div>
+
+    <!-- System Statistics -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card border-left-primary shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="text-primary text-uppercase mb-1">
+                        <small class="font-weight-bold">Total Users</small>
+                    </div>
+                    <div class="h3 mb-0">{{ total_users }}</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-3">
+            <div class="card border-left-success shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="text-success text-uppercase mb-1">
+                        <small class="font-weight-bold">Total Projects</small>
+                    </div>
+                    <div class="h3 mb-0">{{ total_projects }}</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-3">
+            <div class="card border-left-warning shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="text-warning text-uppercase mb-1">
+                        <small class="font-weight-bold">Total Reports</small>
+                    </div>
+                    <div class="h3 mb-0">{{ total_reports }}</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-3">
+            <div class="card border-left-info shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="text-info text-uppercase mb-1">
+                        <small class="font-weight-bold">Pending Approval</small>
+                    </div>
+                    <div class="h3 mb-0">{{ pending_reports|default:"0" }}</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- User Breakdown -->
+    <div class="row mb-4">
+        <div class="col-md-4">
+            <div class="card shadow">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">
+                        <i class="bi bi-people"></i> User Breakdown
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <div class="d-flex justify-content-between mb-1">
+                            <span>Administrators</span>
+                            <strong>{{ admin_count|default:"0" }}</strong>
+                        </div>
+                        <div class="progress" style="height: 10px;">
+                            <div class="progress-bar bg-danger" style="width: {% if total_users %}{% widthratio admin_count total_users 100 %}{% else %}0{% endif %}%"></div>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <div class="d-flex justify-content-between mb-1">
+                            <span>Project Managers</span>
+                            <strong>{{ manager_count|default:"0" }}</strong>
+                        </div>
+                        <div class="progress" style="height: 10px;">
+                            <div class="progress-bar bg-warning" style="width: {% if total_users %}{% widthratio manager_count total_users 100 %}{% else %}0{% endif %}%"></div>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <div class="d-flex justify-content-between mb-1">
+                            <span>Site Engineers</span>
+                            <strong>{{ engineer_count|default:"0" }}</strong>
+                        </div>
+                        <div class="progress" style="height: 10px;">
+                            <div class="progress-bar bg-success" style="width: {% if total_users %}{% widthratio engineer_count total_users 100 %}{% else %}0{% endif %}%"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-4">
+            <div class="card shadow">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">
+                        <i class="bi bi-file-earmark-text"></i> Report Status
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <div class="d-flex justify-content-between mb-1">
+                            <span>Draft</span>
+                            <strong>{{ draft_count|default:"0" }}</strong>
+                        </div>
+                        <div class="progress" style="height: 10px;">
+                            <div class="progress-bar bg-secondary" style="width: {% if total_reports %}{% widthratio draft_count total_reports 100 %}{% else %}0{% endif %}%"></div>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <div class="d-flex justify-content-between mb-1">
+                            <span>Submitted</span>
+                            <strong>{{ submitted_count|default:"0" }}</strong>
+                        </div>
+                        <div class="progress" style="height: 10px;">
+                            <div class="progress-bar bg-info" style="width: {% if total_reports %}{% widthratio submitted_count total_reports 100 %}{% else %}0{% endif %}%"></div>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <div class="d-flex justify-content-between mb-1">
+                            <span>Approved</span>
+                            <strong>{{ approved_count|default:"0" }}</strong>
+                        </div>
+                        <div class="progress" style="height: 10px;">
+                            <div class="progress-bar bg-success" style="width: {% if total_reports %}{% widthratio approved_count total_reports 100 %}{% else %}0{% endif %}%"></div>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <div class="d-flex justify-content-between mb-1">
+                            <span>Archived</span>
+                            <strong>{{ archived_count|default:"0" }}</strong>
+                        </div>
+                        <div class="progress" style="height: 10px;">
+                            <div class="progress-bar bg-dark" style="width: {% if total_reports %}{% widthratio archived_count total_reports 100 %}{% else %}0{% endif %}%"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-4">
+            <div class="card shadow">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">
+                        <i class="bi bi-lightning"></i> Quick Actions
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <div class="list-group">
+                        <a href="{% url 'admin:accounts_customuser_add' %}" class="list-group-item list-group-item-action">
+                            <i class="bi bi-person-plus"></i> Add User
+                        </a>
+                        <a href="{% url 'admin:projects_project_add' %}" class="list-group-item list-group-item-action">
+                            <i class="bi bi-building"></i> Add Project
+                        </a>
+                        <a href="{% url 'admin:accounts_customuser_changelist' %}" class="list-group-item list-group-item-action">
+                            <i class="bi bi-people"></i> Manage Users
+                        </a>
+                        <a href="{% url 'admin:projects_project_changelist' %}" class="list-group-item list-group-item-action">
+                            <i class="bi bi-list"></i> Manage Projects
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Recent Users -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card shadow">
+                <div class="card-header py-3 d-flex justify-content-between align-items-center">
+                    <h6 class="m-0 font-weight-bold text-primary">
+                        <i class="bi bi-person-check"></i> Recent Users
+                    </h6>
+                    <a href="{% url 'admin:accounts_customuser_changelist' %}" class="btn btn-sm btn-outline-primary">View All</a>
+                </div>
+                <div class="card-body">
+                    {% if recent_users %}
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Username</th>
+                                    <th>Name</th>
+                                    <th>Email</th>
+                                    <th>Role</th>
+                                    <th>Joined</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for user in recent_users %}
+                                <tr>
+                                    <td><strong>{{ user.username }}</strong></td>
+                                    <td>{{ user.get_full_name|default:"-" }}</td>
+                                    <td>{{ user.email }}</td>
+                                    <td>
+                                        {% if user.role == 'admin' %}
+                                            <span class="badge bg-danger">Admin</span>
+                                        {% elif user.role == 'manager' %}
+                                            <span class="badge bg-warning">Manager</span>
+                                        {% elif user.role == 'engineer' %}
+                                            <span class="badge bg-success">Engineer</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ user.date_joined|date:"M d, Y" }}</td>
+                                    <td>
+                                        <a href="{% url 'admin:accounts_customuser_change' user.id %}" class="btn btn-sm btn-info">
+                                            <i class="bi bi-pencil"></i> Edit
+                                        </a>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <div class="alert alert-info">
+                        <i class="bi bi-info-circle"></i> No users yet.
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- System Information -->
+    <div class="row">
+        <div class="col-md-6">
+            <div class="card shadow">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">
+                        <i class="bi bi-info-circle"></i> System Information
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <table class="table table-sm">
+                        <tr>
+                            <td><strong>Application</strong></td>
+                            <td>Site Engineer Reports v1.0.0</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Framework</strong></td>
+                            <td>Django 4.2.8</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Database</strong></td>
+                            <td>SQLite</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Server Time</strong></td>
+                            <td>{% now "M d, Y H:i:s" %}</td>
+                        </tr>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-6">
+            <div class="card shadow">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">
+                        <i class="bi bi-gear"></i> System Settings
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <div class="list-group">
+                        <a href="{% url 'admin:core_systemsettings_changelist' %}" class="list-group-item list-group-item-action">
+                            <i class="bi bi-sliders"></i> System Settings
+                        </a>
+                        <a href="{% url 'admin:core_notificationtemplate_changelist' %}" class="list-group-item list-group-item-action">
+                            <i class="bi bi-envelope"></i> Notification Templates
+                        </a>
+                        <a href="{% url 'admin:accounts_userauditlog_changelist' %}" class="list-group-item list-group-item-action">
+                            <i class="bi bi-file-text"></i> Audit Logs
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.border-left-primary {
+    border-left: 4px solid #007bff !important;
+}
+.border-left-success {
+    border-left: 4px solid #28a745 !important;
+}
+.border-left-warning {
+    border-left: 4px solid #ffc107 !important;
+}
+.border-left-info {
+    border-left: 4px solid #17a2b8 !important;
+}
+</style>
+{% endblock %}

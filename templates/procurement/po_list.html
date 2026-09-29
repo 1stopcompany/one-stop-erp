@@ -1,0 +1,24 @@
+{% extends 'base.html' %}{% block title %}Purchase Orders{% endblock %}{% block content %}
+<div class="d-flex justify-content-between align-items-center my-4">
+  <h1 class="h3">Purchase Orders</h1>
+  {% if user.is_procurement_officer or user.is_admin %}<a class="btn btn-primary" href="{% url 'procurement:po_create' %}">New PO (Direct)</a>{% endif %}
+</div>
+<div class="card"><div class="table-responsive"><table class="table table-hover mb-0">
+  <thead><tr><th>PO Number</th><th>Project</th><th>Vendor</th><th class="text-end">Total</th><th>Delivery</th><th>Status</th><th></th></tr></thead>
+  <tbody>
+    {% for po in pos %}
+    <tr>
+      <td>{{ po.po_number }}</td>
+      <td>{{ po.project }}</td>
+      <td>{{ po.vendor.name }}</td>
+      <td class="text-end">₪{{ po.total_price }}</td>
+      <td>{{ po.delivery_date }}</td>
+      <td><span class="badge bg-{% if po.status == 'received' %}success{% elif po.status == 'cancelled' %}danger{% elif po.status == 'partial_received' %}warning text-dark{% else %}secondary{% endif %}">{{ po.get_status_display }}</span></td>
+      <td class="text-end"><a class="btn btn-sm btn-outline-primary" href="{% url 'procurement:po_detail' po.pk %}">View</a></td>
+    </tr>
+    {% empty %}
+    <tr><td colspan="7" class="text-center text-muted py-4">No purchase orders found.</td></tr>
+    {% endfor %}
+  </tbody>
+</table></div></div>
+{% endblock %}

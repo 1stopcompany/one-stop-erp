@@ -1,0 +1,210 @@
+{% extends 'module_base.html' %}
+{% load readiness_tags %}
+
+{% block title %}{{ module_name }} - ERP System{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-5">
+
+  <div class="row mb-4">
+    <div class="col-md-12">
+      <div class="card border-0 shadow-sm">
+        <div class="card-body d-flex justify-content-between align-items-center">
+          <div>
+            <h1 class="mb-0">
+              <span style="font-size:2.5rem;">{{ module_icon }}</span>
+              {{ module_name }}
+            </h1>
+            <p class="text-muted mt-2">
+              Manage all {{ module_name|lower }} operations
+            </p>
+          </div>
+          <a href="{% url 'dashboard' %}" class="btn btn-outline-secondary">
+            <i class="bi bi-house"></i> Back to Dashboard
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="page-header">
+    <div class="row align-items-center">
+        <div class="col">
+            <h1><i class="bi bi-briefcase"></i> Projects</h1>
+        </div>
+        <div class="col-auto">
+            {% if user.is_admin or user.is_project_manager %}
+            <a href="{% url 'projects:project_create' %}" class="btn btn-primary">
+                <i class="bi bi-plus-circle"></i> Create New Project
+            </a>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Search and Filter -->
+<div class="card mb-4">
+    <div class="card-body">
+        <form method="get" class="row g-3">
+            <div class="col-md-4">
+                <input type="text" name="search" class="form-control" placeholder="Search projects..." value="{{ request.GET.search }}">
+            </div>
+            <div class="col-md-4">
+                <select name="status" class="form-select">
+                    <option value="">All Statuses</option>
+                    <option value="planning" {% if request.GET.status == 'planning' %}selected{% endif %}>Planning</option>
+                    <option value="active" {% if request.GET.status == 'active' %}selected{% endif %}>Active</option>
+                    <option value="completed" {% if request.GET.status == 'completed' %}selected{% endif %}>Completed</option>
+                    <option value="on_hold" {% if request.GET.status == 'on_hold' %}selected{% endif %}>On Hold</option>
+                </select>
+            </div>
+            <div class="col-md-4">
+                <button type="submit" class="btn btn-primary w-100">
+                    <i class="bi bi-search"></i> Search
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+{% if insurance_alerts %}
+<div class="alert alert-warning">
+    <strong><i class="bi bi-shield-exclamation"></i> Insurance needing attention</strong>
+    <ul class="mb-0 mt-1">
+        {% for ins in insurance_alerts %}
+        <li>
+            <a href="{% url 'projects:workflow' ins.project.pk %}">{{ ins.project.name }}</a> &mdash; {{ ins.get_policy_type_display }} ({{ ins.policy_number }}):
+            {% if ins.state == 'expired' %}<strong class="text-danger">expired on {{ ins.end_date|date:"Y-m-d" }}</strong>
+            {% else %}expires {{ ins.end_date|date:"Y-m-d" }} ({{ ins.days_left }} day{{ ins.days_left|pluralize }} left){% endif %}
+        </li>
+        {% endfor %}
+    </ul>
+</div>
+{% endif %}
+
+<!-- Projects Grid -->
+{% if projects %}
+<div class="row">
+    {% for project in projects %}
+    <div class="col-md-6 col-lg-4 mb-4">
+        <div class="card h-100">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0">{{ project.name }}</h5>
+            </div>
+            <div class="card-body">
+                <p class="mb-2">
+                    <strong>Symbol:</strong> <span class="badge bg-info">{{ project.project_symbol }}</span>
+                </p>
+                <p class="mb-2">
+                    <strong>Contract:</strong> {{ project.contract_number }}
+                </p>
+                <p class="mb-2">
+                    <strong>Client:</strong> {{ project.client_name }}
+                </p>
+                <p class="mb-2">
+                    <strong>Start Date:</strong> {{ project.start_date|date:"M d, Y" }}
+                </p>
+                <p class="mb-2">
+                    <strong>Status:</strong>
+                    <span class="badge bg-{% if project.status == 'active' %}success{% elif project.status == 'completed' %}secondary{% else %}warning{% endif %}">
+                        {{ project.get_status_display }}
+                    </span>
+                    {% if project.stage_label %}<span class="small text-muted">&middot; next: {{ project.stage_label }}</span>{% endif %}
+                    {% project_readiness project as r %}
+                    {% if not r.ok %}<a href="{% url 'projects:workflow' project.pk %}" class="badge bg-danger text-decoration-none" title="{{ r.summary }}"><i class="bi bi-slash-circle"></i> Work blocked</a>{% endif %}
+                </p>
+                <p class="mb-2">
+                    <strong>Maintenance:</strong> {{ project.get_maintenance_type_display }}
+                </p>
+                <p class="text-muted small">
+                    <i class="bi bi-geo-alt"></i> {{ project.location }}
+                </p>
+            </div>
+            <div class="card-footer bg-light">
+                <a href="{% url 'projects:project_detail' project.pk %}" class="btn btn-sm btn-outline-primary">
+                    <i class="bi bi-eye"></i> View
+                </a>
+                <a href="{% url 'projects:workflow' project.pk %}" class="btn btn-sm btn-outline-primary">
+                    <i class="bi bi-signpost-split"></i> Workflow
+                </a>
+                {% if user.is_admin or user == project.manager %}
+                <a href="{% url 'projects:project_edit' project.pk %}" class="btn btn-sm btn-outline-secondary">
+                    <i class="bi bi-pencil"></i> Edit
+                </a>
+                <a href="{% url 'projects:project_delete' project.pk %}" class="btn btn-sm btn-outline-danger">
+                    <i class="bi bi-trash"></i> Delete
+                </a>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+<!-- Pagination -->
+{% if is_paginated %}
+<nav aria-label="Page navigation">
+    <ul class="pagination justify-content-center">
+        {% if page_obj.has_previous %}
+        <li class="page-item">
+            <a class="page-link" href="?page=1">First</a>
+        </li>
+        <li class="page-item">
+            <a class="page-link" href="?page={{ page_obj.previous_page_number }}">Previous</a>
+        </li>
+        {% endif %}
+        
+        {% for num in page_obj.paginator.page_range %}
+        <li class="page-item {% if page_obj.number == num %}active{% endif %}">
+            <a class="page-link" href="?page={{ num }}">{{ num }}</a>
+        </li>
+        {% endfor %}
+        
+        {% if page_obj.has_next %}
+        <li class="page-item">
+            <a class="page-link" href="?page={{ page_obj.next_page_number }}">Next</a>
+        </li>
+        <li class="page-item">
+            <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}">Last</a>
+        </li>
+        {% endif %}
+    </ul>
+</nav>
+{% endif %}
+
+{% else %}
+<div class="alert alert-info" role="alert">
+    <i class="bi bi-info-circle"></i> No projects found.
+    {% if user.is_admin or user.is_project_manager %}
+    <a href="{% url 'projects:project_create' %}">Create your first project</a>
+    {% endif %}
+</div>
+{% endif %}
+
+<div class="card border-0 shadow-sm">
+    <div class="card-body">
+      <div class="alert alert-info mb-0">
+        <i class="bi bi-info-circle"></i>
+        <strong>Module Status:</strong> {{ module_name }} module is under development.
+      </div>
+    </div>
+  </div>
+
+  <div class="row mt-4">
+    <div class="col-md-12">
+      <div class="card border-0 shadow-sm">
+        <div class="card-body d-flex gap-2 flex-wrap">
+          <a href="{% url 'dashboard' %}" class="btn btn-outline-primary">
+            <i class="bi bi-speedometer2"></i> Dashboard
+          </a>
+          <a href="{% url 'projects:project_list' %}" class="btn btn-outline-primary">
+            <i class="bi bi-building"></i> Projects
+          </a>
+          <a href="{% url 'reports:report_type_selection' %}" class="btn btn-outline-primary">
+            <i class="bi bi-file-text"></i> Reports
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
+{% endblock %}

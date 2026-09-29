@@ -1,0 +1,24 @@
+{% extends 'base.html' %}{% block title %}Purchase Requisitions{% endblock %}{% block content %}
+<div class="d-flex justify-content-between align-items-center my-4">
+  <h1 class="h3">Purchase Requisitions</h1>
+  {% if user.is_site_engineer or user.is_admin %}<a class="btn btn-primary" href="{% url 'procurement:pr_create' %}">New PR</a>{% endif %}
+</div>
+<div class="card"><div class="table-responsive"><table class="table table-hover mb-0">
+  <thead><tr><th>PR Number</th><th>Project</th><th>Items</th><th>Required</th><th>Requested By</th><th>Status</th><th></th></tr></thead>
+  <tbody>
+    {% for pr in prs %}
+    <tr>
+      <td>{{ pr.pr_number }}</td>
+      <td>{{ pr.project }}</td>
+      <td>{{ pr.lines.count }} item(s)</td>
+      <td>{{ pr.required_date }}</td>
+      <td>{% if pr.requested_by %}{{ pr.requested_by.get_full_name|default:pr.requested_by.username }}{% else %}—{% endif %}</td>
+      <td><span class="badge bg-{% if pr.status == 'approved' or pr.status == 'completed' %}success{% elif pr.status == 'rejected' or pr.status == 'cancelled' %}danger{% elif pr.status == 'submitted' %}warning text-dark{% else %}secondary{% endif %}">{{ pr.get_status_display }}</span></td>
+      <td class="text-end"><a class="btn btn-sm btn-outline-primary" href="{% url 'procurement:pr_detail' pr.pk %}">View</a></td>
+    </tr>
+    {% empty %}
+    <tr><td colspan="7" class="text-center text-muted py-4">No purchase requisitions found.</td></tr>
+    {% endfor %}
+  </tbody>
+</table></div></div>
+{% endblock %}

@@ -1,0 +1,14 @@
+{% load readiness_tags %}{% project_readiness project as r %}
+{% if not r.ok %}
+<div class="alert alert-danger" role="alert">
+  <div class="fw-bold mb-1"><i class="bi bi-slash-circle-fill"></i> Work is blocked on this project</div>
+  <div class="small mb-2">Nothing can be recorded on it (site reports, progress, purchasing, stock, check-ins) until every point below is fixed.</div>
+  <ul class="mb-2">
+    {% for p in r.problems %}
+    <li>{{ p.message }}{% if p.detail %} <span class="text-muted">({{ p.detail|join:", " }}{% if p.detail|length >= 8 %}, ...{% endif %})</span>{% endif %}</li>
+    {% endfor %}
+  </ul>
+  <a href="{% url 'projects:workflow' project.pk %}" class="btn btn-sm btn-outline-danger">Workflow</a>
+  <a href="{% url 'reports:boq_editor' project_id=project.pk %}" class="btn btn-sm btn-outline-danger">Manage BOQ</a>
+</div>
+{% endif %}

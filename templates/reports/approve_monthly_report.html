@@ -1,0 +1,27 @@
+{% extends 'base.html' %}
+{% block title %}Final Approval - Monthly Report - One Stop ERP{% endblock %}
+{% block content %}
+<div class="container py-4">
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <div class="my-4"><h1 class="h3">Final Approval (General Manager) - Monthly Report</h1></div>
+            <div class="card">
+                <div class="card-body">
+                    <p>Confirm final approval of <strong>{{ report.report_number }}</strong> for <strong>{{ report.project.name }}</strong>.</p>
+                    <p class="text-muted small">This report was already approved by the engineering manager on {{ report.review_date|date:"d M Y H:i" }}.</p>
+                    <form method="post">
+                        {% csrf_token %}
+                        <div class="mb-3">
+                            <label class="form-label">Rejection reason (only needed if rejecting)</label>
+                            <textarea class="form-control" name="rejection_reason" rows="2"></textarea>
+                        </div>
+                        <button class="btn btn-success" type="submit" name="action" value="approve">Approve Report</button>
+                        <button class="btn btn-danger" type="submit" name="action" value="reject">Reject</button>
+                        <a class="btn btn-outline-secondary" href="{% url 'reports:monthly_report_detail' report.pk %}">Cancel</a>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

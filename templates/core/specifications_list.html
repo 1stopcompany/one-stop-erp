@@ -1,0 +1,159 @@
+{% extends 'base.html' %}
+{% block title %}One Stop Standards and Specifications{% endblock %}
+{% block extra_css %}
+<style>
+.spec-section-card {
+    display: block;
+    width: 100%;
+    padding: 0.55rem 0.9rem;
+    border: 1px solid #e3e6ea;
+    border-radius: 0.5rem;
+    background: #fff;
+    text-align: left;
+    text-decoration: none;
+    color: #212529;
+    transition: box-shadow 0.15s ease, border-color 0.15s ease, transform 0.1s ease;
+}
+.spec-section-card:hover, .spec-section-card:focus {
+    border-color: #1f4788;
+    box-shadow: 0 2px 10px rgba(31, 71, 136, 0.15);
+    color: #212529;
+    transform: translateY(-1px);
+}
+.spec-section-card .spec-code-badge {
+    display: inline-block;
+    font-size: 0.7rem;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    color: #1f4788;
+    background: #eef2fb;
+    border-radius: 0.3rem;
+    padding: 0.1rem 0.4rem;
+    margin-bottom: 0.2rem;
+}
+.spec-section-card .spec-section-title {
+    display: block;
+    font-size: 0.9rem;
+    line-height: 1.25;
+}
+</style>
+{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center flex-wrap gap-2 my-4">
+  <div>
+    <h1 class="h3 mb-0"><i class="bi bi-journal-bookmark"></i> One Stop Standards and Specifications</h1>
+    <p class="text-muted mb-0">The company's own master specification book -- Design-Build projects are built to these by default.
+      Tender-type projects come with their own drawings and specifications from the client/consultant instead.</p>
+  </div>
+  {% if can_manage %}
+  <a href="{% url 'core:specification_volume_add' %}" class="btn btn-primary"><i class="bi bi-plus-circle"></i> Add volume</a>
+  {% endif %}
+</div>
+
+<div class="mb-3">
+  <input type="text" id="specSearch" class="form-control" placeholder="Search sections by code or title (e.g. &quot;concrete&quot;, &quot;01300&quot;)...">
+</div>
+
+{% if not volumes %}
+<div class="alert alert-info">No specification volumes uploaded yet.</div>
+{% endif %}
+
+{% for volume in volumes %}
+<div class="card mb-3">
+  <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+    <div>
+      <strong>{{ volume.label }}</strong>{% if volume.title %} &mdash; {{ volume.title }}{% endif %}
+      {% if volume.revision %}<span class="badge bg-secondary ms-2">{{ volume.revision }}</span>{% endif %}
+      <span class="text-muted small ms-2">{{ volume.sections.count }} section{{ volume.sections.count|pluralize }}</span>
+    </div>
+    <div class="text-nowrap">
+      {% if can_manage %}
+      <a href="{% url 'core:specification_section_add' volume.pk %}" class="btn btn-sm btn-outline-primary"><i class="bi bi-plus-circle"></i> Add section</a>
+      <form method="post" action="{% url 'core:specification_volume_delete' volume.pk %}" class="d-inline" onsubmit="return confirm('Delete {{ volume.label }}? This also removes its section index.');">{% csrf_token %}
+        <button class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i></button>
+      </form>
+      {% endif %}
+    </div>
+  </div>
+  {% if volume.sections.all %}
+  <div class="card-body py-2">
+    <div class="row">
+      {% for section in volume.sections.all %}
+      <div class="col-md-6 col-lg-4 spec-section-row py-1" data-search="{{ section.code|lower }} {{ section.title|lower }}">
+        <button type="button" class="spec-section-card" data-pk="{{ section.pk }}">
+          <span class="spec-code-badge">{{ section.code }}</span>
+          <span class="spec-section-title">{{ section.title }}</span>
+        </button>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+</div>
+{% endfor %}
+
+<!-- Section detail popup -->
+<div class="modal fade" id="specSectionModal" tabindex="-1">
+  <div class="modal-dialog modal-lg modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header">
+        <div>
+          <h5 class="modal-title mb-0" id="specSectionModalTitle">&nbsp;</h5>
+          <div class="text-muted small" id="specSectionModalVolume"></div>
+        </div>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div id="specSectionModalLoading" class="text-center text-muted py-4">Loading...</div>
+        <div id="specSectionModalBody" style="white-space: pre-line;"></div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+        <a href="#" id="specSectionModalEdit" class="btn btn-outline-primary d-none"><i class="bi bi-pencil"></i> Edit this section</a>
+        <a href="#" id="specSectionModalPdf" class="btn btn-primary" target="_blank"><i class="bi bi-file-earmark-pdf"></i> Download this section as PDF</a>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.getElementById('specSearch').addEventListener('input', function (e) {
+    const q = e.target.value.trim().toLowerCase();
+    document.querySelectorAll('.spec-section-row').forEach(function (row) {
+        row.style.display = !q || row.dataset.search.includes(q) ? '' : 'none';
+    });
+});
+
+const specSectionModalEl = document.getElementById('specSectionModal');
+const specSectionModal = new bootstrap.Modal(specSectionModalEl);
+document.querySelectorAll('.spec-section-card').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+        const pk = btn.dataset.pk;
+        document.getElementById('specSectionModalTitle').textContent = 'Loading...';
+        document.getElementById('specSectionModalVolume').textContent = '';
+        document.getElementById('specSectionModalBody').textContent = '';
+        document.getElementById('specSectionModalLoading').style.display = '';
+        specSectionModal.show();
+        fetch(`/core/specifications/sections/${pk}/`)
+            .then(function (r) { return r.json(); })
+            .then(function (data) {
+                document.getElementById('specSectionModalTitle').textContent = data.code + ' – ' + data.title;
+                document.getElementById('specSectionModalVolume').textContent = data.volume_label + (data.volume_title ? ' · ' + data.volume_title : '');
+                document.getElementById('specSectionModalBody').textContent = data.content || 'No text captured for this section.';
+                document.getElementById('specSectionModalPdf').href = data.pdf_url;
+                const editLink = document.getElementById('specSectionModalEdit');
+                editLink.href = data.edit_url;
+                editLink.classList.toggle('d-none', !data.can_manage);
+                document.getElementById('specSectionModalLoading').style.display = 'none';
+            })
+            .catch(function () {
+                document.getElementById('specSectionModalLoading').textContent = 'Could not load this section.';
+            });
+    });
+});
+</script>
+{% endblock %}
+

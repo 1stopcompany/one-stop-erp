@@ -1,0 +1,577 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ report.project.name }} — Executive Dashboard{% endblock %}
+
+{% block extra_css %}
+<style>
+    .metric-card {
+        background: white;
+        border-radius: 10px;
+        padding: 20px;
+        margin-bottom: 20px;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+        border-left: 4px solid #1f4788;
+        height: 100%;
+    }
+    .metric-card.warning { border-left-color: #ffc107; }
+    .metric-card.danger { border-left-color: #dc3545; }
+    .metric-card.success { border-left-color: #198754; }
+
+    .metric-label {
+        color: #666;
+        font-size: 0.82rem;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    .metric-value {
+        font-size: 1.9rem;
+        font-weight: 700;
+        color: #222;
+        margin: 6px 0;
+    }
+    .metric-sub { font-size: 0.85rem; color: #999; }
+    .metric-sub.positive { color: #198754; }
+    .metric-sub.negative { color: #dc3545; }
+
+    .chart-container {
+        background: white;
+        border-radius: 10px;
+        padding: 20px;
+        margin-bottom: 20px;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+        height: 100%;
+    }
+    .chart-title {
+        font-size: 1.05rem;
+        font-weight: 700;
+        margin-bottom: 15px;
+        color: #333;
+    }
+    .section-title {
+        font-size: 1.3rem;
+        font-weight: 700;
+        margin-top: 10px;
+        margin-bottom: 16px;
+        color: #333;
+        border-left: 4px solid #1f4788;
+        padding-left: 12px;
+    }
+    .exec-summary {
+        background: white;
+        border-radius: 10px;
+        padding: 22px 24px;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+        white-space: pre-line;
+        line-height: 1.7;
+        color: #333;
+    }
+    .dashboard-header {
+        background: linear-gradient(135deg, #1f4788 0%, #163a5f 100%);
+        color: white;
+        border-radius: 10px;
+        padding: 24px 28px;
+        margin-bottom: 24px;
+    }
+    .dashboard-header .period { opacity: 0.85; font-size: 0.95rem; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="dashboard-header d-flex flex-wrap justify-content-between align-items-center">
+        <div>
+            <h1 class="h3 mb-1"><i class="bi bi-graph-up-arrow"></i> {{ report.project.name }}</h1>
+            <div class="period">
+                {{ report.reporting_period_from|date:"d M Y" }} &mdash; {{ report.reporting_period_to|date:"d M Y" }}
+                &middot; {{ data.report_count }} daily report(s)
+                &middot; <span class="badge badge-status-{{ report.status }}">{{ report.get_status_display }}</span>
+            </div>
+        </div>
+        <div class="mt-2 mt-md-0">
+            <a href="{% url 'reports:monthly_report_detail' report.pk %}" class="btn btn-light btn-sm">
+                <i class="bi bi-file-text"></i> Full Report
+            </a>
+            <a href="{% url 'reports:export_monthly_dashboard_pdf' report.pk %}" class="btn btn-outline-light btn-sm">
+                <i class="bi bi-file-pdf"></i> Export Dashboard PDF
+            </a>
+            <a href="{% url 'reports:export_internal_monthly_pdf' report.pk %}" class="btn btn-outline-light btn-sm">
+                <i class="bi bi-file-earmark-text"></i> Internal Report PDF
+            </a>
+        </div>
+    </div>
+
+    <!-- KPI cards -->
+    <div class="row">
+        <div class="col-6 col-lg-3">
+            <div class="metric-card {% if data.pct_delta > 0 %}success{% endif %}">
+                <div class="metric-label">Cumulative Progress</div>
+                <div class="metric-value">{{ data.overall_pct|floatformat:1 }}%</div>
+                <div class="metric-sub {% if data.pct_delta > 0 %}positive{% endif %}">
+                    {% if data.pct_delta > 0 %}<i class="bi bi-arrow-up"></i> +{{ data.pct_delta|floatformat:1 }} pts this period{% else %}No change this period{% endif %}
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-lg-3">
+            <div class="metric-card">
+                <div class="metric-label">Man-Hours</div>
+                <div class="metric-value">{{ data.total_man_hours|floatformat:0 }}</div>
+                <div class="metric-sub">{{ data.distinct_workers }} named worker(s) on site</div>
+            </div>
+        </div>
+        <div class="col-6 col-lg-3">
+            <div class="metric-card {% if data.qc_total > 0 and data.qc_failed == 0 %}success{% elif data.qc_failed > 0 %}danger{% endif %}">
+                <div class="metric-label">QA/QC Pass Rate</div>
+                <div class="metric-value">
+                    {% if data.qc_total > 0 %}{% widthratio data.qc_passed data.qc_total 100 %}%{% else %}—{% endif %}
+                </div>
+                <div class="metric-sub">{{ data.qc_passed }} passed / {{ data.qc_failed }} failed / {{ data.qc_pending }} pending</div>
+            </div>
+        </div>
+        <div class="col-6 col-lg-3">
+            <div class="metric-card {% if data.hse.hse_incidents > 0 %}danger{% elif data.hse.near_misses > 0 %}warning{% else %}success{% endif %}">
+                <div class="metric-label">HSE Incidents / Near-Misses</div>
+                <div class="metric-value">{{ data.hse.hse_incidents }} / {{ data.hse.near_misses }}</div>
+                <div class="metric-sub">{{ data.hse.corrective_actions_open }} corrective action(s) open</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Status indicators (RAG) -->
+    <div class="row">
+        <div class="col-12">
+            <div class="section-title"><i class="bi bi-flag"></i> General Status Indicators</div>
+            <div class="table-responsive">
+                <table class="table table-hover bg-white rounded shadow-sm align-middle">
+                    <thead class="table-light">
+                        <tr><th>Item</th><th>Status</th><th>Remarks</th></tr>
+                    </thead>
+                    <tbody>
+                        {% for label, item in rag_display %}
+                        <tr>
+                            <td>{{ label }}</td>
+                            <td>
+                                {% if item.color == "green" %}<span class="badge bg-success">Controlled</span>
+                                {% elif item.color == "amber" %}<span class="badge bg-warning text-dark">Caution</span>
+                                {% elif item.color == "red" %}<span class="badge bg-danger">Critical</span>
+                                {% else %}<span class="badge bg-secondary">N/A</span>{% endif %}
+                            </td>
+                            <td><small class="text-muted">{{ item.remark }}</small></td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Progress overview (baseline vs actual vs variance) -->
+    <div class="row">
+        <div class="col-12">
+            <div class="section-title"><i class="bi bi-graph-up"></i> Current Progress Overview (Cumulative)</div>
+            <div class="table-responsive">
+                <table class="table table-hover bg-white rounded shadow-sm">
+                    <thead class="table-light">
+                        <tr><th>Item</th><th class="text-end">Baseline Plan</th><th class="text-end">Actual</th><th class="text-end">Variance</th><th>Remarks / Reasons for Delay</th></tr>
+                    </thead>
+                    <tbody>
+                        {% for r in internal.progress_overview.rows %}
+                        <tr>
+                            <td>{{ r.phase_name }}</td>
+                            <td class="text-end">{% if r.baseline_pct != None %}{{ r.baseline_pct|floatformat:1 }}%{% else %}—{% endif %}</td>
+                            <td class="text-end">{{ r.actual_pct|floatformat:1 }}%</td>
+                            <td class="text-end {% if r.variance_pct != None %}{% if r.variance_pct < 0 %}text-danger{% else %}text-success{% endif %}{% endif %}">
+                                {% if r.variance_pct != None %}{{ r.variance_pct|floatformat:1 }}%{% else %}—{% endif %}
+                            </td>
+                            <td><small class="text-muted">{{ r.remark }}</small></td>
+                        </tr>
+                        {% empty %}
+                        <tr><td colspan="5" class="text-center text-muted py-3">No phases defined for this project (BOQ is empty)</td></tr>
+                        {% endfor %}
+                        {% if internal.progress_overview.rows %}
+                        <tr class="table-light fw-bold">
+                            <td>Overall Progress</td>
+                            <td class="text-end">{% if internal.progress_overview.overall.baseline_pct != None %}{{ internal.progress_overview.overall.baseline_pct|floatformat:1 }}%{% else %}—{% endif %}</td>
+                            <td class="text-end">{{ internal.progress_overview.overall.actual_pct|floatformat:1 }}%</td>
+                            <td class="text-end">{% if internal.progress_overview.overall.variance_pct != None %}{{ internal.progress_overview.overall.variance_pct|floatformat:1 }}%{% else %}—{% endif %}</td>
+                            <td><small class="text-muted">{% if not internal.progress_overview.overall.complete %}Overall baseline requires planned dates for every phase{% endif %}</small></td>
+                        </tr>
+                        {% endif %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Project milestones -->
+    <div class="row">
+        <div class="col-12">
+            <div class="section-title"><i class="bi bi-signpost-split"></i> Project Key Milestones</div>
+        </div>
+        {% if internal.milestones.summary or internal.milestones.list %}
+        <div class="col-12">
+            <div class="table-responsive">
+                <table class="table table-hover bg-white rounded shadow-sm">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Phase</th><th class="text-end">Total</th>
+                            <th class="text-end">Scheduled<br>This Period</th><th class="text-end">Completed<br>This Period</th>
+                            <th class="text-end">Scheduled<br>To Date</th><th class="text-end">Completed<br>To Date</th>
+                            <th class="text-end">Variance</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for s in internal.milestones.summary %}
+                        <tr>
+                            <td>{{ s.phase_name }}</td>
+                            <td class="text-end">{{ s.total }}</td>
+                            <td class="text-end">{{ s.scheduled_period }}</td>
+                            <td class="text-end">{{ s.completed_period }}</td>
+                            <td class="text-end">{{ s.scheduled_to_date }}</td>
+                            <td class="text-end">{{ s.completed_to_date }}</td>
+                            <td class="text-end {% if s.variance < 0 %}text-danger{% elif s.variance > 0 %}text-success{% endif %}">{{ s.variance }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        <div class="col-12">
+            <div class="table-responsive">
+                <table class="table table-hover bg-white rounded shadow-sm">
+                    <thead class="table-light">
+                        <tr><th>Milestone</th><th>Phase</th><th>Baseline</th><th>Forecast</th><th>Actual</th><th>Status</th></tr>
+                    </thead>
+                    <tbody>
+                        {% for m in internal.milestones.list %}
+                        <tr>
+                            <td>{{ m.name }}</td>
+                            <td><small class="text-muted">{{ m.phase_name }}</small></td>
+                            <td>{{ m.baseline_date|date:"d/m/Y" }}</td>
+                            <td>{{ m.forecast_date|date:"d/m/Y"|default:"—" }}</td>
+                            <td>{{ m.actual_date|date:"d/m/Y"|default:"—" }}</td>
+                            <td>
+                                {% if m.status == "achieved_on_time" %}<span class="badge bg-success">Achieved</span>
+                                {% elif m.status == "achieved_late" %}<span class="badge bg-warning text-dark">Achieved (Late)</span>
+                                {% elif m.status == "overdue" %}<span class="badge bg-danger">Overdue</span>
+                                {% else %}<span class="badge bg-secondary">Upcoming</span>{% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        {% else %}
+        <div class="col-12"><p class="text-muted">No key milestones recorded for this project yet.</p></div>
+        {% endif %}
+    </div>
+
+    <!-- Earned value analysis -->
+    <div class="row">
+        <div class="col-12">
+            <div class="section-title"><i class="bi bi-currency-exchange"></i> Earned Value Analysis</div>
+        </div>
+        {% if internal.eva.contract_value != None %}
+        <div class="col-12">
+            <div class="table-responsive">
+                <table class="table table-hover bg-white rounded shadow-sm">
+                    <thead class="table-light">
+                        <tr><th>Item</th><th class="text-end">Budget (BAC)</th><th class="text-end">Planned Value (PV)</th><th class="text-end">Earned Value (EV)</th><th class="text-end">Schedule Variance (SV)</th><th>Remarks</th></tr>
+                    </thead>
+                    <tbody>
+                        {% for r in internal.eva.rows %}
+                        <tr>
+                            <td>{{ r.phase_name }}</td>
+                            <td class="text-end">₪{{ r.bac|floatformat:0 }}</td>
+                            <td class="text-end">{% if r.pv != None %}₪{{ r.pv|floatformat:0 }}{% else %}—{% endif %}</td>
+                            <td class="text-end">₪{{ r.ev|floatformat:0 }}</td>
+                            <td class="text-end {% if r.sv != None %}{% if r.sv < 0 %}text-danger{% else %}text-success{% endif %}{% endif %}">
+                                {% if r.sv != None %}₪{{ r.sv|floatformat:0 }}{% else %}—{% endif %}
+                            </td>
+                            <td><small class="text-muted">{{ r.remark }}</small></td>
+                        </tr>
+                        {% endfor %}
+                        <tr class="table-light fw-bold">
+                            <td>Total</td>
+                            <td class="text-end">₪{{ internal.eva.overall.bac|floatformat:0 }}</td>
+                            <td class="text-end">{% if internal.eva.overall.pv != None %}₪{{ internal.eva.overall.pv|floatformat:0 }}{% else %}—{% endif %}</td>
+                            <td class="text-end">₪{{ internal.eva.overall.ev|floatformat:0 }}</td>
+                            <td class="text-end">{% if internal.eva.overall.sv != None %}₪{{ internal.eva.overall.sv|floatformat:0 }}{% else %}—{% endif %}</td>
+                            <td><small class="text-muted">{% if not internal.eva.overall.complete %}Total PV requires planned dates for all phases{% endif %}</small></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            <p class="text-muted small mb-0">
+                Actual Cost (AC) and CPI/CV/EAC are not available yet since there is no documented actual-cost link
+                (pending Cost Control integration); the BAC/PV/EV figures above are fully real, derived from the
+                contract value and the actual/planned completion percentages.
+            </p>
+        </div>
+        {% else %}
+        <div class="col-12"><p class="text-muted">No contract value recorded for this project to compute the financial analysis.</p></div>
+        {% endif %}
+    </div>
+
+    <!-- Critical path -->
+    <div class="row">
+        <div class="col-12">
+            <div class="section-title"><i class="bi bi-diagram-3"></i> Critical Path (Schedule)</div>
+        </div>
+        {% if internal.critical_path.tasks or internal.critical_path.schedule_start %}
+        <div class="col-12 mb-2">
+            <span class="text-muted small">
+                {% if internal.critical_path.schedule_start %}Approved schedule start: {{ internal.critical_path.schedule_start|date:"d/m/Y" }} &middot; {% endif %}
+                {% if internal.critical_path.schedule_finish %}Project expected finish: {{ internal.critical_path.schedule_finish|date:"d/m/Y" }} &middot; Days remaining to completion: {{ internal.critical_path.remaining_days }}{% endif %}
+                <br>Source: {{ internal.critical_path.source_file_name }} (imported from Microsoft Project)
+            </span>
+        </div>
+        <div class="col-12">
+            <div class="table-responsive">
+                <table class="table table-hover bg-white rounded shadow-sm">
+                    <thead class="table-light">
+                        <tr><th>Activity</th><th>Start</th><th>Finish</th><th>Duration</th><th>Float</th></tr>
+                    </thead>
+                    <tbody>
+                        {% for t in internal.critical_path.tasks %}
+                        <tr>
+                            <td>{{ t.name }}</td>
+                            <td>{{ t.start|date:"d/m/Y" }}</td>
+                            <td>{{ t.finish|date:"d/m/Y" }}</td>
+                            <td>{{ t.duration_text }}</td>
+                            <td>{{ t.total_slack_days|floatformat:0 }} day(s)</td>
+                        </tr>
+                        {% empty %}
+                        <tr><td colspan="5" class="text-center text-muted py-3">No critical-path activities identified in the imported schedule</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        {% else %}
+        <div class="col-12"><p class="text-muted">No schedule (MS Project / Primavera) has been imported for this project yet.</p></div>
+        {% endif %}
+    </div>
+
+    <!-- Charts -->
+    <div class="row">
+        <div class="col-lg-7">
+            <div class="chart-container">
+                <div class="chart-title"><i class="bi bi-bar-chart-line"></i> Daily Man-Hours</div>
+                <canvas id="manhoursChart" height="110"></canvas>
+            </div>
+        </div>
+        <div class="col-lg-5">
+            <div class="chart-container">
+                <div class="chart-title"><i class="bi bi-pie-chart"></i> Key Activities by Status</div>
+                <canvas id="activityStatusChart" height="110"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-lg-7">
+            <div class="chart-container">
+                <div class="chart-title"><i class="bi bi-layers"></i> Progress by Phase (cumulative)</div>
+                <canvas id="phaseProgressChart" height="140"></canvas>
+            </div>
+        </div>
+        <div class="col-lg-5">
+            <div class="chart-container">
+                <div class="chart-title"><i class="bi bi-clipboard-data"></i> Executive Summary</div>
+                <div class="exec-summary">{{ report.executive_summary|default:"No executive summary written yet." }}</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Materials & Issues -->
+    <div class="row">
+        <div class="col-lg-6">
+            <div class="section-title"><i class="bi bi-box-seam"></i> Materials Delivered ({{ data.materials|length }})</div>
+            <div class="table-responsive">
+                <table class="table table-hover bg-white rounded shadow-sm">
+                    <thead class="table-light">
+                        <tr><th>Material</th><th class="text-end">Quantity</th><th>Unit</th></tr>
+                    </thead>
+                    <tbody>
+                        {% for m in data.materials %}
+                        <tr>
+                            <td>{{ m.material_description }}</td>
+                            <td class="text-end">{{ m.quantity|floatformat:2 }}</td>
+                            <td>{{ m.unit }}</td>
+                        </tr>
+                        {% empty %}
+                        <tr><td colspan="3" class="text-center text-muted py-3">No materials recorded this period</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        <div class="col-lg-6">
+            <div class="section-title"><i class="bi bi-exclamation-triangle"></i> Issues, Risks &amp; Delays ({{ data.issues|length }})</div>
+            <div class="table-responsive">
+                <table class="table table-hover bg-white rounded shadow-sm">
+                    <thead class="table-light">
+                        <tr><th>Description</th><th>Impact</th></tr>
+                    </thead>
+                    <tbody>
+                        {% for i in data.issues %}
+                        <tr>
+                            <td>{{ i.description }}</td>
+                            <td><small class="text-muted">{{ i.impact }}</small></td>
+                        </tr>
+                        {% empty %}
+                        <tr><td colspan="2" class="text-center text-muted py-3">No issues, risks or delays logged this period</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Preliminary cost estimate -->
+    <div class="row">
+        <div class="col-12">
+            <div class="section-title"><i class="bi bi-cash-coin"></i> Preliminary Cost Estimate</div>
+            <div class="alert alert-warning py-2">
+                <i class="bi bi-exclamation-triangle"></i>
+                Rough estimate only. Labor uses flat day-rates (not real wages), and any material marked
+                <span class="badge bg-warning text-dark">estimated</span> has a random placeholder price, not a real quote.
+            </div>
+        </div>
+        <div class="col-12">
+            <div class="table-responsive">
+                <table class="table table-hover bg-white rounded shadow-sm">
+                    <thead class="table-light">
+                        <tr><th>Item</th><th>Details</th><th class="text-end">Cost</th></tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>Unskilled Labor</td>
+                            <td>{{ cost.labor.unskilled_days }} day(s) × ₪{{ cost.labor.unskilled_wage|floatformat:0 }}</td>
+                            <td class="text-end">₪{{ cost.labor.unskilled_cost|floatformat:0 }}</td>
+                        </tr>
+                        <tr>
+                            <td>Skilled Labor</td>
+                            <td>{{ cost.labor.skilled_days }} day(s) × ₪{{ cost.labor.skilled_wage|floatformat:0 }}</td>
+                            <td class="text-end">₪{{ cost.labor.skilled_cost|floatformat:0 }}</td>
+                        </tr>
+                        <tr>
+                            <td>Materials</td>
+                            <td>{{ cost.materials.items|length }} material line(s){% if cost.materials.any_estimated %} — some prices are random placeholders{% endif %}</td>
+                            <td class="text-end">₪{{ cost.materials.total_materials_cost|floatformat:0 }}</td>
+                        </tr>
+                        <tr class="table-light fw-bold">
+                            <td colspan="2">Grand Total (estimated)</td>
+                            <td class="text-end">₪{{ cost.grand_total|floatformat:0 }}</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        <div class="col-12">
+            <div class="table-responsive">
+                <table class="table table-hover bg-white rounded shadow-sm">
+                    <thead class="table-light">
+                        <tr><th>Material</th><th class="text-end">Quantity</th><th>Unit</th><th class="text-end">Unit Price</th><th class="text-end">Subtotal</th><th></th></tr>
+                    </thead>
+                    <tbody>
+                        {% for item in cost.materials.items %}
+                        <tr>
+                            <td>{{ item.material.material_description }}</td>
+                            <td class="text-end">{{ item.material.quantity|floatformat:2 }}</td>
+                            <td>{{ item.material.unit }}</td>
+                            <td class="text-end">₪{{ item.material.unit_price|floatformat:2 }}</td>
+                            <td class="text-end">₪{{ item.total_cost|floatformat:2 }}</td>
+                            <td>{% if item.material.unit_price_is_estimated %}<span class="badge bg-warning text-dark">estimated</span>{% endif %}</td>
+                        </tr>
+                        {% empty %}
+                        <tr><td colspan="6" class="text-center text-muted py-3">No materials recorded this period</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Next month plan -->
+    <div class="row">
+        <div class="col-12">
+            <div class="section-title"><i class="bi bi-calendar-check"></i> Plan for Next Period</div>
+            <div class="chart-container">
+                {% if report.next_month_plan %}
+                <div style="white-space: pre-line;">{{ report.next_month_plan }}</div>
+                {% else %}
+                <div class="text-muted">No plan recorded.</div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+{{ chart_data|json_script:"dashboard-chart-data" }}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
+<script>
+    const chartData = JSON.parse(document.getElementById('dashboard-chart-data').textContent);
+
+    // Daily man-hours trend
+    new Chart(document.getElementById('manhoursChart').getContext('2d'), {
+        type: 'line',
+        data: {
+            labels: chartData.manhoursSeries.map(p => p.date),
+            datasets: [{
+                label: 'Man-Hours',
+                data: chartData.manhoursSeries.map(p => p.hours),
+                borderColor: 'rgba(31, 71, 136, 1)',
+                backgroundColor: 'rgba(31, 71, 136, 0.15)',
+                fill: true,
+                tension: 0.3,
+            }],
+        },
+        options: {
+            responsive: true,
+            plugins: { legend: { display: false } },
+            scales: { y: { beginAtZero: true } },
+        },
+    });
+
+    // Activity status donut
+    const statusLabels = { completed: 'Completed', in_progress: 'In Progress', delayed: 'Delayed', not_started: 'Not Started' };
+    const statusColors = { completed: '#198754', in_progress: '#0d6efd', delayed: '#dc3545', not_started: '#adb5bd' };
+    const statusKeys = Object.keys(chartData.activityStatusCounts);
+    new Chart(document.getElementById('activityStatusChart').getContext('2d'), {
+        type: 'doughnut',
+        data: {
+            labels: statusKeys.map(k => statusLabels[k] || k),
+            datasets: [{
+                data: statusKeys.map(k => chartData.activityStatusCounts[k]),
+                backgroundColor: statusKeys.map(k => statusColors[k] || '#6c757d'),
+            }],
+        },
+        options: { responsive: true, plugins: { legend: { position: 'bottom' } } },
+    });
+
+    // Progress by phase
+    new Chart(document.getElementById('phaseProgressChart').getContext('2d'), {
+        type: 'bar',
+        data: {
+            labels: chartData.phaseProgress.map(p => p.name),
+            datasets: [{
+                label: 'Execution %',
+                data: chartData.phaseProgress.map(p => p.pct),
+                backgroundColor: 'rgba(255, 107, 53, 0.6)',
+                borderColor: 'rgba(255, 107, 53, 1)',
+                borderWidth: 1,
+            }],
+        },
+        options: {
+            indexAxis: 'y',
+            responsive: true,
+            plugins: { legend: { display: false } },
+            scales: { x: { beginAtZero: true, max: 100 } },
+        },
+    });
+</script>
+{% endblock %}

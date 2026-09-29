@@ -1,0 +1,89 @@
+{% extends 'base.html' %}
+{% block title %}Warehouse Stock - One Stop ERP{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center flex-wrap gap-2 my-4">
+  <div>
+    <h1 class="h3 mb-0"><i class="bi bi-boxes"></i> Warehouse Stock</h1>
+    <p class="text-muted mb-0">What is on hand right now, and what is at or below its minimum.</p>
+  </div>
+  <div class="d-flex flex-wrap gap-2">
+    <a href="{% url 'procurement:stock_reorder' %}" class="btn {% if low_count %}btn-danger{% else %}btn-outline-secondary{% endif %}">
+      <i class="bi bi-cart-plus"></i> Items to re-order{% if low_count %} <span class="badge bg-light text-danger">{{ low_count }}</span>{% endif %}
+    </a>
+    <a href="{% url 'procurement:stock_movements' %}" class="btn btn-outline-secondary"><i class="bi bi-journal-text"></i> Movements</a>
+    <a href="{% url 'procurement:warehouse_list' %}" class="btn btn-outline-secondary"><i class="bi bi-building"></i> Warehouses</a>
+    {% if can_edit %}
+    <a href="{% url 'procurement:stock_issue' %}" class="btn btn-primary"><i class="bi bi-box-arrow-right"></i> Issue to project</a>
+    <a href="{% url 'procurement:stock_adjust' %}" class="btn btn-outline-primary"><i class="bi bi-clipboard-check"></i> Stock count</a>
+    <a href="{% url 'procurement:stock_limit' %}" class="btn btn-outline-primary"><i class="bi bi-speedometer2"></i> Set minimum</a>
+    {% endif %}
+  </div>
+</div>
+
+<div class="row g-3 mb-3">
+  <div class="col-md-4"><div class="card"><div class="card-body"><div class="text-muted small">Items tracked</div><div class="fs-3 fw-bold">{{ total_items }}</div></div></div></div>
+  <div class="col-md-4"><div class="card border-warning"><div class="card-body"><div class="text-muted small">At or below minimum</div><div class="fs-3 fw-bold text-warning">{{ low_count }}</div></div></div></div>
+  <div class="col-md-4"><div class="card border-danger"><div class="card-body"><div class="text-muted small">Out of stock</div><div class="fs-3 fw-bold text-danger">{{ out_count }}</div></div></div></div>
+</div>
+
+<form method="get" class="row g-2 mb-3">
+  <div class="col-md-4"><input type="text" name="q" value="{{ q }}" class="form-control" placeholder="Search code, description or barcode"></div>
+  <div class="col-md-3">
+    <select name="warehouse" class="form-select">
+      <option value="">All warehouses</option>
+      {% for w in warehouses %}<option value="{{ w.pk }}" {% if warehouse_id == w.pk|stringformat:"s" %}selected{% endif %}>{{ w.name }}</option>{% endfor %}
+    </select>
+  </div>
+  <div class="col-md-3">
+    <select name="status" class="form-select">
+      <option value="">All stock levels</option>
+      <option value="low" {% if status == "low" %}selected{% endif %}>At or below minimum</option>
+      <option value="out" {% if status == "out" %}selected{% endif %}>Out of stock</option>
+      <option value="ok" {% if status == "ok" %}selected{% endif %}>OK</option>
+    </select>
+  </div>
+  <div class="col-md-2"><button class="btn btn-secondary w-100">Filter</button></div>
+</form>
+
+<div class="table-responsive">
+  <table class="table table-hover align-middle bg-white">
+    <thead class="table-light">
+      <tr>
+        <th>Full Code</th><th>Description</th><th>Warehouse</th>
+        <th class="text-end">On hand</th><th class="text-end">Minimum</th><th class="text-end">On order</th>
+        <th>Status</th>{% if can_edit %}<th></th>{% endif %}
+      </tr>
+    </thead>
+    <tbody>
+      {% for row in rows %}
+      <tr {% if row.status == "out" %}class="table-danger"{% elif row.status == "low" %}class="table-warning"{% endif %}>
+        <td><a href="{% url 'procurement:item_detail' row.item.pk %}">{{ row.item.full_code }}</a></td>
+        <td>{{ row.item.description }}</td>
+        <td>{{ row.warehouse.name }}</td>
+        <td class="text-end fw-bold">{{ row.quantity|floatformat:"-2" }} <span class="text-muted small">{{ row.item.get_unit_display }}</span></td>
+        <td class="text-end">{% if row.min_quantity > 0 %}{{ row.min_quantity|floatformat:"-2" }}{% else %}<span class="text-muted">—</span>{% endif %}</td>
+        <td class="text-end">{% if row.on_order > 0 %}{{ row.on_order|floatformat:"-2" }}{% else %}<span class="text-muted">—</span>{% endif %}</td>
+        <td>
+          {% if row.status == "out" %}<span class="badge bg-danger">Out of stock</span>
+          {% elif row.status == "low" %}<span class="badge bg-warning text-dark">Re-order</span>
+          {% elif row.min_quantity > 0 %}<span class="badge bg-success">OK</span>
+          {% else %}<span class="badge bg-secondary">No limit set</span>{% endif %}
+        </td>
+        {% if can_edit %}
+        <td class="text-nowrap">
+          <a class="btn btn-sm btn-outline-secondary" title="Set minimum" href="{% url 'procurement:stock_limit' %}?item={{ row.item.pk }}&warehouse={{ row.warehouse.pk }}"><i class="bi bi-speedometer2"></i></a>
+          <a class="btn btn-sm btn-outline-secondary" title="Issue to project" href="{% url 'procurement:stock_issue' %}?item={{ row.item.pk }}&warehouse={{ row.warehouse.pk }}"><i class="bi bi-box-arrow-right"></i></a>
+          <a class="btn btn-sm btn-outline-secondary" title="Stock count" href="{% url 'procurement:stock_adjust' %}?item={{ row.item.pk }}&warehouse={{ row.warehouse.pk }}"><i class="bi bi-clipboard-check"></i></a>
+        </td>
+        {% endif %}
+      </tr>
+      {% empty %}
+      <tr><td colspan="8" class="text-center text-muted py-4">
+        Nothing in stock yet. Goods received against purchase orders appear here automatically;
+        {% if can_edit %}use <strong>Stock count</strong> to enter what is already on the shelves and <strong>Set minimum</strong> to give an item its limit.{% endif %}
+      </td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

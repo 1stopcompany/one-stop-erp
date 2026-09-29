@@ -1,0 +1,384 @@
+{% extends 'base.html' %}
+
+{% block title %}Schedule - {{ project.name }}{% endblock %}
+
+{% block content %}
+<style>
+  .pv { --pv-row: 26px; --pv-line: #dfe4ec; --pv-head: #dbe4f0; --pv-head2: #edf2f9; }
+  .pv-scroll { position: relative; overflow: auto; border: 1px solid #c5cedb; background: #fff; max-height: calc(100vh - 290px); min-height: 380px; border-radius: 4px; }
+  .pv-head { position: sticky; top: 0; z-index: 6; display: flex; width: max-content; min-width: 100%; }
+  .pv-head-left { position: sticky; left: 0; z-index: 7; background: var(--pv-head); border-right: 2px solid #98a8bf; }
+  .pv-body { display: flex; width: max-content; min-width: 100%; }
+  .pv-left { position: sticky; left: 0; z-index: 4; background: #fff; border-right: 2px solid #98a8bf; }
+  .pv-cols, .pv-row { display: grid; align-items: center; }
+  .pv-cols { height: 44px; background: var(--pv-head); font-weight: 600; font-size: 12px; color: #2c3e50; border-bottom: 1px solid #98a8bf; }
+  .pv-cols > div { padding: 0 6px; border-right: 1px solid #b7c3d4; height: 100%; display: flex; align-items: center; }
+  .pv-row { height: var(--pv-row); font-size: 12px; border-bottom: 1px solid var(--pv-line); cursor: default; white-space: nowrap; }
+  .pv-row:nth-child(even) { background: #f8fafc; }
+  .pv-row:hover { background: #fff6d6 !important; }
+  .pv-row.sel { background: #cfe3ff !important; }
+  .pv-row > div { padding: 0 6px; overflow: hidden; text-overflow: ellipsis; border-right: 1px solid var(--pv-line); height: 100%; display: flex; align-items: center; }
+  .pv-row .num { justify-content: flex-end; font-variant-numeric: tabular-nums; }
+  .pv-row.summary { font-weight: 700; background: #eef2f8 !important; }
+  .pv-row.summary:hover { background: #fff6d6 !important; }
+  .pv-row .name { gap: 4px; }
+  .pv-tog { width: 16px; text-align: center; cursor: pointer; color: #34495e; user-select: none; flex: none; }
+  .pv-tog.none { visibility: hidden; cursor: default; }
+  .pv-crit { color: #c0392b; }
+  .pv-right { position: relative; }
+  .pv-timehead { height: 44px; background: var(--pv-head); position: relative; border-bottom: 1px solid #98a8bf; overflow: hidden; }
+  .pv-seg { position: absolute; height: 22px; line-height: 21px; font-size: 11px; text-align: center; border-right: 1px solid #b7c3d4; color: #2c3e50; overflow: hidden; white-space: nowrap; box-sizing: border-box; }
+  .pv-seg.top { top: 0; background: var(--pv-head); font-weight: 600; border-bottom: 1px solid #b7c3d4; }
+  .pv-seg.bot { top: 22px; background: var(--pv-head2); }
+  .pv-seg.today { background: #ffe0dc; color: #b03a2e; font-weight: 700; }
+  .pv-toolbar .btn { padding: .2rem .55rem; font-size: 13px; }
+  .pv-chip { display: inline-block; background: #fff; border: 1px solid #d0d7e2; border-radius: 4px; padding: 3px 10px; margin: 0 6px 6px 0; font-size: 13px; }
+  .pv-chip b { color: #1f4788; }
+  .pv-legend { font-size: 12px; color: #4a5568; display: flex; flex-wrap: wrap; gap: 6px 18px; align-items: center; margin-top: 8px; }
+  .pv-legend i { display: inline-block; vertical-align: middle; margin-right: 5px; }
+  .sw-bar { width: 26px; height: 10px; } .sw-sum { width: 26px; height: 5px; background: #111; } .sw-base { width: 26px; height: 4px; background: #7f8c8d; }
+  .sw-mile { width: 10px; height: 10px; background: #111; transform: rotate(45deg); }
+  .sw-today { width: 0; height: 14px; border-left: 2px dashed #d63031; }
+  #pvTip { position: fixed; z-index: 2000; pointer-events: none; background: #1f2d3d; color: #fff; padding: 6px 10px; border-radius: 4px; font-size: 12px; line-height: 1.45; display: none; max-width: 360px; box-shadow: 0 4px 14px rgba(0,0,0,.3); }
+  @media print {
+    body * { visibility: hidden; }
+    #pv-print, #pv-print * { visibility: visible; }
+    #pv-print { position: absolute; left: 0; top: 0; width: 100%; }
+    .no-print { display: none !important; }
+    .pv-scroll { max-height: none !important; overflow: visible !important; border: 0; }
+    .pv-head, .pv-head-left, .pv-left { position: static !important; }
+    @page { size: A3 landscape; margin: 8mm; }
+  }
+</style>
+
+<div class="container-fluid py-3 pv" id="pv-print">
+  <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+    <div>
+      <h1 class="h3 mb-1"><i class="bi bi-bar-chart-steps"></i> Project Schedule</h1>
+      <p class="text-muted mb-0">{{ project.name }} <span class="badge bg-primary">{{ project.project_symbol }}</span></p>
+    </div>
+    <div class="d-flex gap-2 no-print">
+      <button class="btn btn-outline-dark" onclick="window.print()"><i class="bi bi-printer"></i> Print</button>
+      <a href="{% url 'projects:project_detail' pk=project.id %}" class="btn btn-outline-secondary"><i class="bi bi-arrow-left"></i> Back to Project</a>
+    </div>
+  </div>
+
+  {% if not schedule.tasks %}
+  <div class="alert alert-info">
+    <i class="bi bi-info-circle"></i> This project has no schedule yet.
+    A schedule exported from Microsoft Project can be loaded with <code>python manage.py import_ms_project_schedule --project {{ project.project_symbol }} --json tasks.json</code>
+    (see the command's help), and a demo schedule for the demo project with <code>python manage.py seed_schedule_demo</code>.
+  </div>
+  {% else %}
+
+  {% with s=schedule.stats %}
+  <div class="mb-2">
+    <span class="pv-chip">Activities <b>{{ s.activities }}</b></span>
+    <span class="pv-chip">Completed <b>{{ s.completed }}</b></span>
+    <span class="pv-chip">In progress <b>{{ s.in_progress }}</b></span>
+    <span class="pv-chip">Critical <b class="pv-crit">{{ s.critical }}</b></span>
+    <span class="pv-chip">% complete <b>{{ s.percent_complete }}%</b></span>
+    <span class="pv-chip">Start <b>{{ s.start }}</b></span>
+    <span class="pv-chip">Finish <b>{{ s.finish }}</b>
+      {% if s.finish_variance_days is not None %}{% if s.finish_variance_days > 0 %}<span class="text-danger">({{ s.finish_variance_days }} d later than baseline)</span>{% elif s.finish_variance_days < 0 %}<span class="text-success">({{ s.finish_variance_days|cut:"-" }} d earlier than baseline)</span>{% else %}<span class="text-success">(on baseline)</span>{% endif %}{% endif %}</span>
+    <span class="pv-chip">Data date <b>{{ schedule.data_date }}</b></span>
+  </div>
+  {% endwith %}
+
+  <div class="pv-toolbar d-flex flex-wrap align-items-center gap-2 mb-2 no-print">
+    <div class="btn-group" role="group" aria-label="Zoom" id="pvZoom">
+      <button class="btn btn-outline-secondary" data-zoom="fit">Fit</button>
+      <button class="btn btn-outline-secondary" data-zoom="quarter">Quarter</button>
+      <button class="btn btn-outline-secondary" data-zoom="month">Month</button>
+      <button class="btn btn-outline-secondary" data-zoom="week">Week</button>
+      <button class="btn btn-outline-secondary" data-zoom="day">Day</button>
+    </div>
+    <div class="btn-group" role="group" aria-label="Levels" id="pvLevels">
+      <button class="btn btn-outline-secondary" data-level="1" title="Show only the top level">1</button>
+      <button class="btn btn-outline-secondary" data-level="2">2</button>
+      <button class="btn btn-outline-secondary" data-level="3">3</button>
+      <button class="btn btn-outline-secondary" data-level="99" title="Expand everything">All</button>
+    </div>
+    <button class="btn btn-outline-secondary" id="pvToday"><i class="bi bi-crosshair"></i> Data date</button>
+    <div class="vr"></div>
+    <div class="form-check form-check-inline mb-0"><input class="form-check-input" type="checkbox" id="optCritical" checked><label class="form-check-label" for="optCritical">Critical path</label></div>
+    <div class="form-check form-check-inline mb-0"><input class="form-check-input" type="checkbox" id="optBaseline" checked><label class="form-check-label" for="optBaseline">Baseline</label></div>
+    <div class="form-check form-check-inline mb-0"><input class="form-check-input" type="checkbox" id="optLinks" checked><label class="form-check-label" for="optLinks">Relationships</label></div>
+    <div class="form-check form-check-inline mb-0"><input class="form-check-input" type="checkbox" id="optLabels" checked><label class="form-check-label" for="optLabels">Labels</label></div>
+    <div class="form-check form-check-inline mb-0"><input class="form-check-input" type="checkbox" id="optCompact"><label class="form-check-label" for="optCompact">Compact columns</label></div>
+  </div>
+
+  <div class="pv-scroll" id="pvScroll">
+    <div class="pv-head">
+      <div class="pv-head-left"><div class="pv-cols" id="pvCols"></div></div>
+      <div class="pv-timehead" id="pvTimeHead"></div>
+    </div>
+    <div class="pv-body">
+      <div class="pv-left" id="pvLeft"></div>
+      <div class="pv-right" id="pvRight"></div>
+    </div>
+  </div>
+
+  <div class="pv-legend">
+    <span><i class="sw-bar" style="background:#3f7fc8"></i>Activity</span>
+    <span><i class="sw-bar" style="background:#d63031"></i>Critical activity</span>
+    <span><i class="sw-bar" style="background:linear-gradient(90deg,#1c4f8f 55%,#3f7fc8 55%)"></i>Actual progress</span>
+    <span><i class="sw-sum"></i>Summary (WBS)</span>
+    <span><i class="sw-mile"></i>Milestone</span>
+    <span><i class="sw-base"></i>Baseline</span>
+    <span><i class="sw-today"></i>Data date</span>
+  </div>
+  {% endif %}
+</div>
+
+{% if schedule.tasks %}
+{{ schedule|json_script:"pv-data" }}
+<script>
+(function () {
+  "use strict";
+  var DATA = JSON.parse(document.getElementById("pv-data").textContent);
+  var TASKS = DATA.tasks, TODAY = DATA.data_date;
+  var ROW_H = 26, DAY = 86400000;
+  var MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+  var ZOOMS = {quarter: 1.0, month: 2.8, week: 8, day: 26};
+  var state = {zoom: "month", ppd: 2.8, collapsed: {}, selected: null, critical: true, baseline: true, links: true, labels: true, compact: false};
+
+  var byId = {}; TASKS.forEach(function (t) { byId[t.id] = t; });
+  var children = {}; TASKS.forEach(function (t) { if (t.parent !== null && t.parent !== undefined) { (children[t.parent] = children[t.parent] || []).push(t.id); } });
+
+  function d2n(iso) { var p = iso.split("-"); return Math.round(Date.UTC(+p[0], +p[1] - 1, +p[2]) / DAY); }
+  function n2d(n) { return new Date(n * DAY); }
+  function fmt(iso) { if (!iso) { return ""; } var p = iso.split("-"); return p[2] + "-" + MONTHS[+p[1] - 1] + "-" + p[0].slice(2); }
+  function esc(s) { return String(s === null || s === undefined ? "" : s).replace(/[&<>"']/g, function (c) { return {"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"}[c]; }); }
+
+  // ---- the time range
+  var all = [TODAY];
+  TASKS.forEach(function (t) { [t.start, t.finish, t.baseline_start, t.baseline_finish].forEach(function (d) { if (d) { all.push(d); } }); });
+  var nums = all.map(d2n);
+  var origin = Math.min.apply(null, nums) - 10, endDay = Math.max.apply(null, nums) + 25, span = endDay - origin;
+
+  function xOf(iso) { return (d2n(iso) - origin) * state.ppd; }
+
+  // ---- what rows are visible
+  function visibleRows() {
+    var rows = [];
+    TASKS.forEach(function (t) {
+      var p = t.parent, hidden = false;
+      while (p !== null && p !== undefined) { if (state.collapsed[p]) { hidden = true; break; } p = byId[p].parent; }
+      if (!hidden) { rows.push(t); }
+    });
+    return rows;
+  }
+
+  // ---- header ticks
+  function segments(kind) {
+    var out = [], n = origin, d, next, label;
+    if (kind === "year") {
+      while (n < endDay) { d = n2d(n); next = Math.round(Date.UTC(d.getUTCFullYear() + 1, 0, 1) / DAY); out.push([n, next, String(d.getUTCFullYear())]); n = next; }
+    } else if (kind === "quarter") {
+      while (n < endDay) { d = n2d(n); var q = Math.floor(d.getUTCMonth() / 3); next = Math.round(Date.UTC(d.getUTCFullYear(), (q + 1) * 3, 1) / DAY); out.push([n, next, "Q" + (q + 1)]); n = next; }
+    } else if (kind === "month") {
+      while (n < endDay) { d = n2d(n); next = Math.round(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 1) / DAY); out.push([n, next, MONTHS[d.getUTCMonth()]]); n = next; }
+    } else if (kind === "monthyear") {
+      while (n < endDay) { d = n2d(n); next = Math.round(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 1) / DAY); out.push([n, next, MONTHS[d.getUTCMonth()] + " " + d.getUTCFullYear()]); n = next; }
+    } else if (kind === "week") {            // weeks start on Saturday, like the company's work week
+      while (n < endDay) { d = n2d(n); var back = (d.getUTCDay() + 1) % 7; var start = n - back; next = start + 7; out.push([Math.max(start, origin), next, String(n2d(start).getUTCDate())]); n = next; }
+    } else {                                  // day
+      while (n < endDay) { d = n2d(n); out.push([n, n + 1, "SMTWTFS".charAt(d.getUTCDay()) + " " + d.getUTCDate()]); n += 1; }
+    }
+    return out;
+  }
+  function tiers() {
+    // chosen from the scale, so "Fit" on a long project still gets readable labels
+    if (state.ppd >= 16) { return ["monthyear", "day"]; }
+    if (state.ppd >= 4.5) { return ["monthyear", "week"]; }
+    if (state.ppd >= 1.6) { return ["year", "month"]; }
+    return ["year", "quarter"];
+  }
+
+  function drawHeader() {
+    var t = tiers(), html = "", todayN = d2n(TODAY);
+    segments(t[0]).forEach(function (s) { html += '<div class="pv-seg top" style="left:' + (s[0] - origin) * state.ppd + 'px;width:' + (s[1] - s[0]) * state.ppd + 'px">' + esc(s[2]) + '</div>'; });
+    segments(t[1]).forEach(function (s) {
+      var cls = (todayN >= s[0] && todayN < s[1]) ? " today" : "";
+      html += '<div class="pv-seg bot' + cls + '" style="left:' + (s[0] - origin) * state.ppd + 'px;width:' + (s[1] - s[0]) * state.ppd + 'px">' + esc(s[2]) + '</div>';
+    });
+    var head = document.getElementById("pvTimeHead");
+    head.style.width = span * state.ppd + "px";
+    head.innerHTML = html;
+  }
+
+  // ---- the activity table
+  function cols() {
+    return state.compact
+      ? {tpl: "70px 250px 84px 84px 46px", head: ["Activity ID", "Activity Name", "Start", "Finish", "%"]}
+      : {tpl: "70px 250px 54px 84px 84px 46px 46px 120px", head: ["Activity ID", "Activity Name", "Dur", "Start", "Finish", "%", "Float", "Predecessors"]};
+  }
+  function leftWidth() { return state.compact ? 508 : 754; }
+
+  function drawTable(rows) {
+    var c = cols(), left = document.getElementById("pvLeft"), colsEl = document.getElementById("pvCols");
+    colsEl.style.gridTemplateColumns = c.tpl; colsEl.style.width = leftWidth() + "px";
+    colsEl.innerHTML = c.head.map(function (h) { return "<div>" + h + "</div>"; }).join("");
+    left.style.width = leftWidth() + "px";
+    var html = "";
+    rows.forEach(function (t) {
+      var kids = children[t.id] && children[t.id].length, open = !state.collapsed[t.id];
+      var tog = kids ? '<span class="pv-tog" data-tog="' + esc(t.id) + '">' + (open ? "&#9662;" : "&#9656;") + "</span>" : '<span class="pv-tog none">&#9656;</span>';
+      var crit = state.critical && t.critical && !t.summary;
+      var name = '<div class="name" style="padding-left:' + (6 + (t.level - 1) * 16) + 'px">' + tog + '<span class="' + (crit ? "pv-crit" : "") + '" title="' + esc(t.name) + '">' + esc(t.name) + "</span></div>";
+      var pct = t.percent ? (Math.round(t.percent * 10) / 10) + "" : "0";
+      var flt = t.float === null || t.float === undefined ? "" : String(Math.round(t.float));
+      var cells = state.compact
+        ? ["<div>" + esc(t.activity_id) + "</div>", name, "<div>" + fmt(t.start) + "</div>", "<div>" + fmt(t.finish) + "</div>", '<div class="num">' + pct + "</div>"]
+        : ["<div>" + esc(t.activity_id) + "</div>", name, '<div class="num">' + esc(t.duration) + "</div>", "<div>" + fmt(t.start) + "</div>", "<div>" + fmt(t.finish) + "</div>",
+           '<div class="num">' + pct + "</div>", '<div class="num ' + (t.float !== null && t.float <= 0 ? "pv-crit" : "") + '">' + flt + "</div>", '<div title="' + esc(t.predecessors) + '">' + esc(t.predecessors) + "</div>"];
+      html += '<div class="pv-row' + (t.summary ? " summary" : "") + (state.selected === t.id ? " sel" : "") + '" data-id="' + esc(t.id) + '" style="grid-template-columns:' + c.tpl + '">' + cells.join("") + "</div>";
+    });
+    left.innerHTML = html;
+  }
+
+  // ---- the chart
+  function tipText(t) {
+    var lines = [t.activity_id + "  " + t.name, "Start: " + fmt(t.start) + "   Finish: " + fmt(t.finish)];
+    if (t.duration) { lines.push("Duration: " + t.duration + "   Complete: " + t.percent + "%"); }
+    if (t.float !== null && t.float !== undefined) { lines.push("Total float: " + Math.round(t.float) + " d" + (t.critical ? "  (critical)" : "")); }
+    if (t.baseline_start) { lines.push("Baseline: " + fmt(t.baseline_start) + " to " + fmt(t.baseline_finish)); }
+    if (t.actual_start) { lines.push("Actual start: " + fmt(t.actual_start) + (t.actual_finish ? "   Actual finish: " + fmt(t.actual_finish) : "")); }
+    if (t.predecessors) { lines.push("Predecessors: " + t.predecessors); }
+    if (t.resources) { lines.push("Resources: " + t.resources); }
+    return lines.join("\n");
+  }
+
+  function drawChart(rows) {
+    var W = span * state.ppd, H = rows.length * ROW_H, index = {}, svg = [], ppd = state.ppd;
+    rows.forEach(function (t, i) { index[t.id] = i; });
+    svg.push('<svg id="pvSvg" width="' + W + '" height="' + H + '" xmlns="http://www.w3.org/2000/svg" style="display:block">');
+    svg.push('<defs><marker id="arr" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#5d6d7e"/></marker>' +
+             '<marker id="arrc" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#d63031"/></marker></defs>');
+    // stripes and selection
+    rows.forEach(function (t, i) {
+      var fill = state.selected === t.id ? "#cfe3ff" : (t.summary ? "#eef2f8" : (i % 2 ? "#f8fafc" : "#fff"));
+      svg.push('<rect x="0" y="' + i * ROW_H + '" width="' + W + '" height="' + ROW_H + '" fill="' + fill + '" data-row="' + esc(t.id) + '"/>');
+      svg.push('<line x1="0" x2="' + W + '" y1="' + ((i + 1) * ROW_H - .5) + '" y2="' + ((i + 1) * ROW_H - .5) + '" stroke="#dfe4ec"/>');
+    });
+    // Fridays (the weekly day off) when the scale is wide enough to see them
+    if (ppd >= 5) {
+      for (var n = origin; n < endDay; n++) { if (n2d(n).getUTCDay() === 5) { svg.push('<rect x="' + (n - origin) * ppd + '" y="0" width="' + ppd + '" height="' + H + '" fill="#000" opacity=".045"/>'); } }
+    }
+    // vertical grid at the lower header tier
+    segments(tiers()[1]).forEach(function (s) { var gx = (s[0] - origin) * ppd; svg.push('<line x1="' + gx + '" x2="' + gx + '" y1="0" y2="' + H + '" stroke="#e3e8ef"/>'); });
+    segments(tiers()[0]).forEach(function (s) { var gx = (s[0] - origin) * ppd; svg.push('<line x1="' + gx + '" x2="' + gx + '" y1="0" y2="' + H + '" stroke="#b9c4d4"/>'); });
+
+    // baseline bars
+    if (state.baseline) {
+      rows.forEach(function (t, i) {
+        if (!t.baseline_start || !t.baseline_finish) { return; }
+        var x1 = xOf(t.baseline_start), x2 = xOf(t.baseline_finish) + ppd, y = i * ROW_H;
+        if (t.milestone) { var cx = x1 + ppd / 2; svg.push('<polygon points="' + cx + ',' + (y + 16) + ' ' + (cx + 5) + ',' + (y + 21) + ' ' + cx + ',' + (y + 26) + ' ' + (cx - 5) + ',' + (y + 21) + '" fill="#95a5a6" opacity=".9"/>'); }
+        else { svg.push('<rect x="' + x1 + '" y="' + (y + ROW_H - 8) + '" width="' + Math.max(x2 - x1, 2) + '" height="4" fill="#7f8c8d" opacity=".85"/>'); }
+      });
+    }
+
+    // relationship arrows
+    var anchors = {};
+    rows.forEach(function (t, i) {
+      if (!t.start || !t.finish) { return; }
+      var y = i * ROW_H + ROW_H / 2;
+      anchors[t.id] = {y: y, s: t.milestone ? xOf(t.start) + ppd / 2 : xOf(t.start), e: t.milestone ? xOf(t.start) + ppd / 2 : xOf(t.finish) + ppd, crit: t.critical && !t.summary};
+    });
+    if (state.links) {
+      rows.forEach(function (t) {
+        (t.links || []).forEach(function (l) {
+          var a = anchors[l.from], b = anchors[t.id];
+          if (!a || !b) { return; }
+          var pts, mid = (a.y + b.y) / 2, red = state.critical && a.crit && b.crit;
+          if (l.type === "SS") { var mx = Math.min(a.s, b.s) - 8; pts = [[a.s, a.y], [mx, a.y], [mx, b.y], [b.s, b.y]]; }
+          else if (l.type === "FF") { var fx = Math.max(a.e, b.e) + 8; pts = [[a.e, a.y], [fx, a.y], [fx, b.y], [b.e, b.y]]; }
+          else if (l.type === "SF") { pts = [[a.s, a.y], [a.s - 8, a.y], [a.s - 8, mid], [b.e + 8, mid], [b.e + 8, b.y], [b.e, b.y]]; }
+          else if (b.s >= a.e + 12) { var bx = a.e + 6; pts = [[a.e, a.y], [bx, a.y], [bx, b.y], [b.s, b.y]]; }
+          else { pts = [[a.e, a.y], [a.e + 6, a.y], [a.e + 6, mid], [b.s - 8, mid], [b.s - 8, b.y], [b.s, b.y]]; }
+          svg.push('<polyline points="' + pts.map(function (p) { return p[0] + "," + p[1]; }).join(" ") + '" fill="none" stroke="' + (red ? "#d63031" : "#5d6d7e") + '" stroke-width="1" marker-end="url(#' + (red ? "arrc" : "arr") + ')"/>');
+        });
+      });
+    }
+
+    // the bars
+    rows.forEach(function (t, i) {
+      if (!t.start || !t.finish) { return; }
+      var y = i * ROW_H, x1 = xOf(t.start), x2 = xOf(t.finish) + ppd, w = Math.max(x2 - x1, 3), crit = state.critical && t.critical, tip = "<title>" + esc(tipText(t)) + "</title>";
+      var endX = x2;
+      if (t.milestone) {
+        var cx = x1 + ppd / 2, done = t.percent >= 100, fill = crit ? "#d63031" : (done ? "#27ae60" : "#111");
+        svg.push('<g data-row="' + esc(t.id) + '"><polygon points="' + cx + ',' + (y + 6) + ' ' + (cx + 7) + ',' + (y + 13) + ' ' + cx + ',' + (y + 20) + ' ' + (cx - 7) + ',' + (y + 13) + '" fill="' + fill + '"/>' + tip + "</g>");
+        endX = cx + 9;
+      } else if (t.summary) {
+        svg.push('<g data-row="' + esc(t.id) + '"><rect x="' + x1 + '" y="' + (y + 8) + '" width="' + w + '" height="6" fill="#111"/>' +
+                 '<polygon points="' + x1 + ',' + (y + 14) + ' ' + (x1 + 6) + ',' + (y + 14) + ' ' + x1 + ',' + (y + 20) + '" fill="#111"/>' +
+                 '<polygon points="' + (x1 + w) + ',' + (y + 14) + ' ' + (x1 + w - 6) + ',' + (y + 14) + ' ' + (x1 + w) + ',' + (y + 20) + '" fill="#111"/>' + tip + "</g>");
+      } else {
+        var base = crit ? "#d63031" : "#3f7fc8", dark = crit ? "#8e1f1f" : "#1c4f8f", done = Math.max(0, Math.min(100, t.percent)) / 100 * w;
+        svg.push('<g data-row="' + esc(t.id) + '"><rect x="' + x1 + '" y="' + (y + 5) + '" width="' + w + '" height="11" fill="' + base + '" rx="1"/>' +
+                 (done > 0 ? '<rect x="' + x1 + '" y="' + (y + 5) + '" width="' + done + '" height="11" fill="' + dark + '" rx="1"/>' : "") + tip + "</g>");
+      }
+      if (state.labels && !t.summary) { svg.push('<text x="' + (endX + 6) + '" y="' + (y + 16) + '" font-size="11" fill="#2c3e50">' + esc(t.name) + "</text>"); }
+    });
+
+    // data date
+    var tx = xOf(TODAY) + ppd / 2;
+    svg.push('<line x1="' + tx + '" x2="' + tx + '" y1="0" y2="' + H + '" stroke="#d63031" stroke-width="1.5" stroke-dasharray="5,3"/>');
+    svg.push("</svg>");
+    document.getElementById("pvRight").style.width = W + "px";
+    document.getElementById("pvRight").innerHTML = svg.join("");
+  }
+
+  function render() {
+    var rows = visibleRows();
+    drawHeader(); drawTable(rows); drawChart(rows);
+    var zoomButtons = document.querySelectorAll("#pvZoom button");
+    Array.prototype.forEach.call(zoomButtons, function (b) { b.classList.toggle("active", b.getAttribute("data-zoom") === state.zoom); });
+  }
+
+  function setZoom(name) {
+    state.zoom = name;
+    if (name === "fit") {
+      var box = document.getElementById("pvScroll").clientWidth - leftWidth() - 30;
+      state.ppd = Math.max(box / span, 0.15);
+      state.zoom = "fit";
+    } else { state.ppd = ZOOMS[name]; }
+    render();
+  }
+  function setLevel(n) {
+    state.collapsed = {};
+    TASKS.forEach(function (t) { if (children[t.id] && t.level >= n) { state.collapsed[t.id] = true; } });
+    render();
+  }
+  function scrollToToday() {
+    var box = document.getElementById("pvScroll");
+    box.scrollLeft = Math.max(xOf(TODAY) - (box.clientWidth - leftWidth()) / 3, 0);
+  }
+
+  // ---- interaction
+  document.getElementById("pvLeft").addEventListener("click", function (e) {
+    var tog = e.target.closest("[data-tog]");
+    if (tog) { var id = tog.getAttribute("data-tog"); id = isNaN(id) ? id : Number(id); state.collapsed[id] = !state.collapsed[id]; render(); return; }
+    var row = e.target.closest(".pv-row");
+    if (row) { var rid = row.getAttribute("data-id"); rid = isNaN(rid) ? rid : Number(rid); state.selected = state.selected === rid ? null : rid; render(); }
+  });
+  document.getElementById("pvRight").addEventListener("click", function (e) {
+    var el = e.target.closest("[data-row]");
+    if (el) { var rid = el.getAttribute("data-row"); rid = isNaN(rid) ? rid : Number(rid); state.selected = state.selected === rid ? null : rid; render(); }
+  });
+  document.getElementById("pvZoom").addEventListener("click", function (e) { var b = e.target.closest("button"); if (b) { setZoom(b.getAttribute("data-zoom")); } });
+  document.getElementById("pvLevels").addEventListener("click", function (e) { var b = e.target.closest("button"); if (b) { setLevel(Number(b.getAttribute("data-level"))); } });
+  document.getElementById("pvToday").addEventListener("click", scrollToToday);
+  [["optCritical", "critical"], ["optBaseline", "baseline"], ["optLinks", "links"], ["optLabels", "labels"], ["optCompact", "compact"]].forEach(function (pair) {
+    document.getElementById(pair[0]).addEventListener("change", function () { state[pair[1]] = this.checked; render(); });
+  });
+
+  setZoom("month");
+  scrollToToday();
+})();
+</script>
+{% endif %}
+{% endblock %}

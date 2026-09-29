@@ -1,0 +1,217 @@
+{% extends 'base.html' %}
+
+{% block title %}{% if form.instance.pk %}Edit{% else %}Create{% endif %} Project - Site Engineer Reports{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- Page Header -->
+    <div class="row mb-4">
+        <div class="col-md-8">
+            <h1 class="h2">
+                <i class="bi bi-building"></i> 
+                {% if form.instance.pk %}Edit Project{% else %}Create New Project{% endif %}
+            </h1>
+            <p class="text-muted">
+                {% if form.instance.pk %}Update project information{% else %}Add a new construction project{% endif %}
+            </p>
+        </div>
+    </div>
+
+    <!-- Form Card -->
+    <div class="row">
+        <div class="col-md-8">
+            <div class="card shadow">
+                <div class="card-body">
+                    <form method="post" class="needs-validation">
+                        {% csrf_token %}
+                        
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label for="{{ form.name.id_for_label }}" class="form-label">
+                                    <strong>Project Name *</strong>
+                                </label>
+                                {{ form.name }}
+                                {% if form.name.errors %}
+                                    <div class="invalid-feedback d-block">
+                                        {{ form.name.errors.0 }}
+                                    </div>
+                                {% endif %}
+                            </div>
+                            <div class="col-md-6">
+                                <label for="{{ form.symbol.id_for_label }}" class="form-label">
+                                    <strong>Project Symbol *</strong>
+                                </label>
+                                {{ form.project_symbol }}
+                                {% if form.project_symbol.errors %}
+                                    <div class="invalid-feedback d-block">
+                                        {{ form.project_symbol.errors.0 }}
+                                    </div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label for="{{ form.contract_number.id_for_label }}" class="form-label">
+                                    <strong>Contract Number *</strong>
+                                </label>
+                                {{ form.contract_number }}
+                                {% if form.contract_number.errors %}
+                                    <div class="invalid-feedback d-block">
+                                        {{ form.contract_number.errors.0 }}
+                                    </div>
+                                {% endif %}
+                            </div>
+                            <div class="col-md-6">
+                                <label for="{{ form.client.id_for_label }}" class="form-label">
+                                    <strong>Client / CMC *</strong>
+                                </label>
+                                {{ form.client_name }}
+                                {% if form.client_name.errors %}
+                                    <div class="invalid-feedback d-block">
+                                        {{ form.client_name.errors.0 }}
+                                    </div>
+                                {% endif %}
+                                {% if form.client_name.errors %}
+                                    <div class="invalid-feedback d-block">
+                                        {{ form.client_name.errors.0 }}
+                                    </div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label for="{{ form.start_date.id_for_label }}" class="form-label">
+                                    <strong>Project Start Date *</strong>
+                                </label>
+                                {{ form.start_date }}
+                                {% if form.start_date.errors %}
+                                    <div class="invalid-feedback d-block">
+                                        {{ form.start_date.errors.0 }}
+                                    </div>
+                                {% endif %}
+                            </div>
+                            <div class="col-md-6">
+                                <label for="{{ form.maintenance_type.id_for_label }}" class="form-label">
+                                    <strong>Maintenance Type *</strong>
+                                </label>
+                                {{ form.maintenance_type }}
+                                {% if form.maintenance_type.errors %}
+                                    <div class="invalid-feedback d-block">
+                                        {{ form.maintenance_type.errors.0 }}
+                                    </div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label for="{{ form.status.id_for_label }}" class="form-label">
+                                    <strong>Project Status *</strong>
+                                </label>
+                                {{ form.status }}
+                                {% if form.status.errors %}
+                                    <div class="invalid-feedback d-block">
+                                        {{ form.status.errors.0 }}
+                                    </div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="{{ form.description.id_for_label }}" class="form-label">
+                                <strong>Description</strong>
+                            </label>
+                            {{ form.description }}
+                            {% if form.description.errors %}
+                                <div class="invalid-feedback d-block">
+                                    {{ form.description.errors.0 }}
+                                </div>
+                            {% endif %}
+                            <small class="form-text text-muted">Optional: Provide additional project details</small>
+                        </div>
+                        <div class="mb-3">
+                            <label for="{{ form.manager.id_for_label }}" class="form-label">
+                                <strong>Manager</strong>
+                            </label>
+                            {{ form.manager }}
+                            {% if form.manager.errors %}
+                                <div class="invalid-feedback d-block">
+                                    {{ form.manager.errors.0 }}
+                                </div>
+                            {% endif %}
+                            <small class="form-text text-muted">Optional: Provide additional project details</small>
+                        </div>
+                        <!-- Form Actions -->
+                        <div class="d-flex gap-2 mt-4">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="bi bi-check"></i> 
+                                {% if form.instance.pk %}Update Project{% else %}Create Project{% endif %}
+                            </button>
+                            <a href="{% url 'projects:project_list' %}" class="btn btn-outline-secondary">
+                                <i class="bi bi-x"></i> Cancel
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- Help Section -->
+        <div class="col-md-4">
+            <div class="card shadow">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">
+                        <i class="bi bi-info-circle"></i> Help
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <h6>Required Fields</h6>
+                    <ul class="small">
+                        <li>Project Name</li>
+                        <li>Project Symbol</li>
+                        <li>Contract Number</li>
+                        <li>Client / CMC</li>
+                        <li>Start Date</li>
+                        <li>Maintenance Type</li>
+                        <li>Status</li>
+                    </ul>
+
+                    <hr>
+
+                    <h6>Tips</h6>
+                    <ul class="small">
+                        <li>Use a unique project symbol for easy identification</li>
+                        <li>The project start date is used in reports</li>
+                        <li>Maintenance type helps categorize the project</li>
+                        <li>You can update project details anytime</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.form-control, .form-select {
+    border-radius: 6px;
+    border: 1px solid #ddd;
+}
+
+.form-control:focus, .form-select:focus {
+    border-color: #1f4788;
+    box-shadow: 0 0 0 0.2rem rgba(31, 71, 136, 0.25);
+}
+
+.form-label {
+    color: #333;
+    margin-bottom: 0.5rem;
+}
+
+.invalid-feedback {
+    color: #dc3545;
+    font-size: 0.875rem;
+}
+</style>
+{% endblock %}

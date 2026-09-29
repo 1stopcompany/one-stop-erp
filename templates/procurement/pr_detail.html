@@ -1,0 +1,80 @@
+{% extends 'base.html' %}{% block title %}{{ pr.pr_number }}{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center my-4">
+  <div>
+    <h1 class="h3 mb-1">{{ pr.pr_number }}
+      <span class="badge bg-{% if pr.status == 'approved' or pr.status == 'completed' %}success{% elif pr.status == 'rejected' or pr.status == 'cancelled' %}danger{% elif pr.status == 'submitted' %}warning text-dark{% else %}secondary{% endif %}">{{ pr.get_status_display }}</span>
+    </h1>
+    <p class="text-muted mb-0">{{ pr.project }}</p>
+  </div>
+  <div class="d-flex gap-2">
+    <a href="{% url 'procurement:pr_pdf' pr.pk %}" class="btn btn-outline-secondary" target="_blank"><i class="bi bi-file-pdf"></i> PDF</a>
+    {% if can_manage and pr.status == 'draft' %}
+      <a href="{% url 'procurement:pr_update' pr.pk %}" class="btn btn-outline-primary">Edit</a>
+      <form method="post" action="{% url 'procurement:pr_submit' pr.pk %}" class="d-inline">{% csrf_token %}<button class="btn btn-primary">Submit</button></form>
+      <a href="{% url 'procurement:pr_delete' pr.pk %}" class="btn btn-outline-danger">Delete</a>
+    {% endif %}
+    {% if can_approve and pr.status == 'submitted' %}
+      <form method="post" action="{% url 'procurement:pr_approve' pr.pk %}" class="d-inline">{% csrf_token %}<button class="btn btn-success">Approve</button></form>
+      <button class="btn btn-outline-danger" data-bs-toggle="modal" data-bs-target="#rejectModal">Reject</button>
+    {% endif %}
+    {% if can_work_procurement and pr.status == 'approved' %}
+      <form method="post" action="{% url 'procurement:pr_claim' pr.pk %}" class="d-inline">{% csrf_token %}<button class="btn btn-primary">Start Procurement</button></form>
+    {% endif %}
+    {% if can_work_procurement and pr.status in 'approved,in_procurement' %}
+      <a href="{% url 'procurement:rfq_create' pr.pk %}" class="btn btn-primary"><i class="bi bi-envelope"></i> New RFQ</a>
+    {% endif %}
+  </div>
+</div>
+
+<div class="card mb-3"><div class="card-body">
+  <div class="row">
+    <div class="col-md-3"><strong>Requested By:</strong> {% if pr.requested_by %}{{ pr.requested_by.get_full_name|default:pr.requested_by.username }}{% else %}—{% endif %}</div>
+    <div class="col-md-3"><strong>Required Date:</strong> {{ pr.required_date }}</div>
+    <div class="col-md-3"><strong>Approved By:</strong> {% if pr.approved_by %}{{ pr.approved_by.get_full_name|default:pr.approved_by.username }}{% else %}—{% endif %}</div>
+    <div class="col-md-3"><strong>Assigned To:</strong> {% if pr.assigned_to %}{{ pr.assigned_to.get_full_name|default:pr.assigned_to.username }}{% else %}—{% endif %}</div>
+  </div>
+  {% if pr.remarks %}<div class="mt-2"><strong>Remarks:</strong> {{ pr.remarks }}</div>{% endif %}
+  {% if pr.rejected_reason %}<div class="mt-2 text-danger"><strong>Rejection Reason:</strong> {{ pr.rejected_reason }}</div>{% endif %}
+</div></div>
+
+<div class="card mb-3">
+  <div class="card-header">Requested Items</div>
+  <div class="table-responsive"><table class="table mb-0">
+    <thead><tr><th>Item</th><th>Description</th><th class="text-end">Qty</th><th>Unit</th><th>Remarks</th></tr></thead>
+    <tbody>
+      {% for line in lines %}
+      <tr><td><div class="d-flex align-items-center gap-2"><img src="{% url 'procurement:item_barcode_png' line.item.pk %}" alt="{{ line.item.full_code }}" style="height:32px;"><span>{{ line.item.full_code }}</span></div></td><td>{{ line.item.description }}</td><td class="text-end">{{ line.quantity_requested }}</td><td>{{ line.get_unit_display }}</td><td>{{ line.remarks }}</td></tr>
+      {% empty %}
+      <tr><td colspan="5" class="text-center text-muted py-3">No items.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table></div>
+</div>
+
+{% if rfqs %}
+<div class="card mb-3">
+  <div class="card-header">Requests for Quotation</div>
+  <div class="table-responsive"><table class="table mb-0">
+    <thead><tr><th>RFQ</th><th>Status</th><th>Vendors Invited</th><th>Quotes Received</th><th></th></tr></thead>
+    <tbody>
+      {% for rfq in rfqs %}
+      <tr><td>{{ rfq.rfq_number }}</td><td>{{ rfq.get_status_display }}</td><td>{{ rfq.invited_vendors.count }}</td><td>{{ rfq.quotes.count }}</td>
+        <td class="text-end"><a class="btn btn-sm btn-outline-primary" href="{% url 'procurement:rfq_detail' rfq.pk %}">View</a></td></tr>
+      {% endfor %}
+    </tbody>
+  </table></div>
+</div>
+{% endif %}
+
+<div class="modal fade" id="rejectModal" tabindex="-1">
+  <div class="modal-dialog"><div class="modal-content">
+    <form method="post" action="{% url 'procurement:pr_reject' pr.pk %}">
+      {% csrf_token %}
+      <div class="modal-header"><h5 class="modal-title">Reject Requisition</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+      <div class="modal-body"><label class="form-label">Reason</label><textarea name="rejected_reason" class="form-control" rows="3" required></textarea></div>
+      <div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button><button type="submit" class="btn btn-danger">Reject</button></div>
+    </form>
+  </div></div>
+</div>
+{% endblock %}

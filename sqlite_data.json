@@ -1,0 +1,1445 @@
+[
+{
+  "model": "accounts.customuser",
+  "fields": {
+    "password": "pbkdf2_sha256$1000000$yXOz1rGvmczMuHsRD7JJl5$FN9XrB88OHZ3iqFt0wIPhaQDDxPY3aLm6nCpv54hAp8=",
+    "last_login": "2026-07-28T12:09:08.053Z",
+    "is_superuser": true,
+    "username": "balqees",
+    "first_name": "",
+    "last_name": "",
+    "email": "balqisawawde@gmail.com",
+    "is_staff": true,
+    "date_joined": "2026-01-11T19:44:49Z",
+    "role": "project_manager",
+    "phone": null,
+    "designation": null,
+    "department": null,
+    "is_active": true,
+    "created_at": "2026-01-11T19:44:50.621Z",
+    "updated_at": "2026-02-10T08:05:52.306Z",
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "accounts.customuser",
+  "fields": {
+    "password": "pbkdf2_sha256$600000$EJ5Q3lK8F2T3vqo5o1xtjK$+3Gg327tEfKmNPtEgzV4dG1HSNWsFUu8LcbsNZuyTB8=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "manager",
+    "first_name": "balqis",
+    "last_name": "awawdeh",
+    "email": "balqisawawde@gmail.com",
+    "is_staff": false,
+    "date_joined": "2026-02-05T11:09:13Z",
+    "role": "project_manager",
+    "phone": "0598199769",
+    "designation": null,
+    "department": null,
+    "is_active": true,
+    "created_at": "2026-02-05T11:09:14.718Z",
+    "updated_at": "2026-02-05T11:09:45.658Z",
+    "groups": [],
+    "user_permissions": [
+      [
+        "add_customuser",
+        "accounts",
+        "customuser"
+      ],
+      [
+        "change_customuser",
+        "accounts",
+        "customuser"
+      ],
+      [
+        "delete_customuser",
+        "accounts",
+        "customuser"
+      ],
+      [
+        "view_customuser",
+        "accounts",
+        "customuser"
+      ],
+      [
+        "add_userauditlog",
+        "accounts",
+        "userauditlog"
+      ],
+      [
+        "change_userauditlog",
+        "accounts",
+        "userauditlog"
+      ],
+      [
+        "delete_userauditlog",
+        "accounts",
+        "userauditlog"
+      ],
+      [
+        "view_userauditlog",
+        "accounts",
+        "userauditlog"
+      ],
+      [
+        "add_logentry",
+        "admin",
+        "logentry"
+      ],
+      [
+        "change_logentry",
+        "admin",
+        "logentry"
+      ],
+      [
+        "delete_logentry",
+        "admin",
+        "logentry"
+      ],
+      [
+        "view_logentry",
+        "admin",
+        "logentry"
+      ],
+      [
+        "add_group",
+        "auth",
+        "group"
+      ],
+      [
+        "change_group",
+        "auth",
+        "group"
+      ],
+      [
+        "delete_group",
+        "auth",
+        "group"
+      ],
+      [
+        "view_group",
+        "auth",
+        "group"
+      ],
+      [
+        "add_permission",
+        "auth",
+        "permission"
+      ],
+      [
+        "change_permission",
+        "auth",
+        "permission"
+      ],
+      [
+        "delete_permission",
+        "auth",
+        "permission"
+      ],
+      [
+        "view_permission",
+        "auth",
+        "permission"
+      ],
+      [
+        "add_token",
+        "authtoken",
+        "token"
+      ],
+      [
+        "change_token",
+        "authtoken",
+        "token"
+      ],
+      [
+        "delete_token",
+        "authtoken",
+        "token"
+      ],
+      [
+        "view_token",
+        "authtoken",
+        "token"
+      ],
+      [
+        "add_tokenproxy",
+        "authtoken",
+        "tokenproxy"
+      ],
+      [
+        "change_tokenproxy",
+        "authtoken",
+        "tokenproxy"
+      ],
+      [
+        "delete_tokenproxy",
+        "authtoken",
+        "tokenproxy"
+      ],
+      [
+        "view_tokenproxy",
+        "authtoken",
+        "tokenproxy"
+      ],
+      [
+        "add_contenttype",
+        "contenttypes",
+        "contenttype"
+      ],
+      [
+        "change_contenttype",
+        "contenttypes",
+        "contenttype"
+      ],
+      [
+        "delete_contenttype",
+        "contenttypes",
+        "contenttype"
+      ],
+      [
+        "view_contenttype",
+        "contenttypes",
+        "contenttype"
+      ],
+      [
+        "add_notificationtemplate",
+        "core",
+        "notificationtemplate"
+      ],
+      [
+        "change_notificationtemplate",
+        "core",
+        "notificationtemplate"
+      ],
+      [
+        "delete_notificationtemplate",
+        "core",
+        "notificationtemplate"
+      ],
+      [
+        "view_notificationtemplate",
+        "core",
+        "notificationtemplate"
+      ],
+      [
+        "add_systemsettings",
+        "core",
+        "systemsettings"
+      ],
+      [
+        "change_systemsettings",
+        "core",
+        "systemsettings"
+      ],
+      [
+        "delete_systemsettings",
+        "core",
+        "systemsettings"
+      ],
+      [
+        "view_systemsettings",
+        "core",
+        "systemsettings"
+      ],
+      [
+        "add_budget",
+        "cost_control",
+        "budget"
+      ],
+      [
+        "change_budget",
+        "cost_control",
+        "budget"
+      ],
+      [
+        "delete_budget",
+        "cost_control",
+        "budget"
+      ],
+      [
+        "view_budget",
+        "cost_control",
+        "budget"
+      ],
+      [
+        "add_budgetalert",
+        "cost_control",
+        "budgetalert"
+      ],
+      [
+        "change_budgetalert",
+        "cost_control",
+        "budgetalert"
+      ],
+      [
+        "delete_budgetalert",
+        "cost_control",
+        "budgetalert"
+      ],
+      [
+        "view_budgetalert",
+        "cost_control",
+        "budgetalert"
+      ],
+      [
+        "add_costforecast",
+        "cost_control",
+        "costforecast"
+      ],
+      [
+        "change_costforecast",
+        "cost_control",
+        "costforecast"
+      ],
+      [
+        "delete_costforecast",
+        "cost_control",
+        "costforecast"
+      ],
+      [
+        "view_costforecast",
+        "cost_control",
+        "costforecast"
+      ],
+      [
+        "add_costreport",
+        "cost_control",
+        "costreport"
+      ],
+      [
+        "change_costreport",
+        "cost_control",
+        "costreport"
+      ],
+      [
+        "delete_costreport",
+        "cost_control",
+        "costreport"
+      ],
+      [
+        "view_costreport",
+        "cost_control",
+        "costreport"
+      ],
+      [
+        "add_billofquantities",
+        "procurement",
+        "billofquantities"
+      ],
+      [
+        "change_billofquantities",
+        "procurement",
+        "billofquantities"
+      ],
+      [
+        "delete_billofquantities",
+        "procurement",
+        "billofquantities"
+      ],
+      [
+        "view_billofquantities",
+        "procurement",
+        "billofquantities"
+      ],
+      [
+        "add_itemmaster",
+        "procurement",
+        "itemmaster"
+      ],
+      [
+        "change_itemmaster",
+        "procurement",
+        "itemmaster"
+      ],
+      [
+        "delete_itemmaster",
+        "procurement",
+        "itemmaster"
+      ],
+      [
+        "view_itemmaster",
+        "procurement",
+        "itemmaster"
+      ],
+      [
+        "add_polineitem",
+        "procurement",
+        "polineitem"
+      ],
+      [
+        "change_polineitem",
+        "procurement",
+        "polineitem"
+      ],
+      [
+        "delete_polineitem",
+        "procurement",
+        "polineitem"
+      ],
+      [
+        "view_polineitem",
+        "procurement",
+        "polineitem"
+      ],
+      [
+        "add_purchaseorder",
+        "procurement",
+        "purchaseorder"
+      ],
+      [
+        "change_purchaseorder",
+        "procurement",
+        "purchaseorder"
+      ],
+      [
+        "delete_purchaseorder",
+        "procurement",
+        "purchaseorder"
+      ],
+      [
+        "view_purchaseorder",
+        "procurement",
+        "purchaseorder"
+      ],
+      [
+        "add_purchaserequisition",
+        "procurement",
+        "purchaserequisition"
+      ],
+      [
+        "change_purchaserequisition",
+        "procurement",
+        "purchaserequisition"
+      ],
+      [
+        "delete_purchaserequisition",
+        "procurement",
+        "purchaserequisition"
+      ],
+      [
+        "view_purchaserequisition",
+        "procurement",
+        "purchaserequisition"
+      ],
+      [
+        "add_vendor",
+        "procurement",
+        "vendor"
+      ],
+      [
+        "change_vendor",
+        "procurement",
+        "vendor"
+      ],
+      [
+        "delete_vendor",
+        "procurement",
+        "vendor"
+      ],
+      [
+        "view_vendor",
+        "procurement",
+        "vendor"
+      ],
+      [
+        "add_project",
+        "projects",
+        "project"
+      ],
+      [
+        "change_project",
+        "projects",
+        "project"
+      ],
+      [
+        "delete_project",
+        "projects",
+        "project"
+      ],
+      [
+        "view_project",
+        "projects",
+        "project"
+      ],
+      [
+        "add_projectfloor",
+        "projects",
+        "projectfloor"
+      ],
+      [
+        "change_projectfloor",
+        "projects",
+        "projectfloor"
+      ],
+      [
+        "delete_projectfloor",
+        "projects",
+        "projectfloor"
+      ],
+      [
+        "view_projectfloor",
+        "projects",
+        "projectfloor"
+      ],
+      [
+        "add_dailyactivity",
+        "reports",
+        "dailyactivity"
+      ],
+      [
+        "change_dailyactivity",
+        "reports",
+        "dailyactivity"
+      ],
+      [
+        "delete_dailyactivity",
+        "reports",
+        "dailyactivity"
+      ],
+      [
+        "view_dailyactivity",
+        "reports",
+        "dailyactivity"
+      ],
+      [
+        "add_dailyequipment",
+        "reports",
+        "dailyequipment"
+      ],
+      [
+        "change_dailyequipment",
+        "reports",
+        "dailyequipment"
+      ],
+      [
+        "delete_dailyequipment",
+        "reports",
+        "dailyequipment"
+      ],
+      [
+        "view_dailyequipment",
+        "reports",
+        "dailyequipment"
+      ],
+      [
+        "add_dailymaterial",
+        "reports",
+        "dailymaterial"
+      ],
+      [
+        "change_dailymaterial",
+        "reports",
+        "dailymaterial"
+      ],
+      [
+        "delete_dailymaterial",
+        "reports",
+        "dailymaterial"
+      ],
+      [
+        "view_dailymaterial",
+        "reports",
+        "dailymaterial"
+      ],
+      [
+        "add_dailyreport",
+        "reports",
+        "dailyreport"
+      ],
+      [
+        "change_dailyreport",
+        "reports",
+        "dailyreport"
+      ],
+      [
+        "delete_dailyreport",
+        "reports",
+        "dailyreport"
+      ],
+      [
+        "view_dailyreport",
+        "reports",
+        "dailyreport"
+      ],
+      [
+        "add_dailyvisitor",
+        "reports",
+        "dailyvisitor"
+      ],
+      [
+        "change_dailyvisitor",
+        "reports",
+        "dailyvisitor"
+      ],
+      [
+        "delete_dailyvisitor",
+        "reports",
+        "dailyvisitor"
+      ],
+      [
+        "view_dailyvisitor",
+        "reports",
+        "dailyvisitor"
+      ],
+      [
+        "add_dailyworkforce",
+        "reports",
+        "dailyworkforce"
+      ],
+      [
+        "change_dailyworkforce",
+        "reports",
+        "dailyworkforce"
+      ],
+      [
+        "delete_dailyworkforce",
+        "reports",
+        "dailyworkforce"
+      ],
+      [
+        "view_dailyworkforce",
+        "reports",
+        "dailyworkforce"
+      ],
+      [
+        "add_externalwork",
+        "reports",
+        "externalwork"
+      ],
+      [
+        "change_externalwork",
+        "reports",
+        "externalwork"
+      ],
+      [
+        "delete_externalwork",
+        "reports",
+        "externalwork"
+      ],
+      [
+        "view_externalwork",
+        "reports",
+        "externalwork"
+      ],
+      [
+        "add_flooractivity",
+        "reports",
+        "flooractivity"
+      ],
+      [
+        "change_flooractivity",
+        "reports",
+        "flooractivity"
+      ],
+      [
+        "delete_flooractivity",
+        "reports",
+        "flooractivity"
+      ],
+      [
+        "view_flooractivity",
+        "reports",
+        "flooractivity"
+      ],
+      [
+        "add_materialsupply",
+        "reports",
+        "materialsupply"
+      ],
+      [
+        "change_materialsupply",
+        "reports",
+        "materialsupply"
+      ],
+      [
+        "delete_materialsupply",
+        "reports",
+        "materialsupply"
+      ],
+      [
+        "view_materialsupply",
+        "reports",
+        "materialsupply"
+      ],
+      [
+        "add_monthlyactivity",
+        "reports",
+        "monthlyactivity"
+      ],
+      [
+        "change_monthlyactivity",
+        "reports",
+        "monthlyactivity"
+      ],
+      [
+        "delete_monthlyactivity",
+        "reports",
+        "monthlyactivity"
+      ],
+      [
+        "view_monthlyactivity",
+        "reports",
+        "monthlyactivity"
+      ],
+      [
+        "add_monthlyequipment",
+        "reports",
+        "monthlyequipment"
+      ],
+      [
+        "change_monthlyequipment",
+        "reports",
+        "monthlyequipment"
+      ],
+      [
+        "delete_monthlyequipment",
+        "reports",
+        "monthlyequipment"
+      ],
+      [
+        "view_monthlyequipment",
+        "reports",
+        "monthlyequipment"
+      ],
+      [
+        "add_monthlyreport",
+        "reports",
+        "monthlyreport"
+      ],
+      [
+        "change_monthlyreport",
+        "reports",
+        "monthlyreport"
+      ],
+      [
+        "delete_monthlyreport",
+        "reports",
+        "monthlyreport"
+      ],
+      [
+        "view_monthlyreport",
+        "reports",
+        "monthlyreport"
+      ],
+      [
+        "add_monthlyworkforce",
+        "reports",
+        "monthlyworkforce"
+      ],
+      [
+        "change_monthlyworkforce",
+        "reports",
+        "monthlyworkforce"
+      ],
+      [
+        "delete_monthlyworkforce",
+        "reports",
+        "monthlyworkforce"
+      ],
+      [
+        "view_monthlyworkforce",
+        "reports",
+        "monthlyworkforce"
+      ],
+      [
+        "add_reportattachment",
+        "reports",
+        "reportattachment"
+      ],
+      [
+        "change_reportattachment",
+        "reports",
+        "reportattachment"
+      ],
+      [
+        "delete_reportattachment",
+        "reports",
+        "reportattachment"
+      ],
+      [
+        "view_reportattachment",
+        "reports",
+        "reportattachment"
+      ],
+      [
+        "add_upcomingwork",
+        "reports",
+        "upcomingwork"
+      ],
+      [
+        "change_upcomingwork",
+        "reports",
+        "upcomingwork"
+      ],
+      [
+        "delete_upcomingwork",
+        "reports",
+        "upcomingwork"
+      ],
+      [
+        "view_upcomingwork",
+        "reports",
+        "upcomingwork"
+      ],
+      [
+        "add_session",
+        "sessions",
+        "session"
+      ],
+      [
+        "change_session",
+        "sessions",
+        "session"
+      ],
+      [
+        "delete_session",
+        "sessions",
+        "session"
+      ],
+      [
+        "view_session",
+        "sessions",
+        "session"
+      ],
+      [
+        "add_checkinlocation",
+        "timesheets",
+        "checkinlocation"
+      ],
+      [
+        "change_checkinlocation",
+        "timesheets",
+        "checkinlocation"
+      ],
+      [
+        "delete_checkinlocation",
+        "timesheets",
+        "checkinlocation"
+      ],
+      [
+        "view_checkinlocation",
+        "timesheets",
+        "checkinlocation"
+      ],
+      [
+        "add_department",
+        "timesheets",
+        "department"
+      ],
+      [
+        "change_department",
+        "timesheets",
+        "department"
+      ],
+      [
+        "delete_department",
+        "timesheets",
+        "department"
+      ],
+      [
+        "view_department",
+        "timesheets",
+        "department"
+      ],
+      [
+        "add_employee",
+        "timesheets",
+        "employee"
+      ],
+      [
+        "change_employee",
+        "timesheets",
+        "employee"
+      ],
+      [
+        "delete_employee",
+        "timesheets",
+        "employee"
+      ],
+      [
+        "view_employee",
+        "timesheets",
+        "employee"
+      ],
+      [
+        "add_employeedocument",
+        "timesheets",
+        "employeedocument"
+      ],
+      [
+        "change_employeedocument",
+        "timesheets",
+        "employeedocument"
+      ],
+      [
+        "delete_employeedocument",
+        "timesheets",
+        "employeedocument"
+      ],
+      [
+        "view_employeedocument",
+        "timesheets",
+        "employeedocument"
+      ],
+      [
+        "add_employeenote",
+        "timesheets",
+        "employeenote"
+      ],
+      [
+        "change_employeenote",
+        "timesheets",
+        "employeenote"
+      ],
+      [
+        "delete_employeenote",
+        "timesheets",
+        "employeenote"
+      ],
+      [
+        "view_employeenote",
+        "timesheets",
+        "employeenote"
+      ],
+      [
+        "add_employeestatus",
+        "timesheets",
+        "employeestatus"
+      ],
+      [
+        "change_employeestatus",
+        "timesheets",
+        "employeestatus"
+      ],
+      [
+        "delete_employeestatus",
+        "timesheets",
+        "employeestatus"
+      ],
+      [
+        "view_employeestatus",
+        "timesheets",
+        "employeestatus"
+      ],
+      [
+        "add_geofence",
+        "timesheets",
+        "geofence"
+      ],
+      [
+        "change_geofence",
+        "timesheets",
+        "geofence"
+      ],
+      [
+        "delete_geofence",
+        "timesheets",
+        "geofence"
+      ],
+      [
+        "view_geofence",
+        "timesheets",
+        "geofence"
+      ],
+      [
+        "add_locationhistory",
+        "timesheets",
+        "locationhistory"
+      ],
+      [
+        "change_locationhistory",
+        "timesheets",
+        "locationhistory"
+      ],
+      [
+        "delete_locationhistory",
+        "timesheets",
+        "locationhistory"
+      ],
+      [
+        "view_locationhistory",
+        "timesheets",
+        "locationhistory"
+      ],
+      [
+        "add_position",
+        "timesheets",
+        "position"
+      ],
+      [
+        "change_position",
+        "timesheets",
+        "position"
+      ],
+      [
+        "delete_position",
+        "timesheets",
+        "position"
+      ],
+      [
+        "view_position",
+        "timesheets",
+        "position"
+      ]
+    ]
+  }
+},
+{
+  "model": "accounts.customuser",
+  "fields": {
+    "password": "pbkdf2_sha256$600000$JnpFr9B1b42hA00d5uHqXQ$hh6I8d5INMFYIRvgF+h4BadkzH8G+zCX24ARp+jvAZY=",
+    "last_login": "2026-02-10T07:50:29Z",
+    "is_superuser": true,
+    "username": "admin",
+    "first_name": "",
+    "last_name": "",
+    "email": "admin@admin.com",
+    "is_staff": true,
+    "date_joined": "2026-02-10T07:49:59Z",
+    "role": "admin",
+    "phone": null,
+    "designation": null,
+    "department": null,
+    "is_active": true,
+    "created_at": "2026-02-10T07:50:00.183Z",
+    "updated_at": "2026-02-10T07:51:42.121Z",
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "accounts.customuser",
+  "fields": {
+    "password": "pbkdf2_sha256$1000000$W9UsCEM1ceGYwZkcV6583g$3LXi5A/MxyGEZu+MZSxi4JAE4Bh5y3KGRM9NlqHh/X4=",
+    "last_login": "2026-07-26T10:20:29.016Z",
+    "is_superuser": true,
+    "username": "onestop",
+    "first_name": "",
+    "last_name": "",
+    "email": "one@one.ps",
+    "is_staff": true,
+    "date_joined": "2026-07-26T08:47:15.296Z",
+    "role": "site_engineer",
+    "phone": null,
+    "designation": null,
+    "department": null,
+    "is_active": true,
+    "created_at": "2026-07-26T08:47:15.435Z",
+    "updated_at": "2026-07-26T08:47:15.435Z",
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "accounts.userauditlog",
+  "pk": 1,
+  "fields": {
+    "user": [
+      "balqees"
+    ],
+    "action": "login",
+    "content_type": "User",
+    "object_id": null,
+    "description": "User balqees logged in",
+    "ip_address": "127.0.0.1",
+    "user_agent": "",
+    "timestamp": "2026-01-11T19:45:18.849Z"
+  }
+},
+{
+  "model": "accounts.userauditlog",
+  "pk": 2,
+  "fields": {
+    "user": [
+      "balqees"
+    ],
+    "action": "login",
+    "content_type": "User",
+    "object_id": null,
+    "description": "User balqees logged in",
+    "ip_address": "127.0.0.1",
+    "user_agent": "",
+    "timestamp": "2026-02-02T07:42:14.437Z"
+  }
+},
+{
+  "model": "accounts.userauditlog",
+  "pk": 3,
+  "fields": {
+    "user": [
+      "balqees"
+    ],
+    "action": "login",
+    "content_type": "User",
+    "object_id": null,
+    "description": "User balqees logged in",
+    "ip_address": "127.0.0.1",
+    "user_agent": "",
+    "timestamp": "2026-02-02T08:28:20.828Z"
+  }
+},
+{
+  "model": "accounts.userauditlog",
+  "pk": 4,
+  "fields": {
+    "user": [
+      "balqees"
+    ],
+    "action": "login",
+    "content_type": "User",
+    "object_id": null,
+    "description": "User balqees logged in",
+    "ip_address": "127.0.0.1",
+    "user_agent": "",
+    "timestamp": "2026-02-05T10:18:28.131Z"
+  }
+},
+{
+  "model": "accounts.userauditlog",
+  "pk": 5,
+  "fields": {
+    "user": [
+      "balqees"
+    ],
+    "action": "login",
+    "content_type": "User",
+    "object_id": null,
+    "description": "User balqees logged in",
+    "ip_address": "127.0.0.1",
+    "user_agent": "",
+    "timestamp": "2026-02-05T10:22:58.369Z"
+  }
+},
+{
+  "model": "accounts.userauditlog",
+  "pk": 6,
+  "fields": {
+    "user": [
+      "balqees"
+    ],
+    "action": "login",
+    "content_type": "User",
+    "object_id": null,
+    "description": "User balqees logged in",
+    "ip_address": "127.0.0.1",
+    "user_agent": "",
+    "timestamp": "2026-02-05T10:23:18.517Z"
+  }
+},
+{
+  "model": "accounts.userauditlog",
+  "pk": 7,
+  "fields": {
+    "user": [
+      "balqees"
+    ],
+    "action": "login",
+    "content_type": "User",
+    "object_id": null,
+    "description": "User balqees logged in",
+    "ip_address": "127.0.0.1",
+    "user_agent": "",
+    "timestamp": "2026-02-05T10:23:56.712Z"
+  }
+},
+{
+  "model": "accounts.userauditlog",
+  "pk": 8,
+  "fields": {
+    "user": [
+      "admin"
+    ],
+    "action": "login",
+    "content_type": "User",
+    "object_id": null,
+    "description": "User admin logged in",
+    "ip_address": "127.0.0.1",
+    "user_agent": "",
+    "timestamp": "2026-02-10T07:50:29.950Z"
+  }
+},
+{
+  "model": "accounts.userauditlog",
+  "pk": 9,
+  "fields": {
+    "user": [
+      "onestop"
+    ],
+    "action": "login",
+    "content_type": "User",
+    "object_id": null,
+    "description": "User onestop logged in",
+    "ip_address": "127.0.0.1",
+    "user_agent": "",
+    "timestamp": "2026-07-26T08:48:52.911Z"
+  }
+},
+{
+  "model": "accounts.userauditlog",
+  "pk": 10,
+  "fields": {
+    "user": [
+      "onestop"
+    ],
+    "action": "login",
+    "content_type": "User",
+    "object_id": null,
+    "description": "User onestop logged in",
+    "ip_address": "127.0.0.1",
+    "user_agent": "",
+    "timestamp": "2026-07-26T10:01:20.962Z"
+  }
+},
+{
+  "model": "accounts.userauditlog",
+  "pk": 11,
+  "fields": {
+    "user": [
+      "onestop"
+    ],
+    "action": "login",
+    "content_type": "User",
+    "object_id": null,
+    "description": "User onestop logged in",
+    "ip_address": "127.0.0.1",
+    "user_agent": "",
+    "timestamp": "2026-07-26T10:20:29.019Z"
+  }
+},
+{
+  "model": "accounts.userauditlog",
+  "pk": 12,
+  "fields": {
+    "user": [
+      "balqees"
+    ],
+    "action": "login",
+    "content_type": "User",
+    "object_id": null,
+    "description": "User balqees logged in",
+    "ip_address": "127.0.0.1",
+    "user_agent": "",
+    "timestamp": "2026-07-28T12:09:08.055Z"
+  }
+},
+{
+  "model": "projects.project",
+  "pk": 1,
+  "fields": {
+    "name": "TAB",
+    "project_symbol": "tab",
+    "contract_number": "CNT-002-2025",
+    "client_name": "cmc",
+    "start_date": "2026-02-01",
+    "end_date": null,
+    "maintenance_type": "routine",
+    "status": "active",
+    "description": "123",
+    "location": "",
+    "manager": [
+      "manager"
+    ],
+    "created_by": [
+      "balqees"
+    ],
+    "created_at": "2026-02-05T11:19:35.789Z",
+    "updated_at": "2026-02-05T11:19:35.789Z"
+  }
+},
+{
+  "model": "projects.project",
+  "pk": 5,
+  "fields": {
+    "name": "BIR",
+    "project_symbol": "bir",
+    "contract_number": "CNT-004-2026",
+    "client_name": "123456",
+    "start_date": "2026-02-01",
+    "end_date": null,
+    "maintenance_type": "routine",
+    "status": "active",
+    "description": "123456",
+    "location": "",
+    "manager": [
+      "manager"
+    ],
+    "created_by": [
+      "balqees"
+    ],
+    "created_at": "2026-02-05T12:04:40.909Z",
+    "updated_at": "2026-02-05T12:04:40.909Z"
+  }
+},
+{
+  "model": "projects.project",
+  "pk": 8,
+  "fields": {
+    "name": "YNC",
+    "project_symbol": "YNC",
+    "contract_number": "CNT-007-2026",
+    "client_name": "123456",
+    "start_date": "2026-02-01",
+    "end_date": null,
+    "maintenance_type": "routine",
+    "status": "active",
+    "description": "2DFGDFGDFG",
+    "location": "",
+    "manager": [
+      "manager"
+    ],
+    "created_by": [
+      "balqees"
+    ],
+    "created_at": "2026-02-05T12:08:18.670Z",
+    "updated_at": "2026-02-05T12:08:18.670Z"
+  }
+},
+{
+  "model": "procurement.itemmaster",
+  "pk": 1,
+  "fields": {
+    "organization": "OS",
+    "aa_level": "01",
+    "bb_category": "02",
+    "cc_subcategory": "03",
+    "dd_itemtype": "01",
+    "eee_attribute": "100",
+    "full_code": "OS-01-02-03-01-100",
+    "short_code": "01.02.03.01",
+    "description": "Headquarters",
+    "unit": "set",
+    "standard": "",
+    "batch_reference": "",
+    "status": "active",
+    "created_date": "2026-01-17T22:39:46.510Z",
+    "updated_date": "2026-01-17T22:39:46.510Z",
+    "created_by": null
+  }
+},
+{
+  "model": "procurement.itemmaster",
+  "pk": 2,
+  "fields": {
+    "organization": "OS",
+    "aa_level": "02",
+    "bb_category": "03",
+    "cc_subcategory": "02",
+    "dd_itemtype": "02",
+    "eee_attribute": "200",
+    "full_code": "OS-02-03-02-02-200",
+    "short_code": "02.03.02.02",
+    "description": "steel",
+    "unit": "lot",
+    "standard": "",
+    "batch_reference": "",
+    "status": "active",
+    "created_date": "2026-01-17T22:46:11.855Z",
+    "updated_date": "2026-01-17T22:46:11.855Z",
+    "created_by": null
+  }
+},
+{
+  "model": "procurement.itemmaster",
+  "pk": 3,
+  "fields": {
+    "organization": "OS",
+    "aa_level": "01",
+    "bb_category": "15",
+    "cc_subcategory": "01",
+    "dd_itemtype": "02",
+    "eee_attribute": "100",
+    "full_code": "OS-01-15-01-02-100",
+    "short_code": "01.15.01.02",
+    "description": "piping",
+    "unit": "m",
+    "standard": "EEE",
+    "batch_reference": "03",
+    "status": "active",
+    "created_date": "2026-01-21T06:46:18.062Z",
+    "updated_date": "2026-01-21T06:48:56.121Z",
+    "created_by": null
+  }
+},
+{
+  "model": "procurement.itemmaster",
+  "pk": 5,
+  "fields": {
+    "organization": "OS",
+    "aa_level": "01",
+    "bb_category": "01",
+    "cc_subcategory": "01",
+    "dd_itemtype": "01",
+    "eee_attribute": "001",
+    "full_code": "OS-01-01-01-01-001",
+    "short_code": "01.01.01.01",
+    "description": "123",
+    "unit": "pcs",
+    "standard": "123",
+    "batch_reference": "123",
+    "status": "active",
+    "created_date": "2026-07-26T10:44:39.757Z",
+    "updated_date": "2026-07-26T10:44:39.757Z",
+    "created_by": null
+  }
+},
+{
+  "model": "timesheets.department",
+  "pk": 1,
+  "fields": {
+    "name": "General Management",
+    "description": "GM",
+    "manager": null,
+    "created_at": "2026-02-10T07:43:45.311Z",
+    "updated_at": "2026-02-10T07:43:45.311Z"
+  }
+},
+{
+  "model": "timesheets.position",
+  "pk": 1,
+  "fields": {
+    "title": "HR",
+    "description": "Human Resources",
+    "salary_min": "500.00",
+    "salary_max": "1500.00",
+    "created_at": "2026-02-10T07:37:39.045Z",
+    "updated_at": "2026-02-10T07:37:39.045Z"
+  }
+},
+{
+  "model": "timesheets.employee",
+  "pk": 1,
+  "fields": {
+    "employee_id": "ID852772458",
+    "first_name": "balqis",
+    "last_name": "awawdeh",
+    "email": "balqisawawde@gmail.com",
+    "phone_number": "+970598199769",
+    "date_of_birth": "1991-01-19",
+    "address_line1": "Karma",
+    "address_line2": "Dura",
+    "city": "Hebron",
+    "state": "Palestine",
+    "postal_code": "090000",
+    "country": "Palestine",
+    "department": 1,
+    "position": 1,
+    "employment_status": "active",
+    "employment_type": "full_time",
+    "hire_date": "2025-10-18",
+    "termination_date": "2025-10-30",
+    "salary": "800.00",
+    "manager": null,
+    "emergency_contact_name": "balqis awawdeh",
+    "emergency_contact_phone": "0598199769",
+    "emergency_contact_relationship": "Brother",
+    "user": null,
+    "created_at": "2026-02-10T08:08:07.589Z",
+    "updated_at": "2026-02-10T08:08:07.589Z",
+    "created_by": [
+      "balqees"
+    ]
+  }
+}
+]

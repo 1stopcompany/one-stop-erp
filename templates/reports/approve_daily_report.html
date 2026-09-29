@@ -1,0 +1,236 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Approve Daily Report {{ report.report_number }}{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <!-- Header -->
+            <div class="mb-4">
+                <h1 class="h3">
+                    <i class="fas fa-check-circle"></i> Approve Daily Report
+                </h1>
+                <p class="text-muted">Review and approve the daily construction report</p>
+            </div>
+
+            <!-- Report Summary -->
+            <div class="card mb-4">
+                <div class="card-header bg-light">
+                    <h5 class="mb-0"><i class="fas fa-info-circle"></i> Report Summary</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <p class="text-muted mb-1">Report Number</p>
+                            <p class="fs-5"><strong>{{ report.report_number }}</strong></p>
+                        </div>
+                        <div class="col-md-6">
+                            <p class="text-muted mb-1">Report Date</p>
+                            <p class="fs-5"><strong>{{ report.report_date|date:"d F Y" }}</strong></p>
+                        </div>
+                    </div>
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <p class="text-muted mb-1">Site Engineer</p>
+                            <p class="fs-5"><strong>{{ report.site_engineer.get_full_name }}</strong></p>
+                        </div>
+                        <div class="col-md-6">
+                            <p class="text-muted mb-1">Project</p>
+                            <p class="fs-5"><strong>{{ report.project.name }}</strong></p>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <p class="text-muted mb-1">Status</p>
+                            <p class="fs-5"><span class="badge bg-warning">Submitted</span></p>
+                        </div>
+                        <div class="col-md-6">
+                            <p class="text-muted mb-1">Submitted Date</p>
+                            <p class="fs-5"><strong>{{ report.updated_at|date:"d M Y H:i" }}</strong></p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Report Details -->
+            <div class="card mb-4">
+                <div class="card-header bg-light">
+                    <h5 class="mb-0"><i class="fas fa-file-alt"></i> Report Details</h5>
+                </div>
+                <div class="card-body">
+                    {% if report.weather_conditions %}
+                    <div class="mb-3">
+                        <p class="text-muted mb-1"><i class="fas fa-cloud"></i> Weather Conditions</p>
+                        <p>{{ report.weather_conditions }}</p>
+                    </div>
+                    {% endif %}
+
+                    {% if report.remarks %}
+                    <div class="mb-3">
+                        <p class="text-muted mb-1"><i class="fas fa-sticky-note"></i> Remarks</p>
+                        <p>{{ report.remarks }}</p>
+                    </div>
+                    {% endif %}
+
+                    <!-- Workforce Summary -->
+                    {% if report.workforce.all %}
+                    <div class="mb-3">
+                        <p class="text-muted mb-2"><i class="fas fa-users"></i> Workforce</p>
+                        <div class="table-responsive">
+                            <table class="table table-sm table-bordered">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Category</th>
+                                        <th>Designation</th>
+                                        <th>Count</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for item in report.workforce.all %}
+                                    <tr>
+                                        <td>{{ item.get_category_display }}</td>
+                                        <td>{{ item.designation }}</td>
+                                        <td>{{ item.count }}</td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    <!-- Equipment Summary -->
+                    {% if report.equipment.all %}
+                    <div class="mb-3">
+                        <p class="text-muted mb-2"><i class="fas fa-cogs"></i> Equipment on Site</p>
+                        <div class="table-responsive">
+                            <table class="table table-sm table-bordered">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Equipment</th>
+                                        <th>Hours Worked</th>
+                                        <th>Idle</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for item in report.equipment.all %}
+                                    <tr>
+                                        <td>{{ item.equipment_name }}</td>
+                                        <td>{{ item.hours_worked }} hrs</td>
+                                        <td>{{ item.quantity_idle }}</td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    <!-- Activities Summary -->
+                    {% if report.daily_activities.all %}
+                    <div class="mb-3">
+                        <p class="text-muted mb-2"><i class="fas fa-tasks"></i> Daily Activities</p>
+                        <ul class="list-group list-group-flush">
+                            {% for item in report.daily_activities.all %}
+                            <li class="list-group-item">
+                                <strong>{{ item.get_activity_type_display }}</strong>
+                                {% if item.location %}<span class="text-muted ms-2">({{ item.location }})</span>{% endif %}
+                                <p class="mb-0 mt-1">{{ item.activity_description }}</p>
+                            </li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+                    {% endif %}
+
+                    <!-- Materials Summary -->
+                    {% if report.daily_materials.all %}
+                    <div class="mb-3">
+                        <p class="text-muted mb-2"><i class="fas fa-boxes"></i> Materials Delivered</p>
+                        <div class="table-responsive">
+                            <table class="table table-sm table-bordered">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Material</th>
+                                        <th>Quantity</th>
+                                        <th>Unit</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for item in report.daily_materials.all %}
+                                    <tr>
+                                        <td>{{ item.material_description }}</td>
+                                        <td>{{ item.quantity }}</td>
+                                        <td>{{ item.unit }}</td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    <!-- Visitors Summary -->
+                    {% if report.visitors.all %}
+                    <div class="mb-3">
+                        <p class="text-muted mb-2"><i class="fas fa-user-tie"></i> Visitors</p>
+                        <div class="table-responsive">
+                            <table class="table table-sm table-bordered">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Time</th>
+                                        <th>Name</th>
+                                        <th>Representing</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for item in report.visitors.all %}
+                                    <tr>
+                                        <td>{{ item.visit_time|time:"H:i" }}</td>
+                                        <td>{{ item.visitor_name }}</td>
+                                        <td>{{ item.representing|default:"-" }}</td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Approval Form -->
+            <div class="card mb-4 border-success">
+                <div class="card-header bg-success text-white">
+                    <h5 class="mb-0"><i class="fas fa-thumbs-up"></i> Final Approval (General Manager)</h5>
+                </div>
+                <div class="card-body">
+                    <form method="post">
+                        {% csrf_token %}
+                        <div class="alert alert-info">
+                            <i class="fas fa-info-circle"></i>
+                            <strong>Note:</strong> This report was already approved by the engineering manager. Your approval here is final.
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Rejection reason (only needed if rejecting)</label>
+                            <textarea class="form-control" name="rejection_reason" rows="2"></textarea>
+                        </div>
+                        <div class="d-flex gap-2">
+                            <button type="submit" name="action" value="approve" class="btn btn-success btn-lg">
+                                <i class="fas fa-check"></i> Approve Report
+                            </button>
+                            <button type="submit" name="action" value="reject" class="btn btn-danger btn-lg">
+                                <i class="fas fa-times-circle"></i> Reject
+                            </button>
+                            <a href="{% url 'reports:daily_report_detail' report.pk %}" class="btn btn-secondary btn-lg">
+                                <i class="fas fa-times"></i> Cancel
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

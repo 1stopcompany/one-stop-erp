@@ -1,0 +1,22 @@
+{% extends 'base.html' %}
+{% block title %}Add Specification Volume{% endblock %}
+{% block content %}
+<div class="my-4">
+  <h1 class="h4">Add Specification Volume</h1>
+  <p class="text-muted">Add this volume's sections afterward from the specifications page ("Add section" on the volume card).</p>
+  <form method="post" enctype="multipart/form-data" class="card card-body" style="max-width: 640px;">
+    {% csrf_token %}
+    {% for field in form %}
+    <div class="mb-3">
+      <label class="form-label">{{ field.label }}</label>
+      {{ field }}
+      {% if field.errors %}<div class="text-danger small">{{ field.errors|striptags }}</div>{% endif %}
+    </div>
+    {% endfor %}
+    <div class="d-flex gap-2">
+      <button type="submit" class="btn btn-primary">Save</button>
+      <a href="{% url 'core:specifications_list' %}" class="btn btn-outline-secondary">Cancel</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

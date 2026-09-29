@@ -1,0 +1,30 @@
+{# EDGE data points by domain: what the documents state (value, where, page) and what is missing. #}
+{% for d in domains %}
+<h6 class="mt-3">{{ d.label }} <span class="badge {% if d.found == d.total %}bg-success{% elif d.found %}bg-warning text-dark{% else %}bg-secondary{% endif %}">{{ d.found }} / {{ d.total }}</span></h6>
+<div class="table-responsive">
+  <table class="table table-sm align-middle mb-2">
+    <thead class="table-light"><tr><th style="width:26%">Data point</th><th>What the document states</th><th>Applies to</th>{% if show_source %}<th>Source</th>{% endif %}<th>Page</th><th></th></tr></thead>
+    <tbody>
+      {% for p in d.points %}
+        {% if p.entries %}
+          {% for e in p.entries %}
+          <tr>
+            {% if forloop.first %}<td rowspan="{{ p.entries|length }}" class="fw-semibold">{{ p.label }}</td>{% endif %}
+            <td>{{ e.value }}{% if e.number %} <span class="text-muted">({{ e.number }}{% if e.unit %} {{ e.unit }}{% endif %})</span>{% endif %}{% if e.notes %}<div class="small text-muted">{{ e.notes }}</div>{% endif %}</td>
+            <td class="small">{{ e.location }}</td>
+            {% if show_source %}<td class="small">{% if e.run_id %}<a href="{% url 'ai_assistant:run_detail' e.run_id %}">{{ e.source }}</a>{% else %}{{ e.source }}{% endif %}</td>{% endif %}
+            <td>{{ e.source_page|default_if_none:"" }}</td>
+            <td>{% if e.confidence == 'low' %}<span class="badge bg-danger">Unsure</span>{% elif e.confidence == 'medium' %}<span class="badge bg-warning text-dark">Check</span>{% endif %}</td>
+          </tr>
+          {% endfor %}
+        {% else %}
+        <tr class="table-light">
+          <td class="fw-semibold text-muted">{{ p.label }}</td>
+          <td colspan="{% if show_source %}5{% else %}4{% endif %}" class="text-muted small"><i class="bi bi-dash-circle"></i> Not stated &mdash; look for: {{ p.hint }}</td>
+        </tr>
+        {% endif %}
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endfor %}

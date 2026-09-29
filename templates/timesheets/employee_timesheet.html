@@ -1,0 +1,115 @@
+{% extends 'timesheets/_hr_base.html' %}
+{% load static %}
+
+{% block title %}Employee Timesheet - One Stop ERP{% endblock %}
+
+{% block hr_body %}
+<div class="row">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h1 class="h2 mb-0">
+                <i class="fas fa-user-clock me-2 text-primary"></i>
+                {{ employee.full_name }} – Timesheet
+            </h1>
+            <a href="{% url 'timesheets:employee_detail' employee.pk %}" class="btn btn-outline-secondary">
+                <i class="fas fa-arrow-left me-2"></i>Back to Profile
+            </a>
+        </div>
+    </div>
+</div>
+
+<!-- Employee Summary -->
+<div class="card mb-4">
+    <div class="card-body d-flex align-items-center">
+        <div class="avatar-circle me-3">
+            {{ employee.first_name.0 }}{{ employee.last_name.0 }}
+        </div>
+        <div>
+            <h5 class="mb-0">{{ employee.full_name }}</h5>
+            <div class="text-muted">
+                {{ employee.position.title }} · {{ employee.department.name }}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Timesheet Table -->
+<div class="card">
+    <div class="table-responsive">
+        <table class="table table-hover mb-0">
+            <thead>
+                <tr>
+                    <th>Date</th>
+                    <th>Check Type</th>
+                    <th>Time</th>
+                    <th>Location</th>
+                    <th>Geofence</th>
+                    <th>Accuracy</th>
+                    <th>Notes</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for record in records %}
+                <tr>
+                    <td>{{ record.timestamp|date:"M d, Y" }}</td>
+                    <td>
+                        <span class="badge {% if record.check_type == 'in' %}bg-success{% else %}bg-danger{% endif %}">
+                            {{ record.get_check_type_display }}
+                        </span>
+                    </td>
+                    <td>{{ record.timestamp|time:"H:i:s" }}</td>
+                    <td>
+                        {{ record.address|default:record.location_string }}
+                    </td>
+                    <td>
+                        {% if record.is_within_geofence %}
+                        <span class="badge bg-success">Inside</span>
+                        {% else %}
+                        <span class="badge bg-warning">Outside</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if record.accuracy %}
+                        {{ record.accuracy }} m
+                        {% else %}
+                        —
+                        {% endif %}
+                    </td>
+                    <td>{{ record.notes|default:"—" }}</td>
+                </tr>
+                {% for day, seconds in daily_hours.items %}
+                <tr>
+                    <td>{{ day }}</td>
+                    <td>{{ seconds|floatformat:0|divisibleby:3600 }} hrs</td>
+                </tr>
+                {% endfor %}
+                {% empty %}
+                <tr>
+                    <td colspan="7" class="text-center py-5 text-muted">
+                        <i class="fas fa-clock fa-3x mb-3 opacity-50"></i>
+                        <p>No timesheet records available.</p>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .avatar-circle {
+        width: 48px;
+        height: 48px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, #0d6efd, #0056b3);
+        color: #fff;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: bold;
+    }
+</style>
+{% endblock %}

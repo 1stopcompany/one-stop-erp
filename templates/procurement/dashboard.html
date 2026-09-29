@@ -1,0 +1,256 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Procurement Dashboard - One Stop ERP{% endblock %}
+
+{% block extra_css %}
+<style>
+    .stat-card {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border-radius: 10px;
+        padding: 20px;
+        margin-bottom: 20px;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+        transition: transform 0.3s ease, box-shadow 0.3s ease;
+    }
+    .stat-card:hover { transform: translateY(-5px); box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15); }
+    .stat-card.blue { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+    .stat-card.green { background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); }
+    .stat-card.orange { background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); }
+    .stat-card.red { background: linear-gradient(135deg, #fa709a 0%, #fee140 100%); }
+    .stat-number { font-size: 2.5rem; font-weight: bold; margin: 10px 0; }
+    .stat-label { font-size: 0.9rem; opacity: 0.9; text-transform: uppercase; letter-spacing: 1px; }
+    .stat-icon { font-size: 2rem; opacity: 0.7; float: right; }
+    .table-responsive { border-radius: 10px; overflow: hidden; box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1); }
+    .table { margin-bottom: 0; }
+    .table thead { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; }
+    .table tbody tr { border-bottom: 1px solid #e9ecef; transition: background-color 0.3s ease; }
+    .table tbody tr:hover { background-color: #f8f9fa; }
+
+    .badge-draft { background-color: #6c757d; }
+    .badge-submitted { background-color: #0dcaf0; }
+    .badge-approved { background-color: #198754; }
+    .badge-rejected { background-color: #dc3545; }
+    .badge-completed { background-color: #0d6efd; }
+
+    .section-title {
+        font-size: 1.5rem;
+        font-weight: bold;
+        margin-top: 30px;
+        margin-bottom: 20px;
+        color: #333;
+        border-left: 4px solid #667eea;
+        padding-left: 15px;
+    }
+    .action-buttons { display: flex; gap: 5px; }
+    .action-buttons .btn { padding: 5px 10px; font-size: 0.85rem; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row mb-4">
+        <div class="col-md-8">
+            <h1 class="mb-0">
+                <i class="bi bi-cart3"></i> Procurement Dashboard
+            </h1>
+            <p class="text-muted">Manage purchase requisitions, orders, and vendors</p>
+        </div>
+        <div class="col-md-4 text-end">
+            <a href="{% url 'procurement:item_create' %}" class="btn btn-primary me-2">
+                <i class="bi bi-plus-circle"></i> New Item
+            </a>
+            {% if user.is_site_engineer or user.is_admin %}
+            <a href="{% url 'procurement:pr_create' %}" class="btn btn-success">
+                <i class="bi bi-file-earmark-text"></i> New PR
+            </a>
+            {% endif %}
+            <a href="{% url 'procurement:stock_list' %}" class="btn {% if low_stock_count %}btn-warning{% else %}btn-outline-primary{% endif %} me-2">
+                <i class="bi bi-boxes"></i> Warehouse{% if low_stock_count %} <span class="badge bg-danger">{{ low_stock_count }}</span>{% endif %}
+            </a>
+            <a href="{% url 'procurement:manual_pdf' %}" class="btn btn-outline-secondary" target="_blank">
+                <i class="bi bi-book"></i> User Guide
+            </a>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-md-3">
+            <div class="stat-card blue">
+                <div class="stat-icon"><i class="bi bi-box-seam"></i></div>
+                <div class="stat-label">Total Items</div>
+                <div class="stat-number">{{ total_items }}</div>
+                <small>{{ active_items }} active</small>
+            </div>
+        </div>
+
+        <div class="col-md-3">
+            <div class="stat-card green">
+                <div class="stat-icon"><i class="bi bi-file-earmark-text"></i></div>
+                <div class="stat-label">Purchase Requisitions</div>
+                <div class="stat-number">{{ total_prs }}</div>
+                <small>{{ pending_prs }} pending</small>
+            </div>
+        </div>
+
+        <div class="col-md-3">
+            <div class="stat-card orange">
+                <div class="stat-icon"><i class="bi bi-receipt"></i></div>
+                <div class="stat-label">Purchase Orders</div>
+                <div class="stat-number">{{ total_pos }}</div>
+                <small>{{ pending_pos }} pending</small>
+            </div>
+        </div>
+
+        <div class="col-md-3">
+            <div class="stat-card red">
+                <div class="stat-icon"><i class="bi bi-building"></i></div>
+                <div class="stat-label">Active Vendors</div>
+                <div class="stat-number">{{ total_vendors }}</div>
+                <small>Ready to order</small>
+            </div>
+        </div>
+    </div>
+
+    <div class="row mt-5">
+        <div class="col-lg-6">
+            <div class="section-title">
+                <i class="bi bi-clock-history"></i> Recent Purchase Requisitions
+            </div>
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>PR Number</th>
+                            <th>Project</th>
+                            <th>Items</th>
+                            <th>Status</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for pr in recent_prs %}
+                        <tr>
+                            <td><strong>{{ pr.pr_number }}</strong></td>
+                            <td>{{ pr.project }}</td>
+                            <td>{{ pr.lines.count }} item(s)</td>
+                            <td>
+                                <span class="badge badge-{{ pr.status }}">
+                                    {{ pr.get_status_display }}
+                                </span>
+                            </td>
+                            <td>
+                                <div class="action-buttons">
+                                    <a href="{% url 'procurement:pr_detail' pr.pk %}" class="btn btn-sm btn-info">
+                                        <i class="bi bi-eye"></i>
+                                    </a>
+                                </div>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="5" class="text-center text-muted py-4">
+                                No purchase requisitions yet
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="col-lg-6">
+            <div class="section-title">
+                <i class="bi bi-clock-history"></i> Recent Purchase Orders
+            </div>
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>PO Number</th>
+                            <th>Vendor</th>
+                            <th>Amount</th>
+                            <th>Status</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for po in recent_pos %}
+                        <tr>
+                            <td><strong>{{ po.po_number }}</strong></td>
+                            <td>{{ po.vendor.name }}</td>
+                            <td>${{ po.total_price|floatformat:2 }}</td>
+                            <td>
+                                <span class="badge badge-{{ po.status }}">
+                                    {{ po.get_status_display }}
+                                </span>
+                            </td>
+                            <td>
+                                <div class="action-buttons">
+                                    <a href="{% url 'procurement:po_detail' po.pk %}" class="btn btn-sm btn-info">
+                                        <i class="bi bi-eye"></i>
+                                    </a>
+                                </div>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="5" class="text-center text-muted py-4">
+                                No purchase orders yet
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div class="row mt-5">
+        <div class="col-12">
+            <div class="section-title">
+                <i class="bi bi-lightning-charge"></i> Quick Actions
+            </div>
+            <div class="btn-group-vertical w-100" role="group">
+                <a href="{% url 'procurement:item_list' %}" class="btn btn-outline-primary text-start py-3">
+                    <i class="bi bi-box-seam"></i> Manage Item Master
+                    <span class="float-end text-muted">{{ total_items }} items</span>
+                </a>
+                <a href="{% url 'procurement:pr_list' %}" class="btn btn-outline-primary text-start py-3">
+                    <i class="bi bi-file-earmark-text"></i> View All PRs
+                    <span class="float-end text-muted">{{ total_prs }} total</span>
+                </a>
+                <a href="{% url 'procurement:po_list' %}" class="btn btn-outline-primary text-start py-3">
+                    <i class="bi bi-receipt"></i> View All POs
+                    <span class="float-end text-muted">{{ total_pos }} total</span>
+                </a>
+                <a href="{% url 'procurement:vendor_list' %}" class="btn btn-outline-primary text-start py-3">
+                    <i class="bi bi-building"></i> Manage Vendors
+                    <span class="float-end text-muted">{{ total_vendors }} vendors</span>
+                </a>
+                <a href="{% url 'procurement:stock_list' %}" class="btn btn-outline-primary text-start py-3">
+                    <i class="bi bi-boxes"></i> Warehouse Stock
+                    <span class="float-end text-muted">{% if low_stock_count %}{{ low_stock_count }} item(s) at or below minimum{% else %}all above minimum{% endif %}</span>
+                </a>
+                {% if can_work_procurement %}
+                <a href="{% url 'procurement:rfq_list' %}" class="btn btn-outline-primary text-start py-3">
+                    <i class="bi bi-envelope"></i> Requests for Quotation
+                    <span class="float-end text-muted">{{ approved_prs }} PR(s) ready for procurement</span>
+                </a>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    setInterval(function() {
+        location.reload();
+    }, 5 * 60 * 1000);
+});
+</script>
+{% endblock %}

@@ -1,0 +1,63 @@
+{% extends 'base.html' %}
+{% block title %}Items to Re-order - One Stop ERP{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center my-4">
+  <div>
+    <h1 class="h3 mb-0"><i class="bi bi-cart-plus"></i> Items to Re-order</h1>
+    <p class="text-muted mb-0">Stock that has reached its minimum must be ordered from the suppliers.</p>
+  </div>
+  <a href="{% url 'procurement:stock_list' %}" class="btn btn-outline-secondary">Back to stock</a>
+</div>
+
+{% if not levels %}
+<div class="alert alert-success"><i class="bi bi-check-circle"></i> Nothing is at or below its minimum right now.</div>
+{% else %}
+<form method="post">{% csrf_token %}
+  {% if form.errors %}<div class="alert alert-danger">{% for field in form %}{% for e in field.errors %}<div>{{ field.label }}: {{ e }}</div>{% endfor %}{% endfor %}</div>{% endif %}
+  <div class="table-responsive">
+    <table class="table align-middle bg-white">
+      <thead class="table-light">
+        <tr>
+          {% if can_edit %}<th style="width:40px"></th>{% endif %}
+          <th>Full Code</th><th>Description</th><th>Warehouse</th>
+          <th class="text-end">On hand</th><th class="text-end">Minimum</th><th class="text-end">Already on order</th>
+          {% if can_edit %}<th style="width:150px">Quantity to order</th>{% endif %}
+        </tr>
+      </thead>
+      <tbody>
+        {% for level in levels %}
+        <tr {% if level.quantity <= 0 %}class="table-danger"{% endif %}>
+          {% if can_edit %}<td><input type="checkbox" class="form-check-input" name="sel" value="{{ level.pk }}" {% if not level.covered %}checked{% endif %}></td>{% endif %}
+          <td><a href="{% url 'procurement:item_detail' level.item.pk %}">{{ level.item.full_code }}</a></td>
+          <td>{{ level.item.description }}</td>
+          <td>{{ level.warehouse.name }}</td>
+          <td class="text-end fw-bold">{{ level.quantity|floatformat:"-2" }}</td>
+          <td class="text-end">{{ level.min_quantity|floatformat:"-2" }}</td>
+          <td class="text-end">
+            {% if level.on_order > 0 %}{{ level.on_order|floatformat:"-2" }}{% if level.covered %} <span class="badge bg-info text-dark">covered</span>{% endif %}{% else %}<span class="text-muted">—</span>{% endif %}
+          </td>
+          {% if can_edit %}
+          <td><input type="number" step="0.01" min="0" name="qty_{{ level.pk }}" class="form-control form-control-sm" value="{{ level.suggested_order_quantity|floatformat:'2' }}"></td>
+          {% endif %}
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  {% if can_edit %}
+  <div class="card">
+    <div class="card-body">
+      <h2 class="h6">Create a purchase requisition for the ticked items</h2>
+      <div class="row g-3 align-items-end">
+        <div class="col-md-5"><label class="form-label">{{ form.project.label }}</label>{{ form.project }}</div>
+        <div class="col-md-3"><label class="form-label">{{ form.required_date.label }}</label>{{ form.required_date }}</div>
+        <div class="col-md-4"><button type="submit" class="btn btn-primary w-100"><i class="bi bi-file-earmark-text"></i> Create draft PR</button></div>
+      </div>
+      <div class="form-text mt-2">{{ form.project.help_text }} The PR is created as a draft; submit it to send it through approval, quotes and purchase orders as usual.</div>
+    </div>
+  </div>
+  {% endif %}
+</form>
+{% endif %}
+{% endblock %}

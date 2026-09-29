@@ -1,0 +1,5 @@
+{% extends 'base.html' %}
+{% block title %}HR Login - One Stop ERP{% endblock %}
+{% block content %}
+<div class="row justify-content-center"><div class="col-md-6 col-lg-4"><div class="card"><div class="card-body p-4"><h1 class="h4 mb-3">HR & Timesheets Login</h1><form method="post">{% csrf_token %}<div class="mb-3"><label class="form-label">Username</label><input class="form-control" name="username" required autofocus></div><div class="mb-3"><label class="form-label">Password</label><input class="form-control" type="password" name="password" required></div><button class="btn btn-primary w-100">Sign In</button></form></div></div></div></div>
+{% endblock %}

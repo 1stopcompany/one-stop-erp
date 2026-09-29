@@ -1,0 +1,43 @@
+{% extends 'base.html' %}{% block title %}Record Vendor Quote{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center my-4">
+  <h1 class="h3 mb-0">Record Vendor Quote &mdash; {{ rfq.rfq_number }}</h1>
+  <a href="{% url 'procurement:rfq_detail' rfq.pk %}" class="btn btn-outline-secondary">Back</a>
+</div>
+<form method="post" novalidate>
+  {% csrf_token %}
+  <div class="card mb-3"><div class="card-body">
+    {{ form.non_field_errors }}
+    <div class="row">
+      <div class="col-md-4 mb-3"><label class="form-label">Vendor</label>{{ form.vendor }}{% for e in form.vendor.errors %}<div class="text-danger small">{{ e }}</div>{% endfor %}</div>
+      <div class="col-md-3 mb-3"><label class="form-label">Received Date</label>{{ form.received_date }}</div>
+      <div class="col-md-5 mb-3"><label class="form-label">Notes</label>{{ form.notes }}</div>
+    </div>
+  </div></div>
+
+  <div class="card mb-3"><div class="card-body">
+    <h5 class="mb-3">Quoted Prices per Item</h5>
+    {{ formset.management_form }}
+    <div class="table-responsive"><table class="table">
+      <thead><tr><th>Item</th><th style="width:15%">Qty</th><th style="width:20%">Unit Price</th><th style="width:15%">Lead Time (days)</th><th style="width:25%">Remarks</th></tr></thead>
+      <tbody>
+        {% for lform in formset %}
+        <tr>
+          <td>
+            {{ lform.pr_line }}
+            {% for pl in pr_lines %}{% if pl.pk == lform.initial.pr_line %}{{ pl.item.full_code }} &mdash; {{ pl.item.description }}{% endif %}{% endfor %}
+          </td>
+          <td>{% for pl in pr_lines %}{% if pl.pk == lform.initial.pr_line %}{{ pl.quantity_requested }} {{ pl.get_unit_display }}{% endif %}{% endfor %}</td>
+          <td>{{ lform.unit_price }}{% for e in lform.unit_price.errors %}<div class="text-danger small">{{ e }}</div>{% endfor %}</td>
+          <td>{{ lform.lead_time_days }}</td>
+          <td>{{ lform.remarks }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table></div>
+  </div></div>
+
+  <button type="submit" class="btn btn-primary">Save Quote</button>
+  <a href="{% url 'procurement:rfq_detail' rfq.pk %}" class="btn btn-outline-secondary">Cancel</a>
+</form>
+{% endblock %}

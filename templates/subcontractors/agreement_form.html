@@ -1,0 +1,41 @@
+{% extends 'base.html' %}
+{% block title %}{% if is_new %}New Subcontractor Agreement{% else %}Edit {{ agreement.agreement_number }}{% endif %}{% endblock %}
+{% block content %}
+<nav class="mb-3" aria-label="breadcrumb">
+  <ol class="breadcrumb mb-0">
+    <li class="breadcrumb-item"><a href="{% url 'subcontractors:agreement_list' %}">Subcontractor Agreements</a></li>
+    <li class="breadcrumb-item"><a href="{% url 'projects:project_detail' project.id %}">{{ project.name }}</a></li>
+    {% if is_new %}
+    <li class="breadcrumb-item active">New agreement</li>
+    {% else %}
+    <li class="breadcrumb-item"><a href="{% url 'subcontractors:agreement_detail' agreement.pk %}">{{ agreement.agreement_number }}</a></li>
+    <li class="breadcrumb-item active">Edit</li>
+    {% endif %}
+  </ol>
+</nav>
+<div class="my-4">
+  <h1 class="h4">{% if is_new %}New Subcontractor Agreement -- {{ project.name }}{% else %}Edit {{ agreement.agreement_number }}{% endif %}</h1>
+  {% if is_new %}
+  <p class="text-muted">Add its BOQ lines after saving; it starts as a Draft until you activate it.</p>
+  {% endif %}
+  <form method="post" enctype="multipart/form-data" class="card card-body" style="max-width: 640px;">
+    {% csrf_token %}
+    {% for field in form %}
+    <div class="mb-3">
+      <label class="form-label">{{ field.label }}</label>
+      {{ field }}
+      {% if field.help_text %}<div class="form-text">{{ field.help_text }}</div>{% endif %}
+      {% if field.errors %}<div class="text-danger small">{{ field.errors|striptags }}</div>{% endif %}
+    </div>
+    {% endfor %}
+    <div class="d-flex gap-2">
+      <button type="submit" class="btn btn-primary">{% if is_new %}Save as Draft{% else %}Save changes{% endif %}</button>
+      {% if is_new %}
+      <a href="{% url 'projects:project_detail' project.id %}" class="btn btn-outline-secondary">Cancel</a>
+      {% else %}
+      <a href="{% url 'subcontractors:agreement_detail' agreement.pk %}" class="btn btn-outline-secondary">Cancel</a>
+      {% endif %}
+    </div>
+  </form>
+</div>
+{% endblock %}

@@ -1,0 +1,23 @@
+{% extends 'base.html' %}
+{% block title %}{% if is_new %}Add Section{% else %}Edit Section{% endif %}{% endblock %}
+{% block content %}
+<div class="my-4">
+  <h1 class="h4">{% if is_new %}Add Section to {{ volume.label }}{% else %}Edit Section{% endif %}</h1>
+  <p class="text-muted">{{ volume.label }}{% if volume.title %} &mdash; {{ volume.title }}{% endif %}</p>
+  <form method="post" class="card card-body" style="max-width: 720px;">
+    {% csrf_token %}
+    {% for field in form %}
+    <div class="mb-3">
+      <label class="form-label">{{ field.label }}</label>
+      {{ field }}
+      {% if field.help_text %}<div class="form-text">{{ field.help_text }}</div>{% endif %}
+      {% if field.errors %}<div class="text-danger small">{{ field.errors|striptags }}</div>{% endif %}
+    </div>
+    {% endfor %}
+    <div class="d-flex gap-2">
+      <button type="submit" class="btn btn-primary">Save</button>
+      <a href="{% url 'core:specifications_list' %}" class="btn btn-outline-secondary">Cancel</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

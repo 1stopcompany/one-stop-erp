@@ -1,0 +1,55 @@
+{% extends 'base.html' %}{% block title %}{{ po.po_number }}{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center my-4">
+  <div>
+    <h1 class="h3 mb-1">{{ po.po_number }} <span class="badge bg-secondary">{{ po.get_status_display }}</span></h1>
+    <p class="text-muted mb-0">{{ po.project }} &mdash; {{ po.vendor.name }}</p>
+  </div>
+  <div class="d-flex gap-2">
+    <a href="{% url 'procurement:po_pdf' po.pk %}" class="btn btn-outline-secondary" target="_blank"><i class="bi bi-file-pdf"></i> PDF</a>
+    {% if can_receive_on_site %}
+    <a href="{% url 'procurement:po_site_receive' po.pk %}" class="btn btn-success"><i class="bi bi-truck"></i> Site Receiving</a>
+    {% endif %}
+    {% if can_work_procurement and po.status == 'draft' %}
+    <form method="post" action="{% url 'procurement:po_send' po.pk %}">{% csrf_token %}<button class="btn btn-primary">Send to Vendor</button></form>
+    {% endif %}
+  </div>
+</div>
+
+<div class="card mb-3"><div class="card-body">
+  <div class="row">
+    <div class="col-md-3"><strong>Related PR:</strong> {% if po.pr %}<a href="{% url 'procurement:pr_detail' po.pr.pk %}">{{ po.pr.pr_number }}</a>{% else %}&mdash;{% endif %}</div>
+    <div class="col-md-3"><strong>PO Date:</strong> {{ po.po_date|date:"d/m/Y" }}</div>
+    <div class="col-md-3"><strong>Delivery Date:</strong> {{ po.delivery_date }}</div>
+    <div class="col-md-3"><strong>Total:</strong> ₪{{ po.total_price }}</div>
+  </div>
+  {% if po.remarks %}<div class="mt-2"><strong>Remarks:</strong> {{ po.remarks }}</div>{% endif %}
+</div></div>
+
+<div class="card mb-3">
+  <div class="card-header">Order Items</div>
+  <div class="table-responsive"><table class="table mb-0">
+    <thead><tr><th>Item</th><th class="text-end">Ordered</th><th class="text-end">Received</th><th>Unit</th><th class="text-end">Unit Price</th><th class="text-end">Total</th><th></th></tr></thead>
+    <tbody>
+      {% for line in lines %}
+      <tr>
+        <td>
+          <div class="d-flex align-items-center gap-2">
+            <img src="{% url 'procurement:item_barcode_png' line.item.pk %}" alt="{{ line.item.full_code }}" style="height:32px;">
+            <span>{{ line.item.full_code }} &mdash; {{ line.item.description }}</span>
+          </div>
+        </td>
+        <td class="text-end">{{ line.quantity_ordered }}</td>
+        <td class="text-end">{{ line.quantity_received }}</td>
+        <td>{{ line.get_unit_display }}</td>
+        <td class="text-end">₪{{ line.unit_price }}</td>
+        <td class="text-end">₪{{ line.total_price }}</td>
+        <td class="text-end"><a class="btn btn-sm btn-outline-success" href="{% url 'procurement:receipt_create' %}?po_line={{ line.pk }}">+ Receipt</a></td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="7" class="text-center text-muted py-3">No items.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table></div>
+</div>
+{% endblock %}

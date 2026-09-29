@@ -1,0 +1,159 @@
+{% extends 'base.html' %}
+
+{% block title %}Monthly Reports - Site Engineer Reports{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div class="row align-items-center">
+        <div class="col">
+            <h1><i class="bi bi-file-earmark-text"></i> Monthly Reports</h1>
+        </div>
+        <div class="col-auto">
+            {% if user.is_project_manager or user.is_admin %}
+            <a href="{% url 'reports:monthly_report_generate' %}" class="btn btn-success me-2">
+                <i class="bi bi-magic"></i> Generate from Daily Reports
+            </a>
+            <a href="{% url 'reports:monthly_report_create' %}" class="btn btn-primary">
+                <i class="bi bi-plus-circle"></i> Create New Report
+            </a>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Search and Filter -->
+<div class="card mb-4">
+    <div class="card-body">
+        <form method="get" class="row g-3">
+            <div class="col-md-4">
+                <input type="text" name="search" class="form-control" placeholder="Search reports..." value="{{ request.GET.search }}">
+            </div>
+            <div class="col-md-4">
+                <select name="status" class="form-select">
+                    <option value="">All Statuses</option>
+                    <option value="draft" {% if request.GET.status == 'draft' %}selected{% endif %}>Draft</option>
+                    <option value="submitted" {% if request.GET.status == 'submitted' %}selected{% endif %}>Submitted</option>
+                    <option value="engineering_approved" {% if request.GET.status == 'engineering_approved' %}selected{% endif %}>Approved by Engineering Manager</option>
+                    <option value="approved" {% if request.GET.status == 'approved' %}selected{% endif %}>Approved</option>
+                    <option value="rejected" {% if request.GET.status == 'rejected' %}selected{% endif %}>Rejected</option>
+                    <option value="archived" {% if request.GET.status == 'archived' %}selected{% endif %}>Archived</option>
+                </select>
+            </div>
+            <div class="col-md-4">
+                <button type="submit" class="btn btn-primary w-100">
+                    <i class="bi bi-search"></i> Search
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Reports Table -->
+{% if reports %}
+<div class="table-responsive">
+    <table class="table table-hover">
+        <thead class="table-light">
+            <tr>
+                <th>Report Number</th>
+                <th>Project</th>
+                <th>Period</th>
+                <th>Engineer</th>
+                <th>Status</th>
+                <th>Report Date</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for report in reports %}
+            <tr>
+                <td>
+                    <strong>{{ report.report_number }}</strong>
+                </td>
+                <td>{{ report.project.name }}</td>
+                <td>
+                    <small>
+                        {{ report.reporting_period_from|date:"M d" }} - {{ report.reporting_period_to|date:"M d, Y" }}
+                    </small>
+                </td>
+                <td>{{ report.site_engineer.get_full_name }}</td>
+                <td>
+                    <span class="badge badge-status-{{ report.status }}">
+                        {{ report.get_status_display }}
+                    </span>
+                </td>
+                <td>{{ report.report_date|date:"M d, Y" }}</td>
+                <td>
+                    <a href="{% url 'reports:monthly_report_detail' report.pk %}" class="btn btn-sm btn-outline-primary">
+                        <i class="bi bi-eye"></i> View
+                    </a>
+                    <a href="{% url 'reports:monthly_report_dashboard' report.pk %}" class="btn btn-sm btn-outline-info">
+                        <i class="bi bi-graph-up-arrow"></i> Dashboard
+                    </a>
+                    {% if user == report.site_engineer and report.status == 'draft' %}
+                    <a href="{% url 'reports:monthly_report_update' report.pk %}" class="btn btn-sm btn-outline-secondary">
+                        <i class="bi bi-pencil"></i> Edit
+                    </a>
+                    {% endif %}
+                    {% if report.status == 'submitted' and user.is_engineering_manager %}
+                    <a href="{% url 'reports:review_monthly_report' report.pk %}" class="btn btn-sm btn-info">
+                        <i class="bi bi-search"></i> Review
+                    </a>
+                    {% endif %}
+                    {% if report.status == 'engineering_approved' and user.is_general_manager %}
+                    <a href="{% url 'reports:approve_monthly_report' report.pk %}" class="btn btn-sm btn-success">
+                        <i class="bi bi-check-circle"></i> Final Approve
+                    </a>
+                    {% endif %}
+                    {% if report.status != 'draft' %}
+                    <a href="{% url 'reports:export_monthly_pdf' report.pk %}" class="btn btn-sm btn-outline-success">
+                        <i class="bi bi-file-pdf"></i> PDF
+                    </a>
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<!-- Pagination -->
+{% if is_paginated %}
+<nav aria-label="Page navigation">
+    <ul class="pagination justify-content-center">
+        {% if page_obj.has_previous %}
+        <li class="page-item">
+            <a class="page-link" href="?page=1">First</a>
+        </li>
+        <li class="page-item">
+            <a class="page-link" href="?page={{ page_obj.previous_page_number }}">Previous</a>
+        </li>
+        {% endif %}
+        
+        {% for num in page_obj.paginator.page_range %}
+        <li class="page-item {% if page_obj.number == num %}active{% endif %}">
+            <a class="page-link" href="?page={{ num }}">{{ num }}</a>
+        </li>
+        {% endfor %}
+        
+        {% if page_obj.has_next %}
+        <li class="page-item">
+            <a class="page-link" href="?page={{ page_obj.next_page_number }}">Next</a>
+        </li>
+        <li class="page-item">
+            <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}">Last</a>
+        </li>
+        {% endif %}
+    </ul>
+</nav>
+{% endif %}
+
+{% else %}
+<div class="alert alert-info" role="alert">
+    <i class="bi bi-info-circle"></i> No reports found.
+    {% if user.is_project_manager or user.is_admin %}
+    <a href="{% url 'reports:monthly_report_generate' %}">Generate one from daily reports</a> or
+    <a href="{% url 'reports:monthly_report_create' %}">create your first report</a>
+    {% endif %}
+</div>
+{% endif %}
+{% endblock %}

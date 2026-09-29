@@ -1,0 +1,132 @@
+{% extends 'base.html' %}{% block title %}{{ title }}{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center my-4">
+  <h1 class="h3 mb-0">{{ title }}</h1>
+  <a href="javascript:history.back()" class="btn btn-outline-secondary">Back</a>
+</div>
+
+<form method="post" novalidate>
+  {% csrf_token %}
+  <div class="card mb-3"><div class="card-body">
+    {{ form.non_field_errors }}
+    <div class="row">
+      <div class="col-md-4 mb-3">
+        <label class="form-label">Project</label>
+        {{ form.project }}
+        {% for e in form.project.errors %}<div class="text-danger small">{{ e }}</div>{% endfor %}
+      </div>
+      <div class="col-md-3 mb-3">
+        <label class="form-label">Required Date</label>
+        {{ form.required_date }}
+        {% for e in form.required_date.errors %}<div class="text-danger small">{{ e }}</div>{% endfor %}
+      </div>
+      <div class="col-md-5 mb-3">
+        <label class="form-label">Remarks</label>
+        {{ form.remarks }}
+      </div>
+    </div>
+  </div></div>
+
+  <div class="card mb-3"><div class="card-body">
+    <h5 class="mb-3">Items Requested</h5>
+    {{ formset.management_form }}
+    {{ formset.non_form_errors }}
+    <div class="table-responsive">
+      <table class="table" id="lines-table">
+        <thead><tr><th style="width:22%">Item</th><th style="width:22%">BOQ item</th><th style="width:12%">Quantity</th><th style="width:12%">Unit</th><th style="width:22%">Remarks</th><th style="width:10%"></th></tr></thead>
+        <tbody>
+          {% for lform in formset %}
+          <tr class="line-row">
+            <td>{{ lform.id }}{{ lform.item }}{% for e in lform.item.errors %}<div class="text-danger small">{{ e }}</div>{% endfor %}</td>
+            <td>{{ lform.sub_item }}{% for e in lform.sub_item.errors %}<div class="text-danger small">{{ e }}</div>{% endfor %}</td>
+            <td>{{ lform.quantity_requested }}</td>
+            <td>{{ lform.unit }}</td>
+            <td>{{ lform.remarks }}</td>
+            <td class="text-end">
+              {% if lform.instance.pk %}<div class="form-check">{{ lform.DELETE }} <label class="form-check-label small">Remove</label></div>
+              {% else %}<button type="button" class="btn btn-sm btn-outline-danger remove-row">&times;</button>{% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    <button type="button" id="add-line" class="btn btn-sm btn-outline-primary">+ Add Item</button>
+  </div></div>
+
+  <button type="submit" class="btn btn-primary">Save</button>
+  <a href="javascript:history.back()" class="btn btn-outline-secondary">Cancel</a>
+</form>
+
+<template id="empty-row-template">
+  <tr class="line-row">
+    <td>__ITEM__</td>
+    <td>__QTY__</td>
+    <td>__UNIT__</td>
+    <td>__REMARKS__</td>
+    <td class="text-end"><button type="button" class="btn btn-sm btn-outline-danger remove-row">&times;</button></td>
+  </tr>
+</template>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function () {
+  const totalForms = document.getElementById('id_lines-TOTAL_FORMS');
+  const tbody = document.querySelector('#lines-table tbody');
+  const addBtn = document.getElementById('add-line');
+  const emptyRowHtml = document.querySelector('.line-row').outerHTML;
+
+  function reindex() {
+    const rows = tbody.querySelectorAll('.line-row');
+    rows.forEach((row, i) => {
+      row.querySelectorAll('[name],[id]').forEach(el => {
+        if (el.name) el.name = el.name.replace(/lines-(\d+|__prefix__)-/, `lines-${i}-`);
+        if (el.id) el.id = el.id.replace(/id_lines-(\d+|__prefix__)-/, `id_lines-${i}-`);
+      });
+    });
+    totalForms.value = rows.length;
+  }
+
+  addBtn.addEventListener('click', () => {
+    const idx = tbody.querySelectorAll('.line-row').length;
+    const wrapper = document.createElement('tbody');
+    wrapper.innerHTML = emptyRowHtml;
+    const newRow = wrapper.firstElementChild;
+    newRow.querySelectorAll('[name],[id]').forEach(el => {
+      if (el.name) el.name = el.name.replace(/lines-(\d+|__prefix__)-/, `lines-${idx}-`);
+      if (el.id) el.id = el.id.replace(/id_lines-(\d+|__prefix__)-/, `id_lines-${idx}-`);
+      if (el.tagName === 'INPUT' && el.type !== 'hidden') el.value = '';
+      if (el.tagName === 'SELECT') el.selectedIndex = 0;
+    });
+    tbody.appendChild(newRow);
+    totalForms.value = tbody.querySelectorAll('.line-row').length;
+  });
+
+  tbody.addEventListener('click', (e) => {
+    if (e.target.classList.contains('remove-row')) {
+      e.target.closest('.line-row').remove();
+      reindex();
+    }
+  });
+
+  // Show only the chosen project's BOQ items in each line's "BOQ item" list.
+  function filterWorkItems() {
+    const project = document.getElementById('id_project');
+    if (!project) return;
+    document.querySelectorAll('select[name$="-sub_item"]').forEach(function (sel) {
+      Array.from(sel.options).forEach(function (o) {
+        if (!o.value) return;
+        const ok = !project.value || o.dataset.project === project.value;
+        o.hidden = !ok; o.disabled = !ok;
+      });
+      if (sel.selectedOptions[0] && sel.selectedOptions[0].disabled) sel.value = '';
+    });
+  }
+  const projectSelect = document.getElementById('id_project');
+  if (projectSelect) projectSelect.addEventListener('change', filterWorkItems);
+  new MutationObserver(filterWorkItems).observe(tbody, { childList: true });
+  filterWorkItems();
+})();
+</script>
+{% endblock %}

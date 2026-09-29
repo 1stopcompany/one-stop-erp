@@ -1,0 +1,157 @@
+{% extends 'base.html' %}{% block title %}Site Receiving — {{ po.po_number }}{% endblock %}
+{% block content %}
+<div class="my-4">
+  <h1 class="h4 mb-1"><i class="bi bi-truck"></i> Site Receiving</h1>
+  <p class="text-muted mb-0">{{ po.po_number }} — {{ po.project }}</p>
+</div>
+
+<div class="alert alert-info">
+  <i class="bi bi-info-circle"></i>
+  Enter only the quantity you physically have in front of you right now for each item.
+  Scan the barcode (with your phone's camera, or a USB/Bluetooth scanner) to jump straight
+  to the right line, or just compare it by eye before counting.
+</div>
+
+<!-- Scan box: "Scan with Camera" opens the phone's own camera and decodes the barcode
+     in the browser (no app install needed); the text field below it works exactly like
+     before with an external USB/Bluetooth scanner gun (which types the code + Enter like
+     a keyboard) or with manual typing -- both paths end up at the same matching logic. -->
+<div class="card mb-3">
+  <div class="card-body">
+    <div class="d-flex align-items-center gap-2 flex-wrap">
+      <button type="button" id="scan-camera-btn" class="btn btn-primary">
+        <i class="bi bi-camera"></i> Scan with Camera
+      </button>
+      <input type="text" id="scan-manual-input" class="form-control" style="max-width: 320px;"
+             placeholder="Or scan with a USB/Bluetooth scanner, or type the code" autocomplete="off">
+    </div>
+    <div id="scan-camera-wrap" class="mt-3 d-none">
+      <video id="scan-video" class="w-100 rounded border" style="max-height: 320px; background:#000;" muted playsinline></video>
+      <div class="d-flex justify-content-between align-items-center mt-2">
+        <div id="scan-status" class="text-muted small">Point the camera at the barcode&hellip;</div>
+        <button type="button" id="scan-camera-stop" class="btn btn-sm btn-outline-secondary">
+          <i class="bi bi-x-circle"></i> Stop Camera
+        </button>
+      </div>
+    </div>
+    <div id="scan-result" class="mt-2 small"></div>
+  </div>
+</div>
+
+<form method="post">
+  {% csrf_token %}
+  {% for line in lines %}
+  <div class="card mb-3 receiving-line" id="line-{{ line.id }}" data-barcode="{{ line.item.barcode_value }}" data-desc="{{ line.item.description }}">
+    <div class="card-body">
+      <div class="row align-items-center g-3">
+        <div class="col-auto">
+          <img src="{% url 'procurement:item_barcode_png' line.item.pk %}" alt="{{ line.item.full_code }}" style="height:60px;">
+        </div>
+        <div class="col">
+          <div class="fw-bold">{{ line.item.description }}</div>
+          <div class="text-muted small">{{ line.item.full_code }}</div>
+        </div>
+        <div class="col-md-3">
+          <label class="form-label small mb-1">Quantity received ({{ line.get_unit_display }})</label>
+          <input type="number" step="0.01" min="0" name="qty_{{ line.id }}" class="form-control form-control-lg" placeholder="0">
+        </div>
+      </div>
+      <div class="mt-2">
+        <input type="text" name="remarks_{{ line.id }}" class="form-control form-control-sm" placeholder="Notes (optional) — e.g. damaged, short pallet...">
+      </div>
+    </div>
+  </div>
+  {% empty %}
+  <p class="text-muted">This purchase order has no items.</p>
+  {% endfor %}
+
+  {% if lines %}
+  <button type="submit" class="btn btn-primary btn-lg w-100"><i class="bi bi-check-circle"></i> Submit Received Quantities</button>
+  {% endif %}
+</form>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/@zxing/library@0.21.3/umd/index.min.js"></script>
+<script>
+(function () {
+  const manualInput = document.getElementById('scan-manual-input');
+  const resultBox = document.getElementById('scan-result');
+  const lines = Array.from(document.querySelectorAll('.receiving-line'));
+
+  function flashLine(line) {
+    line.style.transition = 'background-color 0.2s ease';
+    line.style.backgroundColor = '#d1e7dd';
+    setTimeout(function () { line.style.backgroundColor = ''; }, 1500);
+  }
+
+  function handleScannedCode(code) {
+    code = (code || '').trim();
+    if (!code) return;
+    const match = lines.find(function (line) { return line.dataset.barcode === code; });
+    if (match) {
+      match.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      flashLine(match);
+      const qtyInput = match.querySelector('input[type="number"]');
+      if (qtyInput) qtyInput.focus();
+      resultBox.innerHTML = '<span class="text-success"><i class="bi bi-check-circle-fill"></i> Found: ' + match.dataset.desc + '</span>';
+    } else {
+      resultBox.innerHTML = '<span class="text-danger"><i class="bi bi-exclamation-triangle-fill"></i> "' + code + '" is not one of the items on this purchase order.</span>';
+    }
+  }
+
+  // Path 1: USB/Bluetooth scanner gun (types the code then Enter, like a keyboard) or manual typing.
+  manualInput.addEventListener('keydown', function (e) {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      handleScannedCode(manualInput.value);
+      manualInput.value = '';
+    }
+  });
+
+  // Path 2: the phone's own camera, decoded live in the browser -- no separate scanner hardware needed.
+  const cameraBtn = document.getElementById('scan-camera-btn');
+  const cameraWrap = document.getElementById('scan-camera-wrap');
+  const cameraStop = document.getElementById('scan-camera-stop');
+  const video = document.getElementById('scan-video');
+  const statusEl = document.getElementById('scan-status');
+  let codeReader = null;
+
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    cameraBtn.disabled = true;
+    cameraBtn.title = 'Camera access needs a secure (https) connection and a supported browser.';
+  }
+
+  cameraBtn.addEventListener('click', function () {
+    cameraWrap.classList.remove('d-none');
+    statusEl.textContent = 'Point the camera at the barcode…';
+    const hints = new Map();
+    hints.set(ZXing.DecodeHintType.POSSIBLE_FORMATS, [ZXing.BarcodeFormat.CODE_128]);
+    codeReader = new ZXing.BrowserMultiFormatReader(hints);
+    codeReader.decodeFromConstraints(
+      { video: { facingMode: 'environment' } },
+      video,
+      function (result, err) {
+        if (result) {
+          handleScannedCode(result.getText());
+          statusEl.textContent = 'Scanned: ' + result.getText() + ' — keep scanning, or Stop Camera when done.';
+        }
+        // NotFoundException fires continuously between successful reads -- expected, not an error.
+      }
+    ).catch(function (err) {
+      statusEl.textContent = 'Could not access the camera: ' + (err && err.message ? err.message : err);
+    });
+  });
+
+  function stopCamera() {
+    if (codeReader) {
+      codeReader.reset();
+      codeReader = null;
+    }
+    cameraWrap.classList.add('d-none');
+  }
+  cameraStop.addEventListener('click', stopCamera);
+  window.addEventListener('beforeunload', stopCamera);
+})();
+</script>
+{% endblock %}

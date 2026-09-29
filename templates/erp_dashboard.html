@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>One Stop Contracting Co. - ERP Dashboard</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
+    <style>
+        :root {
+            --bg-color: #f3f4f9;
+            --text-color: #333;
+            --card-bg: #ffffff;
+            --primary-blue: #003366;
+            --accent-yellow: #ffcc00;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #e0e5ec 0%, #f3f4f9 100%);
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            color: var(--text-color);
+            min-height: 100vh;
+        }
+
+        /* Header & Logo */
+        header {
+            text-align: center;
+            padding: 40px 20px 20px;
+            width: 100%;
+        }
+
+        .logo-placeholder {
+            margin-bottom: 10px;
+        }
+
+        .logo-placeholder h2 {
+            margin: 0;
+            color: var(--primary-blue);
+            font-weight: 700;
+            font-size: 2.5rem;
+        }
+
+        .logo-placeholder small {
+            color: #666;
+            font-size: 1rem;
+        }
+
+
+        /* Grid Container */
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+            gap: 30px;
+            width: 90%;
+            max-width: 1200px;
+            padding-bottom: 50px;
+        }
+
+        /* App Card */
+        .app-card {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            color: inherit;
+        }
+
+        .app-card:hover {
+            transform: translateY(-8px);
+            text-decoration: none;
+            color: inherit;
+        }
+
+        .icon-box {
+            width: 80px;
+            height: 80px;
+            background-color: var(--card-bg);
+            border-radius: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+            margin-bottom: 12px;
+            font-size: 40px;
+            transition: all 0.3s ease;
+            border: 2px solid transparent;
+        }
+
+        .app-card:hover .icon-box {
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+            transform: scale(1.05);
+        }
+
+        .app-label {
+            font-size: 0.9em;
+            font-weight: 600;
+            text-align: center;
+            color: var(--text-color);
+        }
+
+        /* Custom Icon Colors */
+        .icon-crm {
+            color: #2ecc71;
+            background: linear-gradient(135deg, rgba(46, 204, 113, 0.1) 0%, rgba(46, 204, 113, 0.05) 100%);
+        }
+        .icon-procurement {
+            color: #e67e22;
+            background: linear-gradient(135deg, rgba(230, 126, 34, 0.1) 0%, rgba(230, 126, 34, 0.05) 100%);
+        }
+        .icon-cost-control {
+            color: #f1c40f;
+            background: linear-gradient(135deg, rgba(241, 196, 15, 0.1) 0%, rgba(241, 196, 15, 0.05) 100%);
+        }
+        .icon-dashboard {
+            color: #3498db;
+            background: linear-gradient(135deg, rgba(52, 152, 219, 0.1) 0%, rgba(52, 152, 219, 0.05) 100%);
+        }
+
+        .icon-project {
+            color: #9b59b6;
+            background: linear-gradient(135deg, rgba(155, 89, 182, 0.1) 0%, rgba(155, 89, 182, 0.05) 100%);
+        }
+
+        .icon-timesheet {
+            color: #34495e;
+            background: linear-gradient(135deg, rgba(52, 73, 94, 0.1) 0%, rgba(52, 73, 94, 0.05) 100%);
+        }
+
+        .icon-accounting {
+            color: #f39c12;
+            background: linear-gradient(135deg, rgba(243, 156, 18, 0.1) 0%, rgba(243, 156, 18, 0.05) 100%);
+        }
+
+        .icon-site {
+            color: #e74c3c;
+            background: linear-gradient(135deg, rgba(231, 76, 60, 0.1) 0%, rgba(231, 76, 60, 0.05) 100%);
+        }
+
+        .icon-safety {
+            color: #c0392b;
+            background: linear-gradient(135deg, rgba(192, 57, 43, 0.1) 0%, rgba(192, 57, 43, 0.05) 100%);
+        }
+
+        .icon-equipment {
+            color: #16a085;
+            background: linear-gradient(135deg, rgba(22, 160, 133, 0.1) 0%, rgba(22, 160, 133, 0.05) 100%);
+        }
+
+        .icon-subcontractors {
+            color: #2980b9;
+            background: linear-gradient(135deg, rgba(41, 128, 185, 0.1) 0%, rgba(41, 128, 185, 0.05) 100%);
+        }
+
+        .icon-blueprints {
+            color: #8e44ad;
+            background: linear-gradient(135deg, rgba(142, 68, 173, 0.1) 0%, rgba(142, 68, 173, 0.05) 100%);
+        }
+
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .dashboard-grid {
+                grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+                gap: 20px;
+            }
+
+            .icon-box {
+                width: 70px;
+                height: 70px;
+                font-size: 32px;
+            }
+
+            .app-label {
+                font-size: 0.8em;
+            }
+
+            header {
+                padding: 20px 10px;
+            }
+
+            .logo-placeholder h2 {
+                font-size: 2rem;
+            }
+        }
+
+        /* Footer */
+        footer {
+            text-align: center;
+            padding: 20px;
+            color: #999;
+            font-size: 0.9em;
+            width: 100%;
+            border-top: 1px solid #e0e0e0;
+            background: rgba(255, 255, 255, 0.5);
+        }
+
+        /* User Info */
+        .user-info {
+            position: absolute;
+            top: 20px;
+            right: 30px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 0.9em;
+        }
+
+        .user-info a {
+            color: var(--primary-blue);
+            text-decoration: none;
+        }
+
+        .user-info a:hover {
+            text-decoration: underline;
+        }
+
+        .user-info form {
+            margin: 0;
+            display: inline;
+        }
+
+        .user-info .logout-link {
+            background: none;
+            border: none;
+            padding: 0;
+            font: inherit;
+            cursor: pointer;
+            color: var(--primary-blue);
+            text-decoration: none;
+        }
+
+        .user-info .logout-link:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+
+<body>
+    <!-- User Info -->
+    {% if user.is_authenticated %}
+    <div class="user-info">
+        <span>👤 {{ user.get_full_name|default:user.username }}</span>
+        <form method="post" action="{% url 'accounts:logout' %}">
+            {% csrf_token %}
+            <button type="submit" class="logout-link">Logout</button>
+        </form>
+    </div>
+    {% endif %}
+
+    <header>
+        <div class="logo-placeholder">
+            <h2>ONE STOP</h2>
+            <small>Contracting Co. - ERP System</small>
+        </div>
+    </header>
+
+    {% if messages %}
+    <div class="alert alert-info alert-dismissible fade show" role="alert" style="width: 85%; max-width: 800px;">
+        {% for message in messages %}
+        {{ message }}
+        {% endfor %}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+    {% endif %}
+
+
+    <main class="dashboard-grid">
+        <!-- CRM -->
+        <a href="{% url 'crm:dashboard' %}" class="app-card">
+            <div class="icon-box icon-crm">🤝</div>
+            <div class="app-label">CRM</div>
+        </a>
+        <!-- Procurement -->
+        <a href="{% url 'procurement:dashboard' %}" class="app-card">
+            <div class="icon-box icon-procurement">📦</div>
+            <div class="app-label">Procurement</div>
+        </a>
+        <!-- Cost Control -->
+        <a href="{% url 'cost_control:dashboard' %}" class="app-card">
+            <div class="icon-box icon-cost-control">📊</div>
+            <div class="app-label">Cost Control</div>
+        </a>
+
+        <!-- Project Management -->
+        <a href="{% url 'projects:project_list' %}" class="app-card">
+            <div class="icon-box icon-project">🏗️</div>
+            <div class="app-label">Projects</div>
+        </a>
+
+        <!-- HR -->
+        <a href="{% url 'timesheets:dashboard' %}" class="app-card">
+            <div class="icon-box icon-timesheet">📅</div>
+            <div class="app-label">HR</div>
+        </a>
+
+        <!-- Accounting -->
+        <a href="{% url 'accounting:dashboard' %}" class="app-card">
+            <div class="icon-box icon-accounting">💰</div>
+            <div class="app-label">Accounting</div>
+        </a>
+
+        <!-- Site Reports -->
+        <a href="{% url 'reports:report_type_selection' %}" class="app-card">
+            <div class="icon-box icon-site">📝</div>
+            <div class="app-label">Site Reports</div>
+        </a>
+
+        <!-- Company Standards & Specifications -->
+        <a href="{% url 'core:specifications_list' %}" class="app-card">
+            <div class="icon-box icon-blueprints">📐</div>
+            <div class="app-label">Standards &amp; Specs</div>
+        </a>
+
+        <!-- Safety Compliance -->
+        <a href="{% url 'safety:dashboard' %}" class="app-card">
+            <div class="icon-box icon-safety">🛡️</div>
+            <div class="app-label">Safety</div>
+        </a>
+
+        <!-- Equipment -->
+        <a href="{% url 'equipment:dashboard' %}" class="app-card">
+            <div class="icon-box icon-equipment">🚜</div>
+            <div class="app-label">Equipment</div>
+        </a>
+
+        <!-- Subcontractors -->
+        <a href="{% url 'subcontractors:dashboard' %}" class="app-card">
+            <div class="icon-box icon-subcontractors">👷</div>
+            <div class="app-label">Subcontractors</div>
+        </a>
+
+        <!-- Blueprints -->
+        <a href="{% url 'blueprints:dashboard' %}" class="app-card">
+            <div class="icon-box icon-blueprints">🗺️</div>
+            <div class="app-label">Blueprints</div>
+        </a>
+
+        {% if user.is_admin %}
+        <!-- Administration (admin only: system overview, users, settings) -->
+        <a href="{% url 'accounts:dashboard' %}" class="app-card">
+            <div class="icon-box icon-dashboard">⚙️</div>
+            <div class="app-label">Administration</div>
+        </a>
+        {% endif %}
+    </main>
+
+    <footer>
+        <p>&copy; {% now "Y" %} One Stop Contracting Co. | ERP System v1.0</p>
+    </footer>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+
+</html>
+
+

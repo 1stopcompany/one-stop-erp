@@ -1,0 +1,198 @@
+{# Floating AI chat bubble, included from base.html for users who may use the assistant. History lives in the browser (sessionStorage) only. #}
+<style>
+  .aic-fab { position: fixed; right: 22px; bottom: 22px; z-index: 1060; width: 58px; height: 58px; border: 0; border-radius: 50%;
+             background: #1f4788; color: #fff; font-size: 26px; box-shadow: 0 6px 20px rgba(0,0,0,.28); cursor: pointer; transition: transform .15s; }
+  .aic-fab:hover { transform: scale(1.07); }
+  .aic-teaser { position: fixed; right: 92px; bottom: 32px; z-index: 1060; max-width: 240px; background: #fff; color: #212529; border-radius: 14px;
+                padding: 10px 30px 10px 14px; box-shadow: 0 6px 20px rgba(0,0,0,.2); font-size: 14px; animation: aic-pop .35s ease-out; cursor: pointer; }
+  .aic-teaser::after { content: ""; position: absolute; right: -7px; bottom: 16px; border: 7px solid transparent; border-left-color: #fff; border-right: 0; }
+  .aic-teaser button { position: absolute; top: 2px; right: 6px; border: 0; background: none; font-size: 18px; color: #888; line-height: 1; }
+  @keyframes aic-pop { from { opacity: 0; transform: translateY(10px) scale(.95); } to { opacity: 1; transform: none; } }
+  .aic-panel { position: fixed; right: 22px; bottom: 94px; z-index: 1060; width: 390px; max-width: calc(100vw - 24px); height: 540px; max-height: calc(100vh - 120px);
+               display: none; flex-direction: column; background: #fff; border-radius: 16px; box-shadow: 0 12px 40px rgba(0,0,0,.3); overflow: hidden; }
+  .aic-panel.open { display: flex; }
+  .aic-head { background: #1f4788; color: #fff; padding: 10px 12px; }
+  .aic-head .aic-title { display: flex; align-items: center; gap: 8px; font-weight: 600; }
+  .aic-head .aic-title span { flex: 1; }
+  .aic-head button, .aic-head a { color: #fff; background: none; border: 0; opacity: .85; font-size: 16px; padding: 0 4px; text-decoration: none; }
+  .aic-head button:hover, .aic-head a:hover { opacity: 1; }
+  .aic-head select { width: 100%; margin-top: 8px; font-size: 13px; }
+  .aic-body { flex: 1; overflow-y: auto; padding: 12px; background: #f4f6fa; }
+  .aic-msg { max-width: 88%; margin-bottom: 10px; padding: 8px 12px; border-radius: 14px; font-size: 14px; line-height: 1.5; word-wrap: break-word; }
+  .aic-msg.user { margin-left: auto; background: #1f4788; color: #fff; border-bottom-right-radius: 4px; }
+  .aic-msg.bot { background: #fff; color: #212529; border: 1px solid #e1e5ee; border-bottom-left-radius: 4px; }
+  .aic-msg.err { background: #fdecea; color: #8a1c14; border: 1px solid #f5c6c2; }
+  .aic-msg ul { margin: 4px 0; padding-inline-start: 20px; }
+  .aic-msg p { margin: 0 0 6px; } .aic-msg p:last-child { margin-bottom: 0; }
+  .aic-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+  .aic-chips button { border: 1px solid #1f4788; color: #1f4788; background: #fff; border-radius: 16px; padding: 4px 10px; font-size: 13px; }
+  .aic-chips button:hover { background: #1f4788; color: #fff; }
+  .aic-dots span { display: inline-block; width: 7px; height: 7px; margin: 0 2px; border-radius: 50%; background: #9aa5b8; animation: aic-b 1s infinite ease-in-out; }
+  .aic-dots span:nth-child(2) { animation-delay: .15s; } .aic-dots span:nth-child(3) { animation-delay: .3s; }
+  @keyframes aic-b { 0%,80%,100% { transform: translateY(0); opacity: .5; } 40% { transform: translateY(-5px); opacity: 1; } }
+  .aic-foot { display: flex; gap: 8px; padding: 10px; border-top: 1px solid #e1e5ee; background: #fff; }
+  .aic-foot textarea { flex: 1; resize: none; border: 1px solid #ced4da; border-radius: 10px; padding: 6px 10px; font-size: 14px; max-height: 96px; }
+  .aic-foot button { border: 0; border-radius: 10px; background: #1f4788; color: #fff; padding: 0 14px; }
+  .aic-foot button:disabled { opacity: .5; }
+  .aic-note { font-size: 11px; color: #6c757d; text-align: center; padding: 0 10px 6px; background: #fff; }
+  @media (max-width: 480px) { .aic-panel { right: 8px; bottom: 88px; } .aic-teaser { right: 82px; } }
+</style>
+
+<button type="button" class="aic-fab" id="aicFab" title="AI Assistant" aria-label="Open AI assistant"><i class="bi bi-stars"></i></button>
+<div class="aic-teaser" id="aicTeaser" hidden>Hi! Ask me anything about your project.<button type="button" id="aicTeaserX" aria-label="Dismiss">&times;</button></div>
+
+<div class="aic-panel" id="aicPanel" role="dialog" aria-label="AI assistant chat">
+  <div class="aic-head">
+    <div class="aic-title">
+      <i class="bi bi-stars"></i><span>AI Assistant</span>
+      <a href="#" id="aicFull" title="Open the full assistant page (documents, review)" hidden><i class="bi bi-box-arrow-up-right"></i></a>
+      <button type="button" id="aicClear" title="Start a new conversation"><i class="bi bi-arrow-counterclockwise"></i></button>
+      <button type="button" id="aicClose" title="Close"><i class="bi bi-x-lg"></i></button>
+    </div>
+    <select id="aicProject" class="form-select form-select-sm" aria-label="Project"></select>
+  </div>
+  <div class="aic-body" id="aicBody"></div>
+  <div class="aic-note">Answers come from this project's data. Check important figures at the source.</div>
+  <form class="aic-foot" id="aicForm">
+    <textarea id="aicInput" rows="1" maxlength="4000" placeholder="Ask about the budget, BOQ, purchasing…" dir="auto"></textarea>
+    <button type="submit" id="aicSend" title="Send"><i class="bi bi-send"></i></button>
+  </form>
+</div>
+
+<script>
+(function () {
+  var CSRF = "{{ csrf_token }}";
+  var URLS = {config: "{% url 'ai_assistant:chat_config' %}", message: "{% url 'ai_assistant:chat_message' %}", page: "{% url 'ai_assistant:project_ai' 0 %}"};
+  var SUGGESTIONS = ["What needs attention on this project?", "How is the budget doing?", "Which BOQ items have no price?", "Any overdue purchase orders?"];
+  var $ = function (id) { return document.getElementById(id); };
+  var fab = $("aicFab"), panel = $("aicPanel"), body = $("aicBody"), input = $("aicInput"), send = $("aicSend"), select = $("aicProject");
+  var teaser = $("aicTeaser");
+  var config = null, projectId = null, history = [], busy = false;
+
+  function store(key, value) { try { if (value === undefined) { return sessionStorage.getItem(key); } sessionStorage.setItem(key, value); } catch (e) { return null; } }
+  function loadHistory() { try { history = JSON.parse(store("aic:h:" + projectId) || "[]"); } catch (e) { history = []; } }
+  function saveHistory() { store("aic:h:" + projectId, JSON.stringify(history.slice(-20))); }
+
+  // ---- teaser: pops out when a page opens, once per page load, gone after a few seconds or a click
+  var teased = store("aic:teaser-off") === "1";
+  if (!teased) {
+    setTimeout(function () { if (!panel.classList.contains("open")) { teaser.hidden = false; } }, 900);
+    setTimeout(function () { teaser.hidden = true; }, 9000);
+  }
+  function hideTeaser(forever) { teaser.hidden = true; if (forever) { store("aic:teaser-off", "1"); } }
+  $("aicTeaserX").addEventListener("click", function (e) { e.stopPropagation(); hideTeaser(true); });
+  teaser.addEventListener("click", function () { hideTeaser(false); toggle(true); });
+
+  // ---- rendering (never inserts model text as HTML)
+  function inline(parent, text) {
+    text.split(/(\*\*[^*]+\*\*)/g).forEach(function (part) {
+      if (/^\*\*[^*]+\*\*$/.test(part)) { var b = document.createElement("strong"); b.textContent = part.slice(2, -2); parent.appendChild(b); }
+      else if (part) { parent.appendChild(document.createTextNode(part.replace(/`/g, ""))); }
+    });
+  }
+  function renderText(el, text) {
+    var list = null, para = null;
+    text.split(/\r?\n/).forEach(function (line) {
+      var bullet = line.match(/^\s*(?:[-*•]|\d+[.)])\s+(.*)$/);
+      if (bullet) {
+        para = null;
+        if (!list) { list = document.createElement("ul"); list.dir = "auto"; el.appendChild(list); }
+        var li = document.createElement("li"); inline(li, bullet[1]); list.appendChild(li);
+      } else if (line.trim()) {
+        list = null;
+        para = document.createElement("p"); para.dir = "auto"; inline(para, line.replace(/^#+\s*/, "")); el.appendChild(para);
+      } else { list = null; }
+    });
+  }
+  function bubble(kind, text) {
+    var el = document.createElement("div"); el.className = "aic-msg " + kind; el.dir = "auto";
+    if (kind === "bot") { renderText(el, text); } else { el.textContent = text; }
+    body.appendChild(el); body.scrollTop = body.scrollHeight; return el;
+  }
+  function emptyState() {
+    var el = document.createElement("div"); el.className = "aic-msg bot"; el.id = "aicEmpty";
+    var p = document.createElement("p"); p.textContent = "Hi! I can look through this project's BOQ, costs, purchasing, progress and insurance. What would you like to know?";
+    el.appendChild(p);
+    var chips = document.createElement("div"); chips.className = "aic-chips";
+    SUGGESTIONS.forEach(function (q) { var b = document.createElement("button"); b.type = "button"; b.textContent = q; b.addEventListener("click", function () { ask(q); }); chips.appendChild(b); });
+    el.appendChild(chips); body.appendChild(el);
+  }
+  function redraw() {
+    body.innerHTML = "";
+    if (!config) { return; }
+    if (!config.configured) { bubble("err", config.hint || "The AI assistant isn't switched on yet."); }
+    if (!projectId) { bubble("bot", "You don't have a project to ask about yet."); return; }
+    if (!history.length) { emptyState(); }
+    history.forEach(function (m) { bubble(m.role === "user" ? "user" : "bot", m.content); });
+  }
+
+  // ---- project selection: the project on the current page, else the last one used
+  function detectProject() {
+    var m = location.pathname.match(/\/(?:projects|ai\/project|reports\/project|blueprints\/project|cost_control\/project)\/(\d+)/) || location.search.match(/[?&]project(?:_id)?=(\d+)/);
+    return m ? m[1] : null;
+  }
+  function chooseProject() {
+    var ids = config.projects.map(function (p) { return String(p.id); });
+    var pick = detectProject();
+    if (ids.indexOf(pick) < 0) { pick = store("aic:project"); }
+    if (ids.indexOf(pick) < 0) { pick = ids.length ? ids[0] : null; }
+    projectId = pick;
+    select.innerHTML = "";
+    config.projects.forEach(function (p) {
+      var o = document.createElement("option"); o.value = p.id; o.textContent = p.symbol + " — " + p.name; select.appendChild(o);
+    });
+    if (projectId) { select.value = projectId; }
+    updateLink(); loadHistory();
+  }
+  function updateLink() {
+    var a = $("aicFull"); a.hidden = !projectId; if (projectId) { a.href = URLS.page.replace(/0\/$/, projectId + "/"); }
+  }
+  select.addEventListener("change", function () { projectId = select.value; store("aic:project", projectId); updateLink(); loadHistory(); redraw(); });
+
+  // ---- open / close
+  function toggle(open) {
+    var willOpen = open === undefined ? !panel.classList.contains("open") : open;
+    panel.classList.toggle("open", willOpen);
+    if (willOpen) {
+      hideTeaser(true);
+      if (!config) {
+        body.innerHTML = ""; bubble("bot", "Loading…");
+        fetch(URLS.config, {credentials: "same-origin"}).then(function (r) { return r.json(); }).then(function (c) {
+          config = c; if (!c.enabled) { body.innerHTML = ""; bubble("err", "The assistant isn't available for your account."); return; }
+          chooseProject(); redraw(); input.focus();
+        }).catch(function () { body.innerHTML = ""; bubble("err", "Couldn't load the assistant. Reload the page and try again."); });
+      } else { input.focus(); }
+    }
+  }
+  fab.addEventListener("click", function () { toggle(); });
+  $("aicClose").addEventListener("click", function () { toggle(false); });
+  $("aicClear").addEventListener("click", function () { if (busy) { return; } history = []; saveHistory(); redraw(); });
+  document.addEventListener("keydown", function (e) { if (e.key === "Escape" && panel.classList.contains("open")) { toggle(false); } });
+
+  // ---- asking
+  function ask(text) {
+    text = (text || "").trim();
+    if (!text || busy || !config || !config.configured || !projectId) { return; }
+    var empty = $("aicEmpty"); if (empty) { empty.remove(); }
+    history.push({role: "user", content: text}); saveHistory(); bubble("user", text);
+    input.value = ""; input.style.height = "auto";
+    busy = true; send.disabled = true;
+    var wait = document.createElement("div"); wait.className = "aic-msg bot aic-dots"; wait.innerHTML = "<span></span><span></span><span></span>";
+    body.appendChild(wait); body.scrollTop = body.scrollHeight;
+    fetch(URLS.message, {
+      method: "POST", credentials: "same-origin",
+      headers: {"Content-Type": "application/json", "X-CSRFToken": CSRF},
+      body: JSON.stringify({project_id: projectId, messages: history})
+    }).then(function (r) { return r.json().then(function (data) { return {ok: r.ok, data: data}; }); })
+      .then(function (res) {
+        wait.remove();
+        if (res.ok && res.data.reply) { history.push({role: "assistant", content: res.data.reply}); saveHistory(); bubble("bot", res.data.reply); }
+        else { bubble("err", res.data.error || "Something went wrong. Try again."); }
+      }).catch(function () { wait.remove(); bubble("err", "Couldn't reach the server. Try again."); })
+      .then(function () { busy = false; send.disabled = false; input.focus(); });
+  }
+  $("aicForm").addEventListener("submit", function (e) { e.preventDefault(); ask(input.value); });
+  input.addEventListener("keydown", function (e) { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); ask(input.value); } });
+  input.addEventListener("input", function () { input.style.height = "auto"; input.style.height = Math.min(input.scrollHeight, 96) + "px"; });
+})();
+</script>
