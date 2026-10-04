@@ -1,0 +1,187 @@
+{% extends 'base.html' %}
+
+{% block title %}Edit schedule - {{ project.name }}{% endblock %}
+
+{% block content %}
+<style>
+  .se-table th { font-size: 12px; white-space: nowrap; background: #eef2f8; }
+  .se-table td { padding: 3px 4px; vertical-align: middle; }
+  .se-table input.form-control, .se-table input.form-control-sm { padding: 2px 6px; font-size: 13px; }
+  .se-row.summary td { background: #eef2f8; font-weight: 700; }
+  .se-row.summary input[readonly] { background: #eef2f8; font-weight: 700; border-color: transparent; }
+  .se-num { width: 34px; text-align: center; color: #6b7785; }
+  .se-ind { display: inline-block; }
+</style>
+
+<div class="container-fluid py-3">
+  <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+    <div>
+      <h1 class="h3 mb-1"><i class="bi bi-pencil-square"></i> Edit schedule</h1>
+      <p class="text-muted mb-0">{{ project.name }} <span class="badge bg-primary">{{ project.project_symbol }}</span></p>
+    </div>
+    <a href="{% url 'reports:project_schedule' project_id=project.id %}" class="btn btn-outline-secondary"><i class="bi bi-arrow-left"></i> Back to the Gantt</a>
+  </div>
+
+  <p class="text-muted small">
+    Type one row per phase or activity: name, start, finish and % complete. Use the arrows to indent a row under a heading
+    (a row that has indented rows beneath it becomes a <strong>heading</strong>: its dates and % are worked out from them).
+    Write a predecessor as the <strong>row number</strong> of the row that must come first (e.g. <code>3</code>, <code>3FS+2 days</code>, <code>2,4SS</code>),
+    which draws an arrow between them. Working days are Saturday to Thursday. Nothing is saved until you press <strong>Save schedule</strong>;
+    saving replaces the whole table.
+  </p>
+
+  <form method="post" id="seForm">
+    {% csrf_token %}
+    <div class="table-responsive">
+      <table class="table table-sm table-bordered se-table align-middle mb-2" style="min-width:1100px;">
+        <thead>
+          <tr>
+            <th class="se-num">#</th><th style="min-width:300px;">Name</th><th>Level</th><th>Start</th><th>Finish</th>
+            <th title="Saturday to Thursday">Work days</th><th style="width:95px;">% done</th><th style="width:130px;">Predecessors</th>
+            <th title="A single-day event (finish = start)">Milestone</th><th title="Mark as on the critical path (drawn in red)">Critical</th><th style="width:150px;"></th>
+          </tr>
+        </thead>
+        <tbody id="seBody"></tbody>
+        <tfoot>
+          <tr><td colspan="11" class="bg-light">
+            <button type="button" class="btn btn-sm btn-outline-primary" id="seAdd"><i class="bi bi-plus-lg"></i> Add a row</button>
+            <span class="ms-3 small text-muted" id="seSummary"></span>
+          </td></tr>
+        </tfoot>
+      </table>
+    </div>
+    <button type="submit" class="btn btn-warning"><i class="bi bi-save"></i> Save schedule</button>
+    <a href="{% url 'reports:project_schedule' project_id=project.id %}" class="btn btn-link">Cancel</a>
+  </form>
+  {{ rows|json_script:"seData" }}
+</div>
+
+<script>
+(function () {
+  var data = JSON.parse(document.getElementById('seData').textContent);
+  var body = document.getElementById('seBody');
+  var nextIdx = 0;
+  var esc = function (t) { return String(t == null ? '' : t).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;'); };
+
+  function workDays(a, b) {            // Saturday-Thursday, both ends included
+    if (!a || !b || b < a) return 0;
+    var d = new Date(a + 'T00:00:00'), end = new Date(b + 'T00:00:00'), n = 0;
+    while (d <= end) { if (d.getDay() !== 5) n++; d.setDate(d.getDate() + 1); }
+    return n;
+  }
+
+  function rowHtml(r) {
+    var i = nextIdx++;
+    return '<tr class="se-row" data-idx="' + i + '">' +
+      '<td class="se-num"></td>' +
+      '<td><input type="hidden" name="idx" value="' + i + '"><input type="hidden" name="pk_' + i + '" value="' + esc(r.pk || '') + '">' +
+        '<span class="se-ind"></span><input type="text" name="name_' + i + '" value="' + esc(r.name) + '" class="form-control form-control-sm d-inline-block se-name" style="width:calc(100% - 4px);" maxlength="500"></td>' +
+      '<td class="text-nowrap"><input type="hidden" name="level_' + i + '" value="' + esc(r.level || 1) + '" class="se-level">' +
+        '<button type="button" class="btn btn-sm btn-outline-secondary se-out" title="Outdent"><i class="bi bi-arrow-left"></i></button> ' +
+        '<button type="button" class="btn btn-sm btn-outline-secondary se-in" title="Indent under the row above"><i class="bi bi-arrow-right"></i></button></td>' +
+      '<td><input type="date" name="start_' + i + '" value="' + esc(r.start) + '" class="form-control form-control-sm se-start"></td>' +
+      '<td><input type="date" name="finish_' + i + '" value="' + esc(r.finish) + '" class="form-control form-control-sm se-finish"></td>' +
+      '<td class="text-center se-days">0</td>' +
+      '<td><input type="number" min="0" max="100" step="any" name="pct_' + i + '" value="' + esc(r.percent || 0) + '" class="form-control form-control-sm text-end se-pct"></td>' +
+      '<td><input type="text" name="pred_' + i + '" value="' + esc(r.pred) + '" class="form-control form-control-sm se-pred" placeholder="e.g. 3"></td>' +
+      '<td class="text-center"><input type="checkbox" name="ms_' + i + '" class="form-check-input se-ms"' + (r.milestone ? ' checked' : '') + '></td>' +
+      '<td class="text-center"><input type="checkbox" name="crit_' + i + '" class="form-check-input se-crit"' + (r.critical ? ' checked' : '') + '></td>' +
+      '<td class="text-nowrap">' +
+        '<button type="button" class="btn btn-sm btn-outline-secondary se-up" title="Move up"><i class="bi bi-arrow-up"></i></button> ' +
+        '<button type="button" class="btn btn-sm btn-outline-secondary se-down" title="Move down"><i class="bi bi-arrow-down"></i></button> ' +
+        '<button type="button" class="btn btn-sm btn-outline-primary se-below" title="Add a row below"><i class="bi bi-plus-lg"></i></button> ' +
+        '<button type="button" class="btn btn-sm btn-outline-danger se-del" title="Delete this row"><i class="bi bi-trash"></i></button></td>' +
+      '</tr>';
+  }
+
+  function rows() { return Array.prototype.slice.call(body.querySelectorAll('.se-row')); }
+  function lvl(tr) { return parseInt(tr.querySelector('.se-level').value, 10) || 1; }
+
+  function refresh() {
+    var list = rows();
+    var info = list.map(function (tr, k) {
+      var next = list[k + 1];
+      return { tr: tr, level: lvl(tr), summary: !!next && lvl(next) > lvl(tr) };
+    });
+    // roll headings up from the rows beneath them, bottom-up
+    for (var k = info.length - 1; k >= 0; k--) {
+      var it = info[k], tr = it.tr;
+      var start = tr.querySelector('.se-start'), finish = tr.querySelector('.se-finish'), pct = tr.querySelector('.se-pct');
+      var pred = tr.querySelector('.se-pred'), ms = tr.querySelector('.se-ms');
+      tr.classList.toggle('summary', it.summary);
+      [start, finish, pct, pred].forEach(function (el) { el.readOnly = it.summary; });
+      ms.disabled = it.summary;
+      if (it.summary) {
+        var leaves = [];
+        for (var j = k + 1; j < info.length && info[j].level > it.level; j++) if (!info[j].summary) leaves.push(info[j].tr);
+        var starts = leaves.map(function (l) { return l.querySelector('.se-start').value; }).filter(Boolean).sort();
+        var ends = leaves.map(function (l) { return l.querySelector('.se-finish').value; }).filter(Boolean).sort();
+        start.value = starts.length ? starts[0] : ''; finish.value = ends.length ? ends[ends.length - 1] : '';
+        var w = 0, wp = 0;
+        leaves.forEach(function (l) {
+          if (l.querySelector('.se-ms').checked) return;
+          var d = Math.max(workDays(l.querySelector('.se-start').value, l.querySelector('.se-finish').value), 1);
+          if (!l.querySelector('.se-start').value || !l.querySelector('.se-finish').value) return;
+          w += d; wp += d * (parseFloat(l.querySelector('.se-pct').value) || 0);
+        });
+        pct.value = w ? (Math.round(wp / w * 10) / 10) : 0;
+      } else if (ms.checked) {
+        finish.value = start.value; finish.readOnly = true;
+      }
+      tr.querySelector('.se-num').textContent = k + 1;
+      tr.querySelector('.se-ind').style.paddingLeft = ((it.level - 1) * 22) + 'px';
+      tr.querySelector('.se-days').textContent = ms.checked ? 0 : workDays(start.value, finish.value);
+    }
+    var first = info.length ? info[info.length - 1] : null;
+    var all = info.filter(function (x) { return !x.summary; });
+    var starts2 = all.map(function (x) { return x.tr.querySelector('.se-start').value; }).filter(Boolean).sort();
+    var ends2 = all.map(function (x) { return x.tr.querySelector('.se-finish').value; }).filter(Boolean).sort();
+    document.getElementById('seSummary').textContent = info.length + ' rows' +
+      (starts2.length ? ' · ' + starts2[0] + ' to ' + ends2[ends2.length - 1] : '');
+  }
+
+  function addRow(r, after) {
+    var holder = document.createElement('tbody');
+    holder.innerHTML = rowHtml(r || { level: after ? lvl(after) : 1 });
+    var tr = holder.firstChild;
+    if (after && after.nextSibling) body.insertBefore(tr, after.nextSibling); else body.appendChild(tr);
+    return tr;
+  }
+
+  document.getElementById('seAdd').addEventListener('click', function () {
+    var list = rows(), last = list[list.length - 1];
+    var tr = addRow({ level: last ? lvl(last) : 1 }, null); refresh(); tr.querySelector('.se-name').focus();
+  });
+
+  body.addEventListener('input', refresh);
+  body.addEventListener('change', refresh);
+  body.addEventListener('click', function (e) {
+    var btn = e.target.closest('button'); if (!btn) return;
+    var tr = btn.closest('.se-row');
+    if (btn.classList.contains('se-del')) {
+      if (confirm('Delete this row? Predecessor numbers in other rows are not changed automatically.')) { tr.remove(); refresh(); }
+    } else if (btn.classList.contains('se-up')) {
+      if (tr.previousElementSibling) body.insertBefore(tr, tr.previousElementSibling); refresh();
+    } else if (btn.classList.contains('se-down')) {
+      if (tr.nextElementSibling) body.insertBefore(tr.nextElementSibling, tr); refresh();
+    } else if (btn.classList.contains('se-below')) {
+      var n = addRow({ level: lvl(tr) }, tr); refresh(); n.querySelector('.se-name').focus();
+    } else if (btn.classList.contains('se-in')) {
+      var prev = tr.previousElementSibling;
+      if (prev && lvl(tr) <= lvl(prev)) { tr.querySelector('.se-level').value = lvl(tr) + 1; refresh(); }
+    } else if (btn.classList.contains('se-out')) {
+      if (lvl(tr) > 1) { tr.querySelector('.se-level').value = lvl(tr) - 1; refresh(); }
+    }
+  });
+
+  document.getElementById('seForm').addEventListener('submit', function () {
+    // headings / milestones have read-only fields: make sure their computed values are what gets sent
+    refresh();
+    body.querySelectorAll('input[readonly]').forEach(function (el) { el.readOnly = false; });
+  });
+
+  (data.length ? data : [{ level: 1 }]).forEach(function (r) { addRow(r, null); });
+  refresh();
+})();
+</script>
+{% endblock %}

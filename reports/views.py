@@ -1473,10 +1473,41 @@ def project_schedule(request, project_id):
     from django.http import HttpResponseForbidden
     from .services.schedule_view import build_schedule
 
+    from projects.views_workflow import can_manage_workflow
     project = get_object_or_404(Project, pk=project_id)
     if not can_view_project(request.user, project):
         return HttpResponseForbidden("You can't see this project.")
-    return render(request, 'reports/schedule.html', {'project': project, 'schedule': build_schedule(project)})
+    return render(request, 'reports/schedule.html', {
+        'project': project, 'schedule': build_schedule(project), 'can_edit_schedule': can_manage_workflow(request.user, project),
+    })
+
+
+@login_required
+@require_http_methods(["GET", "POST"])
+def schedule_editor(request, project_id):
+    """Type the project's schedule in by hand (one table); the Gantt page draws it. Same people as the workflow pages may edit."""
+    from projects.views_workflow import can_manage_workflow
+    from django.http import HttpResponseForbidden
+    from .services import schedule_editor as editor
+
+    project = get_object_or_404(Project, pk=project_id)
+    if not can_manage_workflow(request.user, project):
+        return HttpResponseForbidden("Only an admin, the engineering manager or this project's manager can edit its schedule.")
+
+    if request.method == 'POST':
+        rows = editor.rows_from_post(request.POST)
+        cleaned, errors = editor.clean_rows(rows, project)
+        if not rows:
+            errors.append('The schedule has no rows. Add at least one, or go back without saving.')
+        if not errors:
+            count = editor.save_rows(project, cleaned)
+            messages.success(request, f'Schedule saved ({count} rows).')
+            return redirect('reports:project_schedule', project_id=project.pk)
+        for error in errors:
+            messages.error(request, error)
+    else:
+        rows = editor.editor_rows(project)
+    return render(request, 'reports/schedule_editor.html', {'project': project, 'rows': rows})
 
 
 @login_required

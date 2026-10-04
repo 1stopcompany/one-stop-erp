@@ -90,8 +90,9 @@ def project_drawings(request, project_pk):
     if not can_view_project(request.user, project):
         return HttpResponseForbidden("You can't see this project.")
     blueprints = list(project.blueprints.prefetch_related("revisions__uploaded_by", "revisions__reviewed_by"))
+    from ai_assistant import jobs, llm, views as ai_views
+    jobs.recover_stale_runs(minutes=15)  # an analysis whose worker died must not show "Analyzing..." forever
     _attach_ai_runs(blueprints)
-    from ai_assistant import llm, views as ai_views
     return render(request, "blueprints/project_drawings.html", {
         "project": project,
         "blueprints": blueprints,

@@ -157,6 +157,7 @@ urlpatterns = [
     path('api/project/<int:project_id>/boq/sub-items/<int:subitem_id>/', api_views.boq_subitem_update_delete, name='api_boq_subitem_update_delete'),
     path('api/project/<int:project_id>/boq/sub-items/<int:subitem_id>/progress/', api_views.boq_progress_entry_create, name='api_boq_progress_entry_create'),
     path('project/<int:project_id>/schedule/', views.project_schedule, name='project_schedule'),
+    path('project/<int:project_id>/schedule/edit/', views.schedule_editor, name='schedule_editor'),
     path('project/<int:project_id>/milestones/', views.milestone_editor, name='milestone_editor'),
     path('api/project/<int:project_id>/milestones/phases/<int:phase_id>/', api_views.milestone_create, name='api_milestone_create'),
     path('api/project/<int:project_id>/milestones/<int:milestone_id>/', api_views.milestone_update_delete, name='api_milestone_update_delete'),
