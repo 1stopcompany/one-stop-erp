@@ -16,7 +16,7 @@ from django.urls import reverse
 from procurement.models import PurchaseRequisition
 from reports.models import DailyReport, DailyWorkForce
 from reports.progress_models import ProjectPhase, ProjectPhaseProgressEntry, ProjectPhaseSubItem
-from timesheets.models import CheckInLocation, Employee
+from timesheets.models import CheckInLocation
 
 from . import guard, readiness
 from .models import Project
@@ -183,12 +183,10 @@ class EnforcementTests(TestCase):
             with self.assertRaises(readiness.ProjectNotReady):
                 PurchaseRequisition.objects.create(project=self.blocked, required_date=date.today(), requested_by=self.engineer)
 
-    def test_a_gps_check_in_counts_as_work_on_its_project(self):
-        check_in = CheckInLocation(employee=Employee(pk=999), project=self.blocked, latitude=31.0, longitude=35.0, check_type="check_in")
-        with readiness.request_scope():
-            with self.assertRaises(readiness.ProjectNotReady):
-                check_in.save()
-        self.assertFalse(CheckInLocation.objects.exists())
+    def test_a_gps_check_in_is_never_blocked_by_its_project(self):
+        label = CheckInLocation._meta.label
+        self.assertIn(label, guard.EXEMPT)
+        self.assertNotIn(label, guard.GUARDED)
 
     def test_setup_records_are_never_blocked(self):
         with readiness.request_scope():

@@ -26,6 +26,9 @@ EXEMPT = {
     # Not tied to a running project's work: the warehouse itself, and the older cost-control tables that nothing writes to.
     "procurement.Warehouse", "cost_control.Budget", "cost_control.CostForecast", "cost_control.CostReport", "cost_control.BudgetAlert",
     "timesheets.Employee", "timesheets.Geofence",
+    # A GPS clock-in / clock-out is never blocked: what matters is that the employee gets in; which project it belongs to
+    # (and whether that project is ready) is sorted out afterwards, so a project still in set-up cannot stop anyone's attendance.
+    "timesheets.CheckInLocation",
 }
 
 # model -> path to its project
@@ -53,8 +56,6 @@ GUARDED = {
     "procurement.RequestForQuotation": "pr.project", "procurement.VendorQuote": "rfq.pr.project",
     "procurement.PurchaseOrder": "project", "procurement.PurchaseOrderLine": "po.project",
     "procurement.POReceipt": "po_line.po.project", "procurement.StockMovement": "project",
-    # attendance: a GPS check-in counts toward a project
-    "timesheets.CheckInLocation": "project",
     # a hand-typed wages entry (admin only; admins pass the guard anyway)
     "timesheets.DailyWorkerManualEntry": "project",
     # subcontractor (Musana'a) agreements and everything charged/paid through them
