@@ -101,6 +101,27 @@ class DailyReportCrew(models.Model):
         return f'{self.name} ({self.report.report_number})'
 
 
+class ProjectSub(models.Model):
+    """
+    A named sub-group (متفرقة) inside a project, chosen from this list when the site engineer records which odd job a
+    day-labor worker did. The wages sheets and the Manual Entry tab group the project's workers by it.
+    """
+
+    project = models.ForeignKey('projects.Project', on_delete=models.CASCADE, related_name='subs')
+    name = models.CharField(max_length=120)
+    is_active = models.BooleanField(default=True, help_text=_('Inactive subs are no longer offered to the site engineer'))
+    order = models.PositiveSmallIntegerField(default=0)
+
+    class Meta:
+        ordering = ['project', 'order', 'name']
+        unique_together = [('project', 'name')]
+        verbose_name = _('Project sub (متفرقة)')
+        verbose_name_plural = _('Project subs (متفرقات)')
+
+    def __str__(self):
+        return f"{self.project.project_symbol} - {self.name}"
+
+
 class DailyReportWorkerAttendance(models.Model):
     """
     Named-worker attendance for a single daily report.
@@ -121,6 +142,11 @@ class DailyReportWorkerAttendance(models.Model):
     worker_name = models.CharField(
         max_length=255,
         help_text=_('Worker full name, as written on site')
+    )
+
+    sub_name = models.CharField(
+        max_length=120, blank=True,
+        help_text=_('متفرقة -- which sub-group (odd job) of the project this day-labor entry belongs to; blank = the project itself')
     )
 
     labor_classification = models.ForeignKey(

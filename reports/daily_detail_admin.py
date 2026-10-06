@@ -10,6 +10,7 @@ registered as a standalone admin page in progress_admin.py).
 from django.contrib import admin
 
 from .daily_detail_models import (
+    ProjectSub,
     DailyReportWorkerAttendance,
     DailyReportCrew,
     DailyReportActivityProgress,
@@ -25,7 +26,7 @@ class DailyReportWorkerAttendanceInline(admin.TabularInline):
     model = DailyReportWorkerAttendance
     extra = 1
     fields = (
-        'worker_name', 'labor_classification', 'crew', 'contractor_name', 'activity_location', 'employee', 'daily_worker',
+        'worker_name', 'sub_name', 'labor_classification', 'crew', 'contractor_name', 'activity_location', 'employee', 'daily_worker',
         'time_in', 'time_out', 'break_hours', 'overtime_hours', 'total_hours', 'notes',
     )
     readonly_fields = ('total_hours',)
@@ -64,6 +65,13 @@ class SiteEventInline(admin.TabularInline):
 
 
 # ==================== STANDALONE ADMIN PAGES ====================
+
+@admin.register(ProjectSub)
+class ProjectSubAdmin(admin.ModelAdmin):
+    list_display = ('name', 'project', 'is_active', 'order')
+    list_filter = ('project', 'is_active')
+    search_fields = ('name', 'project__name')
+
 
 @admin.register(DailyReportWorkerAttendance)
 class DailyReportWorkerAttendanceAdmin(admin.ModelAdmin):

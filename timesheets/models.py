@@ -666,6 +666,7 @@ class Payslip(models.Model):
     STATUS_CHOICES = [
         ('draft', 'Draft'),   # reviewable and editable -- a payroll run in progress
         ('posted', 'Posted'),  # ترحيل -- finalized, locked against further edits
+        ('excluded', 'Excluded'),  # taken out of this month's run on purpose; not paid, not posted, can be restored
     ]
 
     employee = models.ForeignKey(Employee, on_delete=models.CASCADE, related_name='payslips')
@@ -716,6 +717,15 @@ class Payslip(models.Model):
         max_digits=12, decimal_places=2, default=0,
         help_text='الضريبة -- shown for information only; NOT subtracted from net_pay (separate process)'
     )
+    manual_base_pay = models.DecimalField(
+        max_digits=12, decimal_places=2, null=True, blank=True,
+        help_text='Typed by HR in the payroll run instead of the salary-based base pay (blank = automatic)',
+    )
+    manual_unpaid_leave_deduction = models.DecimalField(
+        max_digits=12, decimal_places=2, null=True, blank=True,
+        help_text='Typed by HR instead of the automatic unpaid-leave deduction (blank = automatic)',
+    )
+    note = models.CharField(max_length=300, blank=True, help_text='Free note on this employee for this month')
     gross_pay = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     net_pay = models.DecimalField(max_digits=12, decimal_places=2, default=0)
 
@@ -781,6 +791,13 @@ class DailyWorkerPayslip(models.Model):
         settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True,
         related_name='daily_worker_payslips_posted',
     )
+    accounting_approved_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='approved_wage_slips', help_text='The accountant who approved this month for payment',
+    )
+    accounting_approved_at = models.DateTimeField(
+        null=True, blank=True, help_text='Set when the accountant approves; the payment voucher of the worker can be printed from then on',
+    )
 
     total_days = models.DecimalField(max_digits=6, decimal_places=2, default=0)
     overtime_hours = models.DecimalField(max_digits=8, decimal_places=2, default=0)
@@ -789,6 +806,10 @@ class DailyWorkerPayslip(models.Model):
     other_allowances = models.DecimalField(max_digits=12, decimal_places=2, default=0, help_text='بدلات أخرى -- manual entry')
     other_deductions = models.DecimalField(max_digits=12, decimal_places=2, default=0, help_text='مقتطعات -- manual entry')
     advances = models.DecimalField(max_digits=12, decimal_places=2, default=0, help_text='سلف -- manual entry')
+    line_advances = models.DecimalField(
+        max_digits=12, decimal_places=2, default=0,
+        help_text='سلف typed on the worker\'s per-project lines of the Manual Entry tab (not edited here)',
+    )
     gross_pay = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     net_pay = models.DecimalField(max_digits=12, decimal_places=2, default=0)
 
@@ -798,9 +819,23 @@ class DailyWorkerPayslip(models.Model):
         related_name='daily_worker_payslips_generated',
     )
 
+    @property
+    def total_advances(self):
+        """Advances taken off this month: the ones typed on the worker's project lines plus any entered on the row."""
+        return self.advances + self.line_advances
+
+    @property
+    def income_tax(self):
+        """
+        Palestinian income tax on the month's gross pay, worked out as in the company's tax sheet (see
+        timesheets.services.income_tax). Information only: it is never subtracted from net_pay.
+        """
+        from .services.income_tax import monthly_income_tax
+        return monthly_income_tax(self.gross_pay)
+
     def save(self, *args, **kwargs):
         self.gross_pay = self.base_pay + self.overtime_pay + self.other_allowances
-        self.net_pay = self.gross_pay - self.other_deductions - self.advances
+        self.net_pay = self.gross_pay - self.other_deductions - self.advances - self.line_advances
         update_fields = kwargs.get('update_fields')
         if update_fields is not None:
             kwargs['update_fields'] = set(update_fields) | {'gross_pay', 'net_pay'}
@@ -812,6 +847,45 @@ class DailyWorkerPayslip(models.Model):
 
     def __str__(self):
         return f'{self.worker.full_name} - {self.period_start} to {self.period_end}'
+
+
+class DailyWorkerManualEntry(models.Model):
+    """
+    An exceptional, admin-only entry typed into the Wages Run's "Manual
+    Entry" tab (كشف الصرف): for one worker on one project in one month, the
+    TOTAL days worked, the daily rate (اليومية) and the overtime hours --
+    everything else (base pay, overtime pay, total) is computed from those,
+    exactly as for attendance taken from daily reports. It counts toward the
+    worker's month and the project's total on top of any daily-report
+    attendance (see timesheets.services.daily_worker_payroll_service), and
+    stays visibly marked as manual.
+    """
+
+    worker = models.ForeignKey(DailyWorker, on_delete=models.CASCADE, related_name='manual_entries')
+    project = models.ForeignKey('projects.Project', on_delete=models.PROTECT, related_name='manual_wage_entries')
+    period_start = models.DateField(help_text='First day of the month this entry belongs to')
+    days = models.DecimalField(max_digits=6, decimal_places=2, default=0, help_text='Total full 8-hour days in the month')
+    daily_rate = models.DecimalField(max_digits=8, decimal_places=2, help_text='اليومية -- wage for one full 8-hour day')
+    overtime_hours = models.DecimalField(max_digits=6, decimal_places=2, default=0)
+    advances = models.DecimalField(max_digits=10, decimal_places=2, default=0, help_text='سلف -- advance deducted on this line')
+    sub_name = models.CharField(
+        max_length=120, blank=True,
+        help_text='متفرقات -- an optional named sub-group inside the project (e.g. one odd job of a "miscellaneous" project); blank = the project itself',
+    )
+    note = models.CharField(max_length=300, blank=True)
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='daily_worker_manual_entries',
+    )
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['worker__full_name']
+        unique_together = [('worker', 'project', 'period_start', 'sub_name')]
+        verbose_name_plural = 'Daily worker manual entries'
+
+    def __str__(self):
+        return f'{self.worker.full_name} - {self.project} - {self.period_start:%Y-%m}'
 
 
 class CheckInLocation(models.Model):

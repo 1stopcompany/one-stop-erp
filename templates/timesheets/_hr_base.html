@@ -34,25 +34,25 @@ those pages are only reachable by typing their URL directly.
         </a>
     </li>
     <li class="nav-item dropdown">
-        <a class="nav-link dropdown-toggle {% if request.resolver_match.url_name in 'attendance_map,geofence_list,geofence_add,location_tracking,location_history,payroll_run,wages_run,daily_worker_attendance,daily_time_record' %}active{% endif %}"
+        <a class="nav-link dropdown-toggle {% if request.resolver_match.url_name in 'attendance_map,geofence_list,geofence_add,location_tracking,location_history,daily_time_record' %}active{% endif %}"
            href="#" role="button" data-bs-toggle="dropdown">
             <i class="fas fa-map-marker-alt me-1"></i>Attendance
         </a>
         <ul class="dropdown-menu">
-            <li><a class="dropdown-item fw-bold text-primary" href="{% url 'timesheets:payroll_run' %}"><i class="fas fa-money-check-alt me-1"></i>Salaries</a></li>
-            <li><a class="dropdown-item fw-bold text-success" href="{% url 'timesheets:wages_run' %}"><i class="fas fa-hard-hat me-1"></i>Wages</a></li>
-            <li><hr class="dropdown-divider"></li>
             <li><a class="dropdown-item" href="{% url 'timesheets:attendance_map' %}">Live Map</a></li>
             <li><a class="dropdown-item" href="{% url 'timesheets:location_tracking' %}">Location Tracking</a></li>
             <li><a class="dropdown-item" href="{% url 'timesheets:geofence_list' %}">Geofences</a></li>
         </ul>
     </li>
     <li class="nav-item dropdown">
-        <a class="nav-link dropdown-toggle {% if request.resolver_match.url_name in 'payslip_list,salary_structure_list,salary_structure_add,holiday_list,holiday_add' %}active{% endif %}"
+        <a class="nav-link dropdown-toggle {% if request.resolver_match.url_name in 'payroll_run,wages_run,daily_worker_attendance,payslip_list,salary_structure_list,salary_structure_add,holiday_list,holiday_add' %}active{% endif %}"
            href="#" role="button" data-bs-toggle="dropdown">
             <i class="fas fa-money-check-alt me-1"></i>Payroll
         </a>
         <ul class="dropdown-menu">
+            <li><a class="dropdown-item fw-bold text-primary" href="{% url 'timesheets:payroll_run' %}"><i class="fas fa-money-check-alt me-1"></i>Salaries</a></li>
+            <li><a class="dropdown-item fw-bold text-success" href="{% url 'timesheets:wages_run' %}"><i class="fas fa-hard-hat me-1"></i>Wages</a></li>
+            <li><hr class="dropdown-divider"></li>
             <li><a class="dropdown-item" href="{% url 'timesheets:payslip_list' %}">All Payslips</a></li>
             <li><a class="dropdown-item" href="{% url 'timesheets:salary_structure_list' %}">Salary Structures</a></li>
             <li><a class="dropdown-item" href="{% url 'timesheets:holiday_list' %}">Holidays</a></li>

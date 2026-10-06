@@ -6,7 +6,7 @@ This module defines URL patterns for both daily and monthly reports.
 
 from django.urls import path
 from . import views
-from . import api_views
+from . import api_views, api_mobile
 from . import views_print
 
 app_name = 'reports'
@@ -28,6 +28,10 @@ urlpatterns = [
     path('daily/<int:pk>/export-pdf/', views.export_daily_pdf, name='export_daily_pdf'),
     
     # ==================== DAILY REPORT API ENDPOINTS ====================
+    # mobile app (token auth): the site engineer records the day-labor workers of a project's day
+    path('api/mobile/projects/', api_mobile.my_projects, name='mobile_projects'),
+    path('api/mobile/projects/<int:pk>/workers/', api_mobile.project_workers_day, name='mobile_workers_day'),
+    path('api/mobile/workers/', api_mobile.search_workers, name='mobile_worker_search'),
     path('api/daily/section-order/', api_views.save_daily_report_section_order, name='api_save_daily_report_section_order'),
     path('api/daily/<int:report_id>/equipment/', api_views.add_daily_equipment, name='api_add_equipment'),
     path('api/daily/<int:report_id>/equipment/<int:equipment_id>/', api_views.delete_daily_equipment, name='api_delete_equipment'),

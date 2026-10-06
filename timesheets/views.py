@@ -17,7 +17,7 @@ from django.utils import timezone
 from django.views.decorators.http import require_http_methods
 from django.views.generic import DetailView, TemplateView
 
-from .auth_views import hr_manager_required, hr_required
+from .auth_views import hr_manager_required, hr_required, is_hr_manager, wages_access_required
 from .forms import (
     DepartmentForm, EmployeeDocumentForm, EmployeeForm, EmployeeNoteForm,
     EmployeeSearchForm, GeofenceForm, PositionForm,
@@ -1214,6 +1214,22 @@ def _autosize_excel_columns(ws, widths):
         ws.column_dimensions[get_column_letter(i)].width = w
 
 
+def _payroll_employees(period_start, period_end):
+    """
+    The employees in a month's payroll run: every active employee, plus anyone added to the run by hand (they
+    have a payslip for the month), minus those taken out of it on purpose (payslip status "excluded").
+    """
+    from .models import Payslip
+
+    held = Payslip.objects.filter(period_start=period_start, period_end=period_end)
+    excluded = set(held.filter(status='excluded').values_list('employee_id', flat=True))
+    added = set(held.exclude(status='excluded').values_list('employee_id', flat=True))
+    return list(
+        Employee.objects.filter(Q(employment_status='active') | Q(pk__in=added)).exclude(pk__in=excluded)
+        .select_related('department', 'position').order_by('last_name', 'first_name')
+    )
+
+
 @hr_manager_required
 def payroll_run(request):
     """
@@ -1231,7 +1247,7 @@ def payroll_run(request):
     period_start, period_end = _resolve_month_period(request.GET.get("month"))
 
     payslips = []
-    for emp in Employee.objects.filter(employment_status="active").select_related("department", "position"):
+    for emp in _payroll_employees(period_start, period_end):
         existing = Payslip.objects.filter(employee=emp, period_start=period_start, period_end=period_end).first()
         if existing and existing.status == 'posted':
             payslips.append(existing)
@@ -1257,6 +1273,18 @@ def payroll_run(request):
         "month_param": period_start.strftime("%Y-%m"),
         "is_posted": is_posted,
         "total_net": sum((p.net_pay for p in payslips), Decimal('0')),
+        "excluded": list(
+            Payslip.objects.filter(period_start=period_start, period_end=period_end, status='excluded')
+            .select_related('employee').order_by('employee__first_name', 'employee__last_name')
+        ),
+        # employees that are not in the run (left the company, on leave ...) but can be put in by hand
+        "addable": list(
+            Employee.objects.exclude(employment_status='active')
+            .exclude(pk__in=[p.employee_id for p in payslips])
+            .exclude(payslips__period_start=period_start, payslips__period_end=period_end, payslips__status='excluded')
+            .order_by('first_name', 'last_name')
+        ),
+        "is_admin_user": request.user.is_admin(),
     }
     return render(request, "timesheets/payroll_run.html", context)
 
@@ -1266,9 +1294,12 @@ def payroll_run(request):
 def payroll_run_update_row(request, pk):
     """Update one employee's HR-entered payroll figures for this run (blocked once posted)."""
     from .models import Payslip
-    from .services.payroll_service import compute_payslip_salaried
+    from .services.payroll_service import auto_base_pay, auto_unpaid_leave, compute_payslip_salaried
 
     payslip = get_object_or_404(Payslip, pk=pk)
+    if payslip.status == 'excluded':
+        messages.error(request, 'This employee is excluded from the month; restore them first.')
+        return redirect(f"{reverse('timesheets:payroll_run')}?month={payslip.period_start.strftime('%Y-%m')}")
     if payslip.status == 'posted':
         messages.error(request, 'This payroll run has already been posted and can no longer be edited.')
         return redirect(f"{reverse('timesheets:payroll_run')}?month={payslip.period_start.strftime('%Y-%m')}")
@@ -1280,17 +1311,91 @@ def payroll_run_update_row(request, pk):
         except InvalidOperation:
             return Decimal(default)
 
+    def _typed_or_auto(field, auto_value):
+        """A figure HR typed over the automatic one is kept as a manual override; the automatic value (or blank) means automatic."""
+        raw = request.POST.get(field, '').strip()
+        if not raw:
+            return None
+        try:
+            value = Decimal(raw)
+        except InvalidOperation:
+            return None
+        return None if abs(value - auto_value) < Decimal('0.01') else value
+
+    employee, start, end = payslip.employee, payslip.period_start, payslip.period_end
     compute_payslip_salaried(
-        payslip.employee, payslip.period_start, payslip.period_end,
+        employee, start, end,
         overtime_hours=_decimal('overtime_hours'),
         other_allowances=_decimal('other_allowances'),
         other_deductions=_decimal('other_deductions'),
         advances=_decimal('advances'),
         tax=_decimal('tax'),
         generated_by=request.user,
+        manual_base_pay=_typed_or_auto('base_pay', auto_base_pay(employee, start, end)),
+        manual_unpaid_leave_deduction=_typed_or_auto('unpaid_leave_deduction', auto_unpaid_leave(employee, start, end)[1]),
+        note=request.POST.get('note', '').strip()[:300],
     )
     messages.success(request, f'Updated {payslip.employee.full_name}.')
     return redirect(f"{reverse('timesheets:payroll_run')}?month={payslip.period_start.strftime('%Y-%m')}")
+
+
+@hr_manager_required
+@require_http_methods(["POST"])
+def payroll_run_exclude(request, pk):
+    """
+    Take one employee out of this month's run (so posting the month leaves them out). Nothing is deleted: they are listed
+    under "Excluded" and can be put back. A posted payslip can be excluded by an admin only.
+    """
+    from .models import Payslip
+
+    payslip = get_object_or_404(Payslip, pk=pk)
+    month = payslip.period_start.strftime('%Y-%m')
+    if payslip.status == 'posted' and not request.user.is_admin():
+        messages.error(request, 'Only an admin can take an employee out of a posted month.')
+    else:
+        payslip.status, payslip.posted_at, payslip.posted_by = 'excluded', None, None
+        payslip.save()
+        messages.success(request, f'{payslip.employee.full_name} was taken out of the {payslip.period_start:%B %Y} payroll. They can be restored below.')
+    return redirect(f"{reverse('timesheets:payroll_run')}?month={month}")
+
+
+@hr_manager_required
+@require_http_methods(["POST"])
+def payroll_run_restore(request, pk):
+    """Put an excluded employee back into the month's run (as a draft, recalculated)."""
+    from .models import Payslip
+    from .services.payroll_service import compute_payslip_salaried
+
+    payslip = get_object_or_404(Payslip, pk=pk, status='excluded')
+    payslip.status = 'draft'
+    payslip.save()
+    compute_payslip_salaried(payslip.employee, payslip.period_start, payslip.period_end, generated_by=request.user,
+                             overtime_hours=payslip.overtime_hours, other_allowances=payslip.other_allowances,
+                             other_deductions=payslip.other_deductions, advances=payslip.advances, tax=payslip.tax)
+    messages.success(request, f'{payslip.employee.full_name} is back in the {payslip.period_start:%B %Y} payroll.')
+    return redirect(f"{reverse('timesheets:payroll_run')}?month={payslip.period_start.strftime('%Y-%m')}")
+
+
+@hr_manager_required
+@require_http_methods(["POST"])
+def payroll_run_add(request):
+    """Add an employee who is not in the run (not an active employee: left, on leave ...) to this month's payroll by hand."""
+    from .models import Payslip
+    from .services.payroll_service import compute_payslip_salaried
+
+    period_start, period_end = _resolve_month_period(request.POST.get("month"))
+    back = redirect(f"{reverse('timesheets:payroll_run')}?month={period_start.strftime('%Y-%m')}")
+    employee = Employee.objects.filter(pk=request.POST.get("employee") or None).first()
+    if not employee:
+        messages.error(request, 'Pick an employee to add.')
+        return back
+    if Payslip.objects.filter(employee=employee, period_start=period_start, period_end=period_end, status='posted').exists():
+        messages.error(request, f'{employee.full_name} is already posted for this month.')
+        return back
+    Payslip.objects.filter(employee=employee, period_start=period_start, period_end=period_end, status='excluded').update(status='draft')
+    compute_payslip_salaried(employee, period_start, period_end, generated_by=request.user)
+    messages.success(request, f'{employee.full_name} was added to the {period_start:%B %Y} payroll. Review their figures, then save.')
+    return back
 
 
 @hr_manager_required
@@ -1346,7 +1451,7 @@ def export_payroll_excel(request):
 
     totals = [0.0] * len(headers)
     row_idx = 1
-    for emp in Employee.objects.filter(employment_status="active").select_related("department").order_by("last_name", "first_name"):
+    for emp in _payroll_employees(period_start, period_end):
         existing = Payslip.objects.filter(employee=emp, period_start=period_start, period_end=period_end).first()
         payslip = compute_payslip_salaried(
             emp, period_start, period_end,
@@ -1404,7 +1509,7 @@ def export_payroll_pdf(request):
     period_start, period_end = _resolve_month_period(request.GET.get("month"))
 
     payslips = []
-    for emp in Employee.objects.filter(employment_status="active").select_related("department", "position").order_by("last_name", "first_name"):
+    for emp in _payroll_employees(period_start, period_end):
         existing = Payslip.objects.filter(employee=emp, period_start=period_start, period_end=period_end).first()
         if existing and existing.status == "posted":
             payslips.append(existing)
@@ -1438,12 +1543,13 @@ def export_daily_workers_payroll_excel(request):
     has their hours from every one of them picked up automatically. See
     timesheets.services.daily_worker_payroll_service.
 
-    Two sheets: "Summary" (one row per worker, company-wide totals) and
-    "Details" (one row per worker per project, with each project's share
-    of that worker's pay this month).
+    Three sheets: "Summary" (one row per worker, company-wide totals),
+    "By Project" (one row per project, totalled across every worker who
+    worked there) and "Details" (one row per worker per project, with each
+    project's share of that worker's pay this month).
     """
     import calendar
-    from .services.daily_worker_payroll_service import compute_all_daily_workers_summary
+    from .services.daily_worker_payroll_service import compute_all_daily_workers_summary, project_totals
 
     month_param = request.GET.get("month")
     today = timezone.localdate()
@@ -1470,6 +1576,15 @@ def export_daily_workers_payroll_excel(request):
             len(s["by_project"]),
         ])
 
+    project_ws = wb.create_sheet("By Project")
+    project_ws.append(["Project", "Workers", "Days", "Overtime Hours", "Base Pay", "Overtime Pay", "Total Pay"])
+    for row in project_totals(statements):
+        project_ws.append([
+            row["project"].name if row["project"] else "(no project)", row["workers"],
+            float(row["days"]), float(row["overtime_hours"]),
+            float(row["base_pay"]), float(row["overtime_pay"]), float(row["pay"]),
+        ])
+
     detail_ws = wb.create_sheet("Details")
     detail_ws.append(["Worker", "National ID", "Project", "Days", "Overtime Hours", "Base Pay", "Overtime Pay", "Pay", "Share %"])
     for s in statements:
@@ -1489,7 +1604,13 @@ def export_daily_workers_payroll_excel(request):
     return response
 
 
-@hr_manager_required
+def _user_note(note):
+    """A note somebody typed on a manual line; the markers the importer / Duplicate used to leave are not notes."""
+    note = note or ''
+    return '' if note.startswith(('Imported from', 'Copied from')) else note
+
+
+@wages_access_required
 def wages_run(request):
     """
     كشف الصرف -- the day-labor equivalent of payroll_run: (1)
@@ -1501,10 +1622,14 @@ def wages_run(request):
     principle as the salaried Payroll Run.
     """
     from .models import DailyWorkerPayslip
-    from .services.daily_worker_payroll_service import compute_daily_worker_payslip, compute_daily_worker_statement
+    from .services.daily_worker_payroll_service import (
+        compute_all_daily_workers_summary, compute_daily_worker_payslip, compute_daily_worker_statement, project_totals,
+        prune_empty_draft_slips,
+    )
 
     period_start, period_end = _resolve_month_period(request.GET.get("month"))
 
+    prune_empty_draft_slips(period_start, period_end)  # rows whose entries were cleared must not linger as zeros
     wage_slips = []
     for worker in DailyWorker.objects.filter(is_active=True).order_by('full_name'):
         existing = DailyWorkerPayslip.objects.filter(worker=worker, period_start=period_start, period_end=period_end).first()
@@ -1531,7 +1656,70 @@ def wages_run(request):
         "month_param": period_start.strftime("%Y-%m"),
         "is_posted": is_posted,
         "total_net": sum((w.net_pay for w in wage_slips), Decimal('0')),
+        "project_totals": project_totals(compute_all_daily_workers_summary(period_start, period_end)),
+        "active_tab": request.GET.get("tab") if request.GET.get("tab") in ("sheet", "manual") else "run",
+        # who may do what: HR prepares and posts, the accountant approves (then the payment vouchers can be printed)
+        "can_edit_wages": is_hr_manager(request.user) or request.user.is_admin(),
+        "can_approve": request.user.is_admin() or request.user.is_accountant(),
+        "approved_count": sum(1 for w in wage_slips if w.accounting_approved_at),
+        "all_approved": bool(wage_slips) and all(w.accounting_approved_at for w in wage_slips),
     }
+    if context["active_tab"] == "manual" and not request.user.is_admin():
+        context["active_tab"] = "run"
+    from .services.daily_worker_payroll_service import wages_sheet
+    if request.GET.get("tab") == "sheet":
+        context["sheet"] = wages_sheet(period_start, period_end)
+    if request.user.is_admin():
+        from projects.models import Project
+        from .models import DailyWorkerManualEntry
+        manual_project = Project.objects.filter(pk=request.GET.get("manual_project") or None).first()
+        manual_rows = []
+        if manual_project:
+            saved = list(DailyWorkerManualEntry.objects.filter(
+                project=manual_project, period_start=period_start,
+            ).select_related('worker'))
+            posted = set(
+                DailyWorkerPayslip.objects.filter(period_start=period_start, period_end=period_end, status='posted')
+                .values_list('worker_id', flat=True)
+            )
+            # Only workers already entered for this project/month are listed (others are added by name), grouped by sub-group (متفرقات).
+            blocks = {}
+            for entry in sorted(saved, key=lambda e: (e.sub_name, e.worker.full_name)):
+                blocks.setdefault(entry.sub_name, []).append({
+                    "worker": {"id": entry.worker_id, "name": entry.worker.full_name, "trade": entry.worker.trade or "—",
+                               "national_id": entry.worker.national_id or "—"},
+                    "note": _user_note(entry.note),
+                    "days": str(entry.days), "rate": str(entry.daily_rate), "ot": str(entry.overtime_hours),
+                    "advances": str(entry.advances), "locked": entry.worker_id in posted,
+                })
+            manual_rows = saved
+            context["manual_blocks"] = [{"name": name, "rows": rows} for name, rows in blocks.items()]
+            context["manual_has_subs"] = any(name for name in blocks)
+            from reports.daily_detail_models import ProjectSub
+            context["project_subs"] = list(ProjectSub.objects.filter(project=manual_project, is_active=True).values_list("name", flat=True))
+            labels = {}
+            roster = []
+            for worker in DailyWorker.objects.filter(is_active=True).order_by('full_name'):
+                label = f"{worker.full_name} — {worker.trade}" if worker.trade else worker.full_name
+                if label in labels:
+                    label = f"{label} #{worker.pk}"
+                labels[label] = worker.pk
+                roster.append({"id": worker.pk, "label": label, "name": worker.full_name, "trade": worker.trade or "—",
+                               "rate": str(worker.daily_rate), "national_id": worker.national_id or "—",
+                               "locked": worker.pk in posted})
+            context["manual_roster"] = roster
+        from django.db.models import Count
+        context.update({
+            "month_projects": list(
+                DailyWorkerManualEntry.objects.filter(period_start=period_start)
+                .values('project_id', 'project__name').annotate(n=Count('id')).order_by('project__name')
+            ),
+            "can_add_manual": True,
+            "month_total_lines": DailyWorkerManualEntry.objects.filter(period_start=period_start).count(),
+            "manual_projects": Project.objects.order_by('name'),
+            "manual_project": manual_project,
+            "manual_rows": manual_rows,
+        })
     return render(request, "timesheets/wages_run.html", context)
 
 
@@ -1561,6 +1749,359 @@ def wages_run_update_row(request, pk):
     )
     messages.success(request, f'Updated {wage_slip.worker.full_name}.')
     return redirect(f"{reverse('timesheets:wages_run')}?month={wage_slip.period_start.strftime('%Y-%m')}")
+
+
+from .services.daily_worker_payroll_service import prune_empty_draft_slips  # noqa: E402
+
+
+def _month_is_posted_for(worker, period_start, period_end):
+    from .models import DailyWorkerPayslip
+    return DailyWorkerPayslip.objects.filter(
+        worker=worker, period_start=period_start, period_end=period_end, status='posted',
+    ).exists()
+
+
+@hr_manager_required
+@require_http_methods(["POST"])
+def wages_run_manual_save(request):
+    """
+    Exceptional, admin-only: the Wages Run's Manual Entry tab. For one project and
+    month the form lists exactly the workers added by name (`workers`), each with
+    TOTAL days, daily rate (اليومية) and overtime hours; base pay, overtime pay and
+    the total are computed from them (see daily_worker_payroll_service). Saving makes
+    the project/month match the form: listed workers are added or updated, and any
+    earlier manual entry for a worker no longer listed (removed by mistake) is deleted.
+    A worker whose month is already posted is left untouched.
+    """
+    from django.db import transaction
+    from projects.models import Project
+    from .models import DailyWorkerManualEntry
+
+    period_start, period_end = _resolve_month_period(request.POST.get("month"))
+    project = Project.objects.filter(pk=request.POST.get("project") or None).first()
+    month = period_start.strftime('%Y-%m')
+    back = redirect(
+        f"{reverse('timesheets:wages_run')}?month={month}&tab=manual" + (f"&manual_project={project.pk}" if project else "")
+    )
+
+    if not request.user.is_admin():
+        messages.error(request, 'Only an admin can use manual entry.')
+        return back
+    if not project:
+        messages.error(request, 'Pick a project first.')
+        return back
+
+    def _num(name, ceiling):
+        raw = request.POST.get(name, '').strip()
+        if not raw:
+            return Decimal('0')
+        value = Decimal(raw)
+        if value < 0 or value > ceiling:
+            raise InvalidOperation
+        return value
+
+    # One form row per (worker, sub-group): `rows` lists their indexes; each row names its worker (w_), the block it sits
+    # in (blk_) and the block's sub-group name (subname_<block>; blank = the project itself).
+    rows = []
+    for idx in request.POST.getlist("rows"):
+        wid = request.POST.get(f"w_{idx}", "")
+        if wid.isdigit():
+            sub = " ".join(request.POST.get(f"subname_{request.POST.get(f'blk_{idx}', '0')}", "").split())[:120]
+            rows.append((idx, int(wid), sub))
+    listed = {(wid, sub) for _, wid, sub in rows}
+    workers = {w.pk: w for w in DailyWorker.objects.filter(is_active=True, pk__in={wid for _, wid, _ in rows})}
+
+    seen = set()
+    for _, wid, sub in rows:
+        if (wid, sub) in seen:
+            name = workers[wid].full_name if wid in workers else f'#{wid}'
+            messages.error(request, f"{name} is listed twice under {sub or 'the project itself'} (nothing was saved). Keep one line per worker in each sub.")
+            return back
+        seen.add((wid, sub))
+
+    saved = removed = 0
+    skipped_posted = []
+    try:
+        with transaction.atomic():
+            for idx, wid, sub in rows:
+                worker = workers.get(wid)
+                if worker is None:
+                    continue
+                if _month_is_posted_for(worker, period_start, period_end):
+                    skipped_posted.append(worker.full_name)
+                    continue
+                days = _num(f"days_{idx}", Decimal('366'))
+                overtime = _num(f"ot_{idx}", Decimal('1000'))
+                advances = _num(f"adv_{idx}", Decimal('10000000'))
+                rate_raw = request.POST.get(f"rate_{idx}", '').strip()
+                rate = Decimal(rate_raw) if rate_raw else worker.daily_rate
+                if rate < 0:
+                    raise InvalidOperation
+                if days == 0 and overtime == 0 and advances == 0:
+                    removed += DailyWorkerManualEntry.objects.filter(
+                        worker=worker, project=project, period_start=period_start, sub_name=sub).delete()[0]
+                    continue
+                DailyWorkerManualEntry.objects.update_or_create(
+                    worker=worker, project=project, period_start=period_start, sub_name=sub,
+                    defaults={'days': days, 'daily_rate': rate, 'overtime_hours': overtime, 'advances': advances,
+                              'note': request.POST.get(f"note_{idx}", "").strip()[:300], 'created_by': request.user},
+                )
+                saved += 1
+            # Any line entered before but no longer in the form was removed on purpose.
+            for entry in DailyWorkerManualEntry.objects.filter(project=project, period_start=period_start).select_related('worker'):
+                if (entry.worker_id, entry.sub_name) in listed:
+                    continue
+                if _month_is_posted_for(entry.worker, period_start, period_end):
+                    skipped_posted.append(entry.worker.full_name)
+                    continue
+                entry.delete()
+                removed += 1
+    except InvalidOperation:
+        messages.error(request, 'Please enter valid, non-negative numbers (nothing was saved).')
+        return back
+
+    prune_empty_draft_slips(period_start, period_end)
+    messages.success(request, f'{project.name}: saved {saved} line(s), removed {removed}.')
+    if skipped_posted:
+        messages.warning(request, 'Already posted, left unchanged: ' + ', '.join(skipped_posted))
+    return back
+
+
+@hr_manager_required
+@require_http_methods(["POST"])
+def wages_run_manual_duplicate(request):
+    """
+    Admin-only: copy the manual entries of the ticked projects of one month into another, so next month starts
+    from this month's workers, paid wages, days and overtime and is then adjusted by hand (a project that
+    isn't running next month is simply left unticked). Advances belong to one
+    month only, so they are copied just when asked. Lines that already exist in the target month are left as
+    they are, and a worker whose target month is already posted is skipped.
+    """
+    from .models import DailyWorkerManualEntry
+
+    source_start, source_end = _resolve_month_period(request.POST.get("month"))
+    raw_target = (request.POST.get("target_month") or "").strip()
+    try:
+        datetime.strptime(raw_target, "%Y-%m")
+    except ValueError:
+        messages.error(request, 'Choose the month to copy into.')
+        return redirect(f"{reverse('timesheets:wages_run')}?month={source_start.strftime('%Y-%m')}&tab=manual")
+    target_start, target_end = _resolve_month_period(raw_target)
+    back = redirect(f"{reverse('timesheets:wages_run')}?month={target_start.strftime('%Y-%m')}&tab=manual")
+
+    if not request.user.is_admin():
+        messages.error(request, 'Only an admin can duplicate manual entries.')
+        return back
+    if target_start == source_start:
+        messages.error(request, 'Pick a different month than the one being copied.')
+        return redirect(f"{reverse('timesheets:wages_run')}?month={source_start.strftime('%Y-%m')}&tab=manual")
+
+    chosen = [int(x) for x in request.POST.getlist("projects") if x.isdigit()]
+    if not chosen:
+        messages.error(request, 'Tick at least one project to copy.')
+        return redirect(f"{reverse('timesheets:wages_run')}?month={source_start.strftime('%Y-%m')}&tab=manual")
+
+    with_advances = request.POST.get("with_advances") == "on"
+    copied = existing = skipped_posted = 0
+    for entry in DailyWorkerManualEntry.objects.filter(period_start=source_start, project_id__in=chosen).select_related('worker'):
+        if _month_is_posted_for(entry.worker, target_start, target_end):
+            skipped_posted += 1
+            continue
+        _, created = DailyWorkerManualEntry.objects.get_or_create(
+            worker=entry.worker, project=entry.project, period_start=target_start, sub_name=entry.sub_name,
+            defaults={
+                'days': entry.days, 'daily_rate': entry.daily_rate, 'overtime_hours': entry.overtime_hours,
+                'advances': entry.advances if with_advances else 0,
+                'note': _user_note(entry.note), 'created_by': request.user,
+            },
+        )
+        if created:
+            copied += 1
+        else:
+            existing += 1
+
+    if not (copied or existing or skipped_posted):
+        messages.warning(request, f'There were no manual entries in {source_start:%B %Y} to copy.')
+    else:
+        messages.success(request, f'Copied {copied} line(s) from {source_start:%B %Y} into {target_start:%B %Y}.')
+        if existing:
+            messages.info(request, f'{existing} line(s) already existed in {target_start:%B %Y} and were left as they are.')
+        if skipped_posted:
+            messages.warning(request, f'{skipped_posted} line(s) skipped: their {target_start:%B %Y} wages are already posted.')
+    return back
+
+
+@hr_manager_required
+@require_http_methods(["POST"])
+def wages_run_manual_clear_project(request):
+    """Admin-only: take a whole project out of a month by deleting all its manual entries there (posted workers stay)."""
+    from projects.models import Project
+    from .models import DailyWorkerManualEntry
+
+    period_start, period_end = _resolve_month_period(request.POST.get("month"))
+    project = Project.objects.filter(pk=request.POST.get("project") or None).first()
+    back = redirect(f"{reverse('timesheets:wages_run')}?month={period_start.strftime('%Y-%m')}&tab=manual")
+    if not request.user.is_admin():
+        messages.error(request, 'Only an admin can remove manual entries.')
+        return back
+    if not project:
+        messages.error(request, 'Pick a project first.')
+        return back
+
+    removed = kept = 0
+    for entry in DailyWorkerManualEntry.objects.filter(project=project, period_start=period_start).select_related('worker'):
+        if _month_is_posted_for(entry.worker, period_start, period_end):
+            kept += 1
+            continue
+        entry.delete()
+        removed += 1
+    prune_empty_draft_slips(period_start, period_end)
+    messages.success(request, f'{project.name}: removed {removed} line(s) from {period_start:%B %Y}.')
+    if kept:
+        messages.warning(request, f'{kept} line(s) kept: wages for those workers are already posted.')
+    return back
+
+
+@hr_manager_required
+@require_http_methods(["POST"])
+def wages_run_manual_clear_month(request):
+    """Admin-only "clear all": delete every manual entry (all projects) of one month. Posted workers' lines stay."""
+    from .models import DailyWorkerManualEntry
+
+    period_start, period_end = _resolve_month_period(request.POST.get("month"))
+    back = redirect(f"{reverse('timesheets:wages_run')}?month={period_start.strftime('%Y-%m')}&tab=manual")
+    if not request.user.is_admin():
+        messages.error(request, 'Only an admin can clear manual entries.')
+        return back
+
+    removed = kept = 0
+    for entry in DailyWorkerManualEntry.objects.filter(period_start=period_start).select_related('worker'):
+        if _month_is_posted_for(entry.worker, period_start, period_end):
+            kept += 1
+            continue
+        entry.delete()
+        removed += 1
+    prune_empty_draft_slips(period_start, period_end)
+    messages.success(request, f'Cleared {removed} manual line(s) from {period_start:%B %Y}.')
+    if kept:
+        messages.warning(request, f'{kept} line(s) kept: wages for those workers are already posted.')
+    return back
+
+
+@hr_manager_required
+@require_http_methods(["POST"])
+def wages_run_delete_row(request, pk):
+    """
+    Delete one worker's row from a month's Wages Run, drafts and (admin only) posted ones alike. The worker's
+    manual entries for that month go with it, so the row does not come back. Attendance recorded in daily reports
+    belongs to those reports and is not touched here: if the worker still has some, the row is generated again
+    and the message says where it comes from.
+    """
+    from .models import DailyWorkerManualEntry, DailyWorkerPayslip
+    from .services.daily_worker_payroll_service import compute_daily_worker_statement
+
+    slip = get_object_or_404(DailyWorkerPayslip, pk=pk)
+    back = redirect(f"{reverse('timesheets:wages_run')}?month={slip.period_start.strftime('%Y-%m')}")
+    if slip.status == 'posted' and not request.user.is_admin():
+        messages.error(request, 'Only an admin can delete a posted row.')
+        return back
+
+    worker, start, end = slip.worker, slip.period_start, slip.period_end
+    manual = DailyWorkerManualEntry.objects.filter(worker=worker, period_start=start).delete()[0]
+    slip.delete()
+    messages.success(request, f"Deleted {worker.full_name}'s row for {start:%B %Y}" + (f" and {manual} manual line(s)." if manual else "."))
+
+    remaining = compute_daily_worker_statement(worker, start, end)['by_project']
+    if remaining:
+        names = ', '.join(row['project'].name for row in remaining if row['project'])
+        messages.warning(
+            request,
+            f"{worker.full_name} still has attendance in daily reports ({names}), so the row will appear again. "
+            "Remove that attendance from the daily report to get rid of it.",
+        )
+    return back
+
+
+@wages_access_required
+@require_http_methods(["POST"])
+def wages_run_approve(request):
+    """
+    اعتماد المحاسبة -- the accountant approves the month's posted wages for payment. From then on each worker's payment
+    voucher (سند صرف + قسيمة عامل مياومة) can be printed, one by one or all together. Only an accountant or an admin may do it,
+    and only for wages that HR has already posted.
+    """
+    from .models import DailyWorkerPayslip
+
+    period_start, period_end = _resolve_month_period(request.POST.get("month"))
+    back = redirect(f"{reverse('timesheets:wages_run')}?month={period_start.strftime('%Y-%m')}")
+    if not (request.user.is_admin() or request.user.is_accountant()):
+        messages.error(request, 'Only the accountant can approve wages.')
+        return back
+    posted = DailyWorkerPayslip.objects.filter(period_start=period_start, period_end=period_end, status='posted')
+    if not posted.exists():
+        messages.error(request, 'Post the wages first; the accountant approves posted wages only.')
+        return back
+    approved = posted.filter(accounting_approved_at__isnull=True).update(
+        accounting_approved_at=timezone.now(), accounting_approved_by=request.user,
+    )
+    if approved:
+        messages.success(request, f'Approved the wages of {period_start.strftime("%B %Y")} ({approved} worker(s)). The payment vouchers can now be printed.')
+    else:
+        messages.info(request, 'Everything posted for this month was already approved.')
+    return back
+
+
+@wages_access_required
+@require_http_methods(["POST"])
+def wages_run_unapprove(request):
+    """Admin only: take the accountant's approval back (the vouchers are locked again until it is given once more)."""
+    from .models import DailyWorkerPayslip
+
+    period_start, period_end = _resolve_month_period(request.POST.get("month"))
+    back = redirect(f"{reverse('timesheets:wages_run')}?month={period_start.strftime('%Y-%m')}")
+    if not request.user.is_admin():
+        messages.error(request, 'Only an admin can withdraw the accounting approval.')
+        return back
+    count = DailyWorkerPayslip.objects.filter(period_start=period_start, period_end=period_end).update(
+        accounting_approved_at=None, accounting_approved_by=None)
+    messages.warning(request, f'Accounting approval withdrawn ({count} worker(s)).')
+    return back
+
+
+def _voucher_response(slips, request, name):
+    from .voucher_pdf import generate_wage_vouchers_pdf
+
+    include_termination = request.GET.get("termination") != "0"
+    response = HttpResponse(generate_wage_vouchers_pdf(slips, include_termination=include_termination), content_type="application/pdf")
+    response["Content-Disposition"] = f'inline; filename="{name}.pdf"'
+    return response
+
+
+@wages_access_required
+def wage_voucher_pdf(request, pk):
+    """One worker's payment voucher; available only after the accountant approved the month."""
+    from .models import DailyWorkerPayslip
+
+    slip = get_object_or_404(DailyWorkerPayslip.objects.select_related('worker'), pk=pk)
+    if not slip.accounting_approved_at:
+        messages.error(request, 'The payment voucher is available after the accountant approves the wages.')
+        return redirect(f"{reverse('timesheets:wages_run')}?month={slip.period_start.strftime('%Y-%m')}")
+    return _voucher_response([slip], request, f"voucher-{slip.worker.pk}-{slip.period_start.strftime('%Y-%m')}")
+
+
+@wages_access_required
+def wage_vouchers_pdf(request):
+    """Every approved worker's payment voucher of the month in one PDF, by name, ready to print and sign."""
+    from .models import DailyWorkerPayslip
+
+    period_start, period_end = _resolve_month_period(request.GET.get("month"))
+    slips = list(DailyWorkerPayslip.objects.filter(
+        period_start=period_start, period_end=period_end, accounting_approved_at__isnull=False,
+    ).select_related('worker').order_by('worker__full_name'))
+    if not slips:
+        messages.error(request, 'No approved wages for this month yet; the vouchers are printed after the accountant approves.')
+        return redirect(f"{reverse('timesheets:wages_run')}?month={period_start.strftime('%Y-%m')}")
+    return _voucher_response(slips, request, f"vouchers-{period_start.strftime('%Y-%m')}")
 
 
 @hr_manager_required
@@ -1606,7 +2147,7 @@ def export_wages_excel(request):
         row = [
             w.worker.full_name, w.worker.trade or "", float(w.total_days), float(w.overtime_hours),
             float(w.base_pay), float(w.overtime_pay), float(w.gross_pay),
-            float(w.other_allowances), float(w.other_deductions), float(w.advances), float(w.net_pay),
+            float(w.other_allowances), float(w.other_deductions), float(w.total_advances), float(w.net_pay),
         ]
         ws.append(row)
         row_idx += 1
@@ -1629,6 +2170,34 @@ def export_wages_excel(request):
 
     response = HttpResponse(content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
     response["Content-Disposition"] = f"attachment; filename=wages-{period_start.strftime('%Y-%m')}.xlsx"
+    wb.save(response)
+    return response
+
+
+@login_required
+def export_wages_sheet_pdf(request):
+    """The month in the company's own "كشف اجور عمال" layout: one table per project (see timesheets/pdf.py)."""
+    from .pdf import generate_wages_sheet_pdf
+    from .services.daily_worker_payroll_service import wages_sheet
+
+    period_start, period_end = _resolve_month_period(request.GET.get("month"))
+    sheet = wages_sheet(period_start, period_end)
+    pdf_bytes = generate_wages_sheet_pdf(sheet, generated_by=request.user.get_full_name() or request.user.username)
+    response = HttpResponse(pdf_bytes, content_type="application/pdf")
+    response["Content-Disposition"] = f"inline; filename=wages-sheet-{period_start.strftime('%Y-%m')}.pdf"
+    return response
+
+
+@login_required
+def export_wages_sheet_excel(request):
+    """Excel twin of export_wages_sheet_pdf, with the sheet's own formulas (see timesheets/wages_sheet_excel.py)."""
+    from .services.daily_worker_payroll_service import wages_sheet
+    from .wages_sheet_excel import build_wages_sheet_workbook
+
+    period_start, period_end = _resolve_month_period(request.GET.get("month"))
+    wb = build_wages_sheet_workbook(wages_sheet(period_start, period_end))
+    response = HttpResponse(content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+    response["Content-Disposition"] = f"attachment; filename=FIN-WRK-{period_start.strftime('%m-%Y')}.xlsx"
     wb.save(response)
     return response
 

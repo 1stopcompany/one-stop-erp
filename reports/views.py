@@ -456,7 +456,7 @@ def _redirect_if_requested_project_unusable(request, assigned_queryset):
     if not project:
         return None
     result = readiness.check(project)
-    if not result.ok:
+    if not result.ok and not request.user.is_admin():
         messages.error(request, f"Can't create a report for '{project.name}' yet: {result.summary()}")
         return redirect('projects:workflow', pk=project.pk)
     if not request.user.is_admin() and not assigned_queryset.filter(pk=project.pk).exists():

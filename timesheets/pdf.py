@@ -16,7 +16,7 @@ from reportlab.lib.pagesizes import A4, landscape
 from reportlab.lib import colors
 from reportlab.lib.units import inch
 from reportlab.lib.enums import TA_LEFT, TA_CENTER
-from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, Image
+from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, Image, KeepTogether
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 
 from reports.utils import (
@@ -209,7 +209,7 @@ def generate_wages_run_pdf(wage_slips, period_start, is_posted, generated_by=Non
                'Gross', 'Allowances', 'Deductions', 'Advances', 'Net Pay']
     rows = [headers]
     totals = {k: 0 for k in ['total_days', 'overtime_hours', 'base_pay', 'overtime_pay', 'gross_pay',
-                              'other_allowances', 'other_deductions', 'advances', 'net_pay']}
+                              'other_allowances', 'other_deductions', 'total_advances', 'net_pay']}
     for i, w in enumerate(wage_slips, start=1):
         for k in totals:
             totals[k] += float(getattr(w, k))
@@ -217,18 +217,186 @@ def generate_wages_run_pdf(wage_slips, period_start, is_posted, generated_by=Non
             str(i), _smart(w.worker.full_name, S['cell']), _smart(w.worker.trade, S['cell'], default=''),
             f'{w.total_days:g}', f'{w.overtime_hours:g}', f'{w.base_pay:,.2f}', f'{w.overtime_pay:,.2f}',
             f'{w.gross_pay:,.2f}', f'{w.other_allowances:,.2f}', f'{w.other_deductions:,.2f}',
-            f'{w.advances:,.2f}', f'{w.net_pay:,.2f}',
+            f'{w.total_advances:,.2f}', f'{w.net_pay:,.2f}',
         ])
     rows.append([
         '', 'TOTAL', '', f"{totals['total_days']:g}", f"{totals['overtime_hours']:g}",
         f"{totals['base_pay']:,.2f}", f"{totals['overtime_pay']:,.2f}", f"{totals['gross_pay']:,.2f}",
         f"{totals['other_allowances']:,.2f}", f"{totals['other_deductions']:,.2f}",
-        f"{totals['advances']:,.2f}", f"{totals['net_pay']:,.2f}",
+        f"{totals['total_advances']:,.2f}", f"{totals['net_pay']:,.2f}",
     ])
 
     col_widths = [page_width * w for w in [0.03, 0.18, 0.11, 0.07, 0.07, 0.1, 0.09, 0.1, 0.1, 0.1, 0.08, 0.09]]
     elements.append(_hdr_table(rows, col_widths, font_size=8, bold_last_row=True))
     _footer(elements, S, generated_by)
+
+    doc.build(elements)
+    buffer.seek(0)
+    return buffer.getvalue()
+
+
+# ------------------------------------------------------------------ #
+# Day-labor wages sheet in the company's own "كشف اجور عمال" layout
+# ------------------------------------------------------------------ #
+
+# (header label, width weight) in logical order; the table is printed right-to-left so the
+# first column lands on the page's right edge, like the Excel sheet it replaces.
+WAGES_SHEET_COLUMNS = [
+    ('#', 0.03), ('الاســـم', 0.165), ('طبيعة العمل', 0.095), ('ايام العمل', 0.05), ('ايام الجمع', 0.05),
+    ('مجموع الايام شامل جمع', 0.062), ('الاجر اليومي', 0.058), ('الاجر المدفوع', 0.058), ('المجموع', 0.066),
+    ('عدد الساعات الاضافية', 0.055), ('سعر الساعة', 0.05), ('قيمة الساعات', 0.058), ('الاجر المستحق', 0.066),
+    ('سلف', 0.045), ('الصافي للدفع', 0.07), ('رقم الهوية', 0.075), ('التوقيع', 0.075),
+]
+
+
+def _plain_num(value):
+    """2 decimals, trailing zeros dropped (7.00 -> 7, 2.33 stays)."""
+    text = f'{value:.2f}'.rstrip('0').rstrip('.')
+    return text or '0'
+
+
+def generate_wages_sheet_pdf(sheet, generated_by=None):
+    """
+    The month's day-labor wages in the layout of the company's Excel "كشف اجور عمال": a
+    memo header, one titled table per project (every column of that sheet, with a section
+    total), any worker-level adjustments, the grand total, and the prepared/reviewed line.
+    `sheet` comes from daily_worker_payroll_service.wages_sheet().
+    """
+    from django.conf import settings
+    from reportlab.lib.enums import TA_RIGHT
+    from reports.utils import _t, rtl_paragraph
+
+    buffer = BytesIO()
+    margin = 0.3 * inch
+    page_size = landscape(A4)
+    page_width = page_size[0] - 2 * margin
+    doc = SimpleDocTemplate(buffer, pagesize=page_size, topMargin=margin, bottomMargin=margin,
+                            leftMargin=margin, rightMargin=margin)
+    base = getSampleStyleSheet()['Normal']
+
+    memo = ParagraphStyle('WSMemo', parent=base, fontName=FONT_BOLD_NAME, fontSize=10, leading=14, alignment=TA_RIGHT)
+    title = ParagraphStyle('WSTitle', parent=base, fontName=FONT_BOLD_NAME, fontSize=10.5, leading=14,
+                           alignment=TA_CENTER, textColor=colors.white, backColor=colors.HexColor(BLUE), borderPadding=(3, 4, 3, 4))
+    head = ParagraphStyle('WSHead', parent=base, fontName=FONT_BOLD_NAME, fontSize=7, leading=8.5, alignment=TA_CENTER,
+                          textColor=colors.white)
+    cell = ParagraphStyle('WSCell', parent=base, fontName=FONT_NAME, fontSize=8, leading=10, alignment=TA_CENTER)
+    foot = ParagraphStyle('WSFoot', parent=base, fontName=FONT_BOLD_NAME, fontSize=10, leading=14, alignment=TA_RIGHT)
+
+    widths_total = sum(w for _, w in WAGES_SHEET_COLUMNS)
+    widths = [page_width * w / widths_total for _, w in WAGES_SHEET_COLUMNS]
+    ncols = len(widths)
+
+    def rtl(cells):
+        return list(reversed(cells))
+
+    def table(rows, col_widths, extra=None):
+        t = Table(rows, colWidths=col_widths, repeatRows=1)
+        cmds = [
+            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor(BLUE)),
+            ('ALIGN', (0, 0), (-1, -1), 'CENTER'), ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+            ('GRID', (0, 0), (-1, -1), 0.6, colors.grey),
+            ('FONTNAME', (0, 1), (-1, -1), FONT_NAME), ('FONTSIZE', (0, 0), (-1, -1), 8),
+            ('TOPPADDING', (0, 0), (-1, -1), 2), ('BOTTOMPADDING', (0, 0), (-1, -1), 2),
+        ]
+        t.setStyle(TableStyle(cmds + (extra or [])))
+        return t
+
+    def text_cell(value, style=cell, width=None):
+        if not value:
+            return ''
+        return rtl_paragraph(value, style, (width or 80) - 6) if _ARABIC_RE.search(str(value)) else Paragraph(str(value), style)
+
+    month_label = f'{sheet["period_start"]:%m.%Y}'
+    elements = [
+        Paragraph(_t('إلى : الادارة العامة.'), memo),
+        Paragraph(_t('الموضوع: استحقاق صرف الرواتب والأجور.'), memo),
+        Paragraph(_t(f'بالإشارة إلى الموضوع أعلاه ، نعلمكم باستحقاق صرف الرواتب والأجور التالية عن شهر {month_label}'), memo),
+        Spacer(1, 0.12 * inch),
+    ]
+
+    header = rtl([text_cell(label, head, w) for (label, _), w in zip(WAGES_SHEET_COLUMNS, widths)])
+    idx = {label: ncols - 1 - i for i, (label, _) in enumerate(WAGES_SHEET_COLUMNS)}  # column index once reversed
+    money = lambda v: f'{v:,.2f}'
+
+    if not sheet['sections']:
+        elements.append(Paragraph(_t('لا يوجد حضور أو إدخالات لهذا الشهر.'), memo))
+
+    for section in sheet['sections']:
+        name = section['project'].name if section['project'] else '—'
+        section_title = [Paragraph(_t(f'كشف اجور عمال ({name})'), title), Spacer(1, 0.04 * inch)]
+        rows = [header]
+        bold = ParagraphStyle('WSTot', parent=cell, fontName=FONT_BOLD_NAME)
+        sub_title = ParagraphStyle('WSSub', parent=cell, fontName=FONT_BOLD_NAME, alignment=TA_RIGHT)
+        sub_title_rows, sub_total_rows = [], []
+
+        def total_line(label, due, net):
+            line = [''] * ncols
+            line[idx['الاجر المستحق']] = money(due)
+            line[idx['الصافي للدفع']] = money(net)
+            line[idx['الاســـم']] = Paragraph(_t(label), bold)
+            return line
+
+        for group in section['groups']:
+            if section['has_subs']:      # a project split into subs (متفرقات): each sub gets a title and its own total
+                sub_title_rows.append(len(rows))
+                rows.append([Paragraph(_t(group['name'] or 'بدون متفرقة'), sub_title)] + [''] * (ncols - 1))
+            for r in group['rows']:
+                rows.append(rtl([
+                    str(r['n']), text_cell(r['worker'].full_name, cell, widths[1]), text_cell(r['trade'], cell, widths[2]),
+                    _plain_num(r['days']), _plain_num(r['friday_days']), _plain_num(r['total_days']),
+                    money(r['daily_wage']), money(r['paid_rate']), money(r['total']),
+                    _plain_num(r['overtime_hours']) if r['overtime_hours'] else '', money(r['hour_rate']),
+                    money(r['overtime_value']) if r['overtime_value'] else '',
+                    money(r['due']), money(r['advances']) if r['advances'] else '', money(r['net']),
+                    str(r['national_id']), '',
+                ]))
+            if section['has_subs']:
+                sub_total_rows.append(len(rows))
+                rows.append(total_line(f"مجموع {group['name'] or 'بدون متفرقة'}", group['total_due'], group['total_net']))
+        rows.append(total_line('المجموع النهائي للمتفرقات' if section['has_subs'] else 'المجموع',
+                               section['total_due'], section['total_net']))
+        last = len(rows) - 1
+        styles = [
+            ('BACKGROUND', (0, last), (-1, last), colors.HexColor('#e8f0f8')),
+            ('FONTNAME', (0, last), (-1, last), FONT_BOLD_NAME),
+            ('BACKGROUND', (idx['الصافي للدفع'], 1), (idx['الصافي للدفع'], last - 1), colors.HexColor('#fff9c4')),
+        ]
+        for r in sub_title_rows:
+            styles += [('SPAN', (0, r), (-1, r)), ('BACKGROUND', (0, r), (-1, r), colors.HexColor('#d6e4f5'))]
+        for r in sub_total_rows:
+            styles += [('BACKGROUND', (0, r), (-1, r), colors.HexColor('#f1f5fa')), ('FONTNAME', (0, r), (-1, r), FONT_BOLD_NAME)]
+        section_table = table(rows, list(reversed(widths)), styles)
+        # a title never sits alone at the foot of a page: keep it with its table (long tables still split)
+        elements.append(KeepTogether(section_title + [section_table]) if len(rows) < 30 else section_title[0])
+        if len(rows) >= 30:
+            elements += [section_title[1], section_table]
+        elements.append(Spacer(1, 0.09 * inch))
+
+    if sheet['adjustments']:
+        elements.append(Paragraph(_t('تسويات على مستوى العامل (بدلات / خصومات / سلف)'), title))
+        elements.append(Spacer(1, 0.04 * inch))
+        adj_labels = ['الاســـم', 'بدلات', 'خصومات', 'سلف', 'الأثر على الصافي']
+        adj_widths = [page_width * w for w in (0.35, 0.15, 0.15, 0.15, 0.2)]
+        rows = [rtl([text_cell(l, head, w) for l, w in zip(adj_labels, adj_widths)])]
+        for a in sheet['adjustments']:
+            rows.append(rtl([text_cell(a['worker'].full_name, cell, adj_widths[0]), money(a['allowances']),
+                             money(a['deductions']), money(a['advances']), money(a['effect'])]))
+        elements.append(table(rows, list(reversed(adj_widths))))
+        elements.append(Spacer(1, 0.14 * inch))
+
+    grand = Table([[money(sheet['grand_total']), Paragraph(_t('المجموع'), ParagraphStyle('WSGrand', parent=cell, fontName=FONT_BOLD_NAME, fontSize=11))]],
+                  colWidths=[page_width * 0.2, page_width * 0.12], hAlign='RIGHT')
+    grand.setStyle(TableStyle([('GRID', (0, 0), (-1, -1), 0.8, colors.black), ('FONTNAME', (0, 0), (0, 0), FONT_BOLD_NAME),
+                               ('FONTSIZE', (0, 0), (0, 0), 11), ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                               ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#fff9c4')),
+                               ('TOPPADDING', (0, 0), (-1, -1), 4), ('BOTTOMPADDING', (0, 0), (-1, -1), 4)]))
+    prepared = getattr(settings, 'WAGES_PREPARED_BY', '') or ' ' * 22
+    reviewed = getattr(settings, 'WAGES_REVIEWED_BY', '') or ' ' * 22
+    closing = [grand, Spacer(1, 0.1 * inch), Paragraph(_t(f'اعداد : ( {prepared} ) / تدقيق : ( {reviewed} )'), foot)]
+    if generated_by:
+        closing.append(Paragraph(f'Generated {datetime.now():%d/%m/%Y %H:%M} by {generated_by}',
+                                 ParagraphStyle('WSGen', parent=base, fontName=FONT_NAME, fontSize=7, textColor=colors.grey)))
+    elements.append(KeepTogether(closing))
 
     doc.build(elements)
     buffer.seek(0)
@@ -284,8 +452,8 @@ def generate_wage_slip_pdf(wage_slip):
     elements.append(_hdr_table([
         ['Item', 'Amount'],
         ['Other Deductions', f'{wage_slip.other_deductions:,.2f}'],
-        ['Advances', f'{wage_slip.advances:,.2f}'],
-        ['Total Deductions', f'{(wage_slip.other_deductions + wage_slip.advances):,.2f}'],
+        ['Advances', f'{wage_slip.total_advances:,.2f}'],
+        ['Total Deductions', f'{(wage_slip.other_deductions + wage_slip.total_advances):,.2f}'],
     ], [page_width * 0.7, page_width * 0.3], font_size=10, bold_last_row=True))
     elements.append(Spacer(1, 0.25 * inch))
 
@@ -300,6 +468,10 @@ def generate_wage_slip_pdf(wage_slip):
         ('LEFTPADDING', (0, 0), (-1, -1), 10), ('RIGHTPADDING', (0, 0), (-1, -1), 10),
     ]))
     elements.append(net_table)
+    elements.append(Spacer(1, 0.1 * inch))
+    elements.append(Paragraph(
+        f'Income tax (information only, not deducted from Net Pay): {wage_slip.income_tax:,.2f}', S['footer'],
+    ))
     _footer(elements, S)
 
     doc.build(elements)
@@ -598,7 +770,7 @@ def generate_employee_profile_pdf(employee):
     ], page_width))
     elements.append(Spacer(1, 0.15 * inch))
 
-    recent_payslips = employee.payslips.order_by('-period_start')[:6]
+    recent_payslips = employee.payslips.exclude(status='excluded').order_by('-period_start')[:6]
     if recent_payslips:
         elements.append(Paragraph('Recent Payslips', S['heading']))
         rows = [['Period', 'Base Pay', 'Gross', 'Net Pay', 'Status']]

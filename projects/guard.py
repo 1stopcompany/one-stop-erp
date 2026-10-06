@@ -21,7 +21,7 @@ EXEMPT = {
     "projects.Project", "projects.ProjectFloor", "projects.ProjectStage", "projects.ProjectInsurance",
     "projects.ProjectTenderDocument", "projects.ProjectRegulatoryApproval", "projects.ProjectManagementPlan",
     "blueprints.Blueprint", "blueprints.BlueprintRevision",
-    "reports.ProjectPhase", "reports.ProjectPhaseSubItem", "reports.ProjectMilestone", "reports.ScheduleTask",
+    "reports.ProjectPhase", "reports.ProjectPhaseSubItem", "reports.ProjectMilestone", "reports.ScheduleTask", "reports.ProjectSub",
     "ai_assistant.AIRun",
     # Not tied to a running project's work: the warehouse itself, and the older cost-control tables that nothing writes to.
     "procurement.Warehouse", "cost_control.Budget", "cost_control.CostForecast", "cost_control.CostReport", "cost_control.BudgetAlert",
@@ -55,6 +55,8 @@ GUARDED = {
     "procurement.POReceipt": "po_line.po.project", "procurement.StockMovement": "project",
     # attendance: a GPS check-in counts toward a project
     "timesheets.CheckInLocation": "project",
+    # a hand-typed wages entry (admin only; admins pass the guard anyway)
+    "timesheets.DailyWorkerManualEntry": "project",
     # subcontractor (Musana'a) agreements and everything charged/paid through them
     "subcontractors.SubcontractorAgreement": "project",
     "subcontractors.SubcontractorAgreementLine": "agreement.project",

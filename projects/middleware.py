@@ -24,7 +24,7 @@ class ProjectReadinessMiddleware:
         self.get_response = get_response
 
     def __call__(self, request):
-        with readiness.request_scope():
+        with readiness.request_scope(request):
             return self.get_response(request)
 
     def process_exception(self, request, exception):

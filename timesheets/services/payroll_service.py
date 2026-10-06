@@ -73,11 +73,15 @@ def _effective_structure(employee):
 def _save_payslip(employee, period_start, period_end, **fields):
     # A posted (ترحيل) payslip is finalized -- recomputing the run for that
     # month must not silently overwrite it. Return it untouched instead.
+    # An excluded one was taken out of the run on purpose: leave it alone too.
     existing = Payslip.objects.filter(employee=employee, period_start=period_start, period_end=period_end).first()
-    if existing and existing.status == 'posted':
+    if existing and existing.status in ('posted', 'excluded'):
         return existing
 
     # gross_pay/net_pay are recomputed by Payslip.save() itself -- not set here.
+    for key in ('manual_base_pay', 'manual_unpaid_leave_deduction'):
+        if fields.get(key) is not None:
+            fields[key] = _round2(fields[key])
     for key in ('hourly_rate', 'regular_hours', 'weekend_hours', 'holiday_hours', 'overtime_hours',
                 'base_pay', 'overtime_pay', 'weekend_pay', 'holiday_pay',
                 'other_allowances', 'other_deductions', 'advances', 'tax',
@@ -89,10 +93,35 @@ def _save_payslip(employee, period_start, period_end, **fields):
     return payslip
 
 
+KEEP = object()   # "carry over what the existing payslip already has" for the manual overrides below
+
+
+def auto_base_pay(employee, period_start, period_end):
+    """The salary-based base pay for the period: the fixed salary, prorated only for a genuine partial month."""
+    employed_from = max(period_start, employee.hire_date)
+    employed_until = min(period_end, employee.termination_date) if employee.termination_date else period_end
+    if employed_from > employed_until:
+        proration = Decimal('0')
+    elif employed_from <= period_start and employed_until >= period_end:
+        proration = Decimal('1')  # employed for the whole period -- full salary, no calendar-length distortion
+    else:
+        days_employed = (employed_until - employed_from).days + 1
+        proration = min(Decimal(days_employed) / Decimal(PRORATION_REFERENCE_DAYS), Decimal('1'))
+    return employee.salary * proration
+
+
+def auto_unpaid_leave(employee, period_start, period_end):
+    """(days, deduction) for leave taken beyond the annual balance, from the Daily Time Record."""
+    from timesheets.services.attendance_service import count_unpaid_leave_days
+    days = Decimal(count_unpaid_leave_days(employee, period_start, period_end))
+    return days, (employee.salary / Decimal(PRORATION_REFERENCE_DAYS)) * days
+
+
 def compute_payslip_salaried(
     employee, period_start, period_end, *,
     overtime_hours=Decimal('0'), other_allowances=Decimal('0'), other_deductions=Decimal('0'),
     advances=Decimal('0'), tax=Decimal('0'), generated_by=None,
+    manual_base_pay=KEEP, manual_unpaid_leave_deduction=KEEP, note=KEEP,
 ) -> Payslip:
     """
     Fixed-salary payslip for a permanent employee. overtime_hours,
@@ -105,20 +134,15 @@ def compute_payslip_salaried(
     overtime_multiplier = structure.overtime_multiplier if structure else DEFAULT_OVERTIME_MULTIPLIER
     hourly_rate = employee.salary / Decimal(monthly_hours)
 
-    period_first_day = period_start
-    period_last_day = period_end
-    employed_from = max(period_first_day, employee.hire_date)
-    employed_until = min(period_last_day, employee.termination_date) if employee.termination_date else period_last_day
+    existing = Payslip.objects.filter(employee=employee, period_start=period_start, period_end=period_end).first()
+    if manual_base_pay is KEEP:
+        manual_base_pay = existing.manual_base_pay if existing else None
+    if manual_unpaid_leave_deduction is KEEP:
+        manual_unpaid_leave_deduction = existing.manual_unpaid_leave_deduction if existing else None
+    if note is KEEP:
+        note = existing.note if existing else ''
 
-    if employed_from > employed_until:
-        proration = Decimal('0')
-    elif employed_from <= period_first_day and employed_until >= period_last_day:
-        proration = Decimal('1')  # employed for the whole period -- full salary, no calendar-length distortion
-    else:
-        days_employed = (employed_until - employed_from).days + 1
-        proration = min(Decimal(days_employed) / Decimal(PRORATION_REFERENCE_DAYS), Decimal('1'))
-
-    base_pay = employee.salary * proration
+    base_pay = auto_base_pay(employee, period_start, period_end) if manual_base_pay is None else Decimal(manual_base_pay)
     overtime_hours = Decimal(overtime_hours)
     overtime_pay = hourly_rate * overtime_multiplier * overtime_hours
 
@@ -129,9 +153,9 @@ def compute_payslip_salaried(
     # else in this module. This is the one deduction that isn't manually
     # typed in: it comes straight from the DTR the client asked to be
     # "the real basis payroll is prepared from."
-    from timesheets.services.attendance_service import count_unpaid_leave_days
-    unpaid_leave_days = Decimal(count_unpaid_leave_days(employee, period_start, period_end))
-    unpaid_leave_deduction = (employee.salary / Decimal(PRORATION_REFERENCE_DAYS)) * unpaid_leave_days
+    unpaid_leave_days, unpaid_leave_deduction = auto_unpaid_leave(employee, period_start, period_end)
+    if manual_unpaid_leave_deduction is not None:
+        unpaid_leave_deduction = Decimal(manual_unpaid_leave_deduction)
 
     return _save_payslip(
         employee, period_start, period_end,
@@ -142,6 +166,7 @@ def compute_payslip_salaried(
         other_allowances=Decimal(other_allowances), other_deductions=Decimal(other_deductions),
         advances=Decimal(advances), tax=Decimal(tax),
         unpaid_leave_days=unpaid_leave_days, unpaid_leave_deduction=unpaid_leave_deduction,
+        manual_base_pay=manual_base_pay, manual_unpaid_leave_deduction=manual_unpaid_leave_deduction, note=note,
         generated_by=generated_by,
     )
 

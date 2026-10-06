@@ -5,7 +5,7 @@ from decimal import Decimal
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
-from django.db.models import Sum, Count, Q
+from django.db.models import Sum, Count, Q, F
 from django.http import HttpResponse, HttpResponseForbidden, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse, reverse_lazy
@@ -13,6 +13,8 @@ from django.utils import timezone
 from django.views.generic import TemplateView, ListView, CreateView, UpdateView, DetailView, DeleteView, View
 
 from rest_framework import viewsets, permissions
+from rest_framework.decorators import action
+from rest_framework.response import Response
 
 from .models import (
     ItemMaster, Vendor,
@@ -935,6 +937,40 @@ class ItemViewSet(viewsets.ModelViewSet):
     queryset = ItemMaster.objects.all()
     serializer_class = ItemMasterSerializer
     permission_classes = [permissions.IsAuthenticated]
+    search_fields = ["barcode_value", "full_code", "short_code", "source_code", "description"]
+
+    @action(detail=True, methods=["get"], url_path="pending-lines")
+    def pending_lines(self, request, pk=None):
+        """
+        Open PO lines for this item that still have quantity left to receive
+        (po not draft/cancelled, quantity_received < quantity_ordered) -- what
+        the mobile "scan to receive" flow shows after a barcode scan resolves
+        to an item, so the person receiving picks which delivery it's against.
+        """
+        item = self.get_object()
+        lines = (
+            PurchaseOrderLine.objects
+            .filter(item=item)
+            .exclude(po__status__in=["draft", "cancelled"])
+            .filter(quantity_received__lt=F("quantity_ordered"))
+            .select_related("po", "po__vendor", "po__project")
+            .order_by("po__po_date")
+        )
+        data = [
+            {
+                "id": line.id,
+                "po_id": line.po_id,
+                "po_number": line.po.po_number,
+                "vendor": line.po.vendor.name,
+                "project": line.po.project.name if line.po.project else None,
+                "unit": line.unit,
+                "quantity_ordered": line.quantity_ordered,
+                "quantity_received": line.quantity_received,
+                "quantity_remaining": line.quantity_ordered - line.quantity_received,
+            }
+            for line in lines
+        ]
+        return Response(data)
 
 
 class VendorViewSet(viewsets.ModelViewSet):
@@ -959,3 +995,6 @@ class ReceiptViewSet(viewsets.ModelViewSet):
     queryset = POReceipt.objects.select_related("po_line").all()
     serializer_class = ReceiptSerializer
     permission_classes = [permissions.IsAuthenticated]
+
+    def perform_create(self, serializer):
+        serializer.save(received_by=self.request.user)

@@ -35,22 +35,61 @@
         <span class="h5 mb-0">{{ period_start|date:"F Y" }}</span>
         {% if is_posted %}
             <span class="badge bg-success ms-2"><i class="fas fa-lock me-1"></i>Posted</span>
+            {% if all_approved %}
+                <span class="badge bg-primary ms-1"><i class="fas fa-stamp me-1"></i>Approved by accounting</span>
+            {% else %}
+                <span class="badge bg-secondary ms-1">Awaiting accounting approval</span>
+            {% endif %}
         {% else %}
             <span class="badge bg-warning text-dark ms-2">Draft</span>
         {% endif %}
         <span class="text-muted ms-3">Total Net: ₪{{ total_net }}</span>
     </div>
-    {% if not is_posted and wage_slips %}
-    <form method="post" action="{% url 'timesheets:wages_run_post' %}" onsubmit="return confirm('Post wages for {{ period_start|date:"F Y" }}? This locks it against further edits.');">
-        {% csrf_token %}
-        <input type="hidden" name="month" value="{{ month_param }}">
-        <button type="submit" class="btn btn-success">
-            <i class="fas fa-check-double me-2"></i>Post Wages (ترحيل)
-        </button>
-    </form>
-    {% endif %}
+    <div class="d-flex align-items-center gap-2 flex-wrap">
+        {% if not is_posted and wage_slips and can_edit_wages %}
+        <form method="post" action="{% url 'timesheets:wages_run_post' %}" onsubmit="return confirm('Post wages for {{ period_start|date:"F Y" }}? This locks it against further edits.');">
+            {% csrf_token %}
+            <input type="hidden" name="month" value="{{ month_param }}">
+            <button type="submit" class="btn btn-success">
+                <i class="fas fa-check-double me-2"></i>Post Wages (ترحيل)
+            </button>
+        </form>
+        {% endif %}
+        {% if wage_slips and can_approve and not all_approved %}
+        <form method="post" action="{% url 'timesheets:wages_run_approve' %}" onsubmit="return confirm('Approve the posted wages of {{ period_start|date:"F Y" }} for payment? The payment vouchers can be printed after this.');">
+            {% csrf_token %}
+            <input type="hidden" name="month" value="{{ month_param }}">
+            <button type="submit" class="btn btn-primary" {% if not is_posted %}disabled title="Post the wages first"{% endif %}>
+                <i class="fas fa-stamp me-2"></i>Accounting approval (اعتماد المحاسبة)
+            </button>
+        </form>
+        {% endif %}
+        {% if approved_count %}
+        <div class="form-check mb-0" title="Clause 1 of the voucher says the contractual relationship has ended; untick it for workers who carry on">
+            <input class="form-check-input" type="checkbox" id="voucherTermination" checked>
+            <label class="form-check-label small" for="voucherTermination">Include the contract-ended clause</label>
+        </div>
+        <a href="{% url 'timesheets:wage_vouchers_pdf' %}?month={{ month_param }}" target="_blank" class="btn btn-primary voucher-link">
+            <i class="fas fa-print me-2"></i>Print all vouchers (سندات الصرف)
+        </a>
+        {% if user.is_admin %}
+        <form method="post" action="{% url 'timesheets:wages_run_unapprove' %}" onsubmit="return confirm('Withdraw the accounting approval of this month? The vouchers will be locked again.');">
+            {% csrf_token %}
+            <input type="hidden" name="month" value="{{ month_param }}">
+            <button type="submit" class="btn btn-sm btn-outline-secondary" title="Admin only">Withdraw approval</button>
+        </form>
+        {% endif %}
+        {% endif %}
+    </div>
 </div>
 
+<ul class="nav nav-tabs mb-3">
+    <li class="nav-item"><a class="nav-link {% if active_tab == 'run' %}active{% endif %}" href="?month={{ month_param }}">Wages Run</a></li>
+    <li class="nav-item"><a class="nav-link {% if active_tab == 'sheet' %}active{% endif %}" href="?month={{ month_param }}&tab=sheet"><i class="fas fa-layer-group me-1"></i>By Project <span class="text-muted small">(كشف اجور عمال)</span></a></li>
+    {% if can_add_manual %}<li class="nav-item"><a class="nav-link {% if active_tab == 'manual' %}active{% endif %}" href="?month={{ month_param }}&tab=manual"><i class="fas fa-pen me-1"></i>Manual Entry <span class="text-muted small">(إدخال يدوي)</span></a></li>{% endif %}
+</ul>
+
+{% if active_tab == 'run' %}
 {% if not is_posted %}
 <p class="text-muted small">
     Days and pay below are computed automatically from each worker's daily attendance across every project
@@ -75,6 +114,7 @@
                         <th class="text-end" style="width:110px;">Deductions</th>
                         <th class="text-end" style="width:110px;">Advances</th>
                         <th class="text-end">Net Pay</th>
+                        <th class="text-end" title="Palestinian income tax per the tax sheet. For information only: it is not deducted from Net Pay.">Income Tax<br><span class="small text-muted">(info)</span></th>
                         <th></th>
                     </tr>
                 </thead>
@@ -93,8 +133,9 @@
                             <td class="text-end fw-bold">₪{{ w.gross_pay }}</td>
                             <td class="text-end">₪{{ w.other_allowances }}</td>
                             <td class="text-end">₪{{ w.other_deductions }}</td>
-                            <td class="text-end">₪{{ w.advances }}</td>
+                            <td class="text-end">₪{{ w.total_advances }}</td>
                             <td class="text-end fw-bold">₪{{ w.net_pay }}</td>
+                            <td class="text-end text-muted">₪{{ w.income_tax }}</td>
                         {% else %}
                             <form id="wage-row-{{ w.pk }}" method="post" action="{% url 'timesheets:wages_run_update_row' w.pk %}"></form>
                             <td class="text-end">{{ w.overtime_hours }}</td>
@@ -112,11 +153,13 @@
                             <td class="text-end">
                                 <input type="number" step="0.01" name="advances" form="wage-row-{{ w.pk }}"
                                        value="{{ w.advances }}" class="form-control form-control-sm text-end">
+                                {% if w.line_advances %}<div class="small text-muted text-end">+ ₪{{ w.line_advances }} on project lines</div>{% endif %}
                             </td>
                             <td class="text-end fw-bold">₪{{ w.net_pay }}</td>
+                            <td class="text-end text-muted">₪{{ w.income_tax }}</td>
                         {% endif %}
                         <td class="text-nowrap">
-                            {% if w.status != 'posted' %}
+                            {% if w.status != 'posted' and can_edit_wages %}
                             <input type="hidden" name="csrfmiddlewaretoken" value="{{ csrf_token }}" form="wage-row-{{ w.pk }}">
                             <button type="submit" form="wage-row-{{ w.pk }}" class="btn btn-sm btn-outline-primary" title="Save">
                                 <i class="fas fa-save"></i>
@@ -125,11 +168,23 @@
                             <a href="{% url 'timesheets:wage_slip_pdf' w.pk %}" target="_blank" class="btn btn-sm btn-outline-danger" title="PDF">
                                 <i class="fas fa-file-pdf"></i>
                             </a>
+                            {% if w.accounting_approved_at %}
+                            <a href="{% url 'timesheets:wage_voucher_pdf' w.pk %}" target="_blank" class="btn btn-sm btn-outline-primary voucher-link" title="Payment voucher · سند صرف"><i class="fas fa-receipt"></i></a>
+                            {% else %}
+                            <span class="btn btn-sm btn-outline-secondary disabled" title="Available after the accountant approves"><i class="fas fa-receipt"></i></span>
+                            {% endif %}
+                            {% if can_edit_wages and w.status != 'posted' or can_edit_wages and can_add_manual %}
+                            <button type="submit" form="wage-del-{{ w.pk }}" class="btn btn-sm btn-outline-secondary" title="Delete this row"
+                                    onclick="return confirm('Delete {{ w.worker.full_name|escapejs }} from {{ period_start|date:"F Y" }}?{% if w.status == 'posted' %} This row is already POSTED (locked).{% endif %} Their manual entries for the month are deleted too.');">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                            <form id="wage-del-{{ w.pk }}" method="post" action="{% url 'timesheets:wages_run_delete_row' w.pk %}">{% csrf_token %}</form>
+                            {% endif %}
                         </td>
                     </tr>
                     {% empty %}
                     <tr>
-                        <td colspan="11" class="text-center py-5">
+                        <td colspan="12" class="text-center py-5">
                             <div class="text-muted">
                                 <i class="fas fa-hard-hat fa-3x mb-3 opacity-50"></i>
                                 <p class="mb-0">No day-labor attendance recorded for this month yet.</p>
@@ -142,4 +197,520 @@
         </div>
     </div>
 </div>
+
+{% if project_totals %}
+<div class="card mt-4">
+    <div class="card-header bg-white">
+        <h2 class="h6 mb-0"><i class="fas fa-layer-group me-2 text-primary"></i>Totals by Project <span class="text-muted">(إجمالي كل مشروع)</span></h2>
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0 align-middle">
+                <thead>
+                    <tr>
+                        <th>Project</th>
+                        <th class="text-end">Workers</th>
+                        <th class="text-end">Days</th>
+                        <th class="text-end">OT Hours</th>
+                        <th class="text-end">Base Pay</th>
+                        <th class="text-end">OT Pay</th>
+                        <th class="text-end">Total (before allowances / deductions)</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for p in project_totals %}
+                    <tr>
+                        <td>{% if p.project %}{{ p.project.name }}{% else %}<span class="text-muted">(no project)</span>{% endif %}</td>
+                        <td class="text-end">{{ p.workers }}</td>
+                        <td class="text-end">{{ p.days }}</td>
+                        <td class="text-end">{{ p.overtime_hours }}</td>
+                        <td class="text-end">₪{{ p.base_pay }}</td>
+                        <td class="text-end">₪{{ p.overtime_pay }}</td>
+                        <td class="text-end fw-bold">₪{{ p.pay }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endif %}{# end project totals #}
+{% endif %}{# end Wages Run tab #}
+
+{% if can_add_manual and active_tab == 'manual' %}
+<div class="card">
+    <div class="card-body">
+        <form method="post" action="{% url 'timesheets:wages_run_manual_duplicate' %}" class="row g-2 align-items-end border rounded p-2 mb-4 bg-light"
+              onsubmit="return confirm('Copy every manual entry of {{ period_start|date:"F Y" }} into the chosen month?');">
+            {% csrf_token %}
+            <input type="hidden" name="month" value="{{ month_param }}">
+            <div class="col-12 col-md-auto"><strong><i class="fas fa-copy me-1"></i>Duplicate {{ period_start|date:"F Y" }}</strong>
+                <div class="small text-muted">copies all projects' manual entries into another month</div></div>
+            <div class="col-6 col-md-auto">
+                <label class="form-label mb-1 small">Into month</label>
+                <input type="month" name="target_month" class="form-control form-control-sm" required>
+            </div>
+            <div class="col-6 col-md-auto">
+                <div class="form-check mb-1"><input class="form-check-input" type="checkbox" name="with_advances" id="dupAdv"><label class="form-check-label small" for="dupAdv">also copy advances (سلف)</label></div>
+            </div>
+            <div class="col-auto"><button type="submit" class="btn btn-sm btn-outline-primary">Duplicate</button></div>
+            <div class="col-12">
+                {% if month_projects %}
+                <div class="small text-muted mb-1">Projects to copy (untick any that won't run next month):</div>
+                <div class="d-flex flex-wrap gap-3">
+                    {% for mp in month_projects %}
+                    <div class="form-check"><input class="form-check-input" type="checkbox" name="projects" value="{{ mp.project_id }}" id="dupP{{ mp.project_id }}" checked>
+                        <label class="form-check-label small" for="dupP{{ mp.project_id }}">{{ mp.project__name }} <span class="text-muted">({{ mp.n }})</span></label></div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <div class="small text-muted">No manual entries in {{ period_start|date:"F Y" }} to copy.</div>
+                {% endif %}
+            </div>
+        </form>
+        {% if month_projects %}
+        <form method="post" action="{% url 'timesheets:wages_run_manual_clear_month' %}" class="text-end -mt-2 mb-3"
+              onsubmit="return confirm('Clear ALL manual entries of {{ period_start|date:"F Y" }}? This deletes {{ month_total_lines }} line(s) from {{ month_projects|length }} project(s) and cannot be undone.');">
+            {% csrf_token %}
+            <input type="hidden" name="month" value="{{ month_param }}">
+            <button type="submit" class="btn btn-sm btn-outline-danger"><i class="fas fa-eraser me-1"></i>Clear all of {{ period_start|date:"F Y" }}</button>
+        </form>
+        {% endif %}
+        <form method="get" class="row g-2 align-items-end mb-3">
+            <input type="hidden" name="month" value="{{ month_param }}">
+            <input type="hidden" name="tab" value="manual">
+            <div class="col-12 col-md-6">
+                <label class="form-label mb-1">Project</label>
+                <select name="manual_project" class="form-select" onchange="this.form.submit()">
+                    <option value="">— choose a project —</option>
+                    {% for p in manual_projects %}<option value="{{ p.pk }}" {% if manual_project and manual_project.pk == p.pk %}selected{% endif %}>{{ p.name }}</option>{% endfor %}
+                </select>
+            </div>
+        </form>
+
+        {% if manual_project %}
+        <p class="text-muted small">
+            Exceptional entry for <strong>{{ manual_project.name }}</strong>, {{ period_start|date:"F Y" }}. Add each worker by name, then type
+            the <strong>days</strong>, the <strong>paid wage</strong> (الأجر المدفوع), the <strong>overtime hours</strong> and any <strong>advance</strong> (سلف)
+            for the whole month. Every other column is calculated exactly as in the company's wages sheet. It is added on top of any attendance from
+            daily reports and works on any project, whatever its workflow stage. Nothing is saved until you press <strong>Save manual entry</strong>.
+            <br><i class="fas fa-calculator"></i> In any number box, press <kbd>+</kbd> <kbd>−</kbd> <kbd>×</kbd> <kbd>÷</kbd> to open a calculator (e.g. 1/4 of a day); its result goes into the box.
+        </p>
+        <form method="post" action="{% url 'timesheets:wages_run_manual_save' %}" id="manualForm">
+            {% csrf_token %}
+            <input type="hidden" name="month" value="{{ month_param }}">
+            <input type="hidden" name="project" value="{{ manual_project.pk }}">
+
+            <div class="row g-2 align-items-center mb-3">
+                <div class="col-auto">
+                    <div class="form-check form-switch mb-0">
+                        <input class="form-check-input" type="checkbox" id="subsToggle">
+                        <label class="form-check-label" for="subsToggle">Split into subs <span class="text-muted small">(متفرقات: افتح subs داخل المشروع)</span></label>
+                    </div>
+                </div>
+                <div class="col-auto"><a href="{% url 'timesheets:daily_worker_add' %}" target="_blank" class="small">Worker not in the list? Add them to the roster</a></div>
+            {% if manual_rows %}
+                <div class="col-auto ms-md-auto">
+                    <button type="submit" form="clearProjectForm" class="btn btn-sm btn-outline-danger"
+                            onclick="return confirm('Remove {{ manual_project.name|escapejs }} from {{ period_start|date:"F Y" }}? This deletes all its manual lines for the month.');">
+                        <i class="fas fa-trash me-1"></i>Remove this project from the month
+                    </button>
+                </div>
+            {% endif %}
+            </div>
+            <datalist id="rosterList">
+                {% for w in manual_roster %}<option value="{{ w.label }}"></option>{% endfor %}
+            </datalist>
+            <datalist id="subList">{% for n in project_subs %}<option value="{{ n }}"></option>{% endfor %}</datalist>
+            {{ manual_roster|json_script:"rosterData" }}
+            {{ manual_blocks|json_script:"blocksData" }}
+            {{ manual_has_subs|json_script:"hasSubsData" }}
+
+            <div id="blocks"></div>
+            <div id="subActions" class="mb-3" style="display:none;">
+                <button type="button" id="addSubBtn" class="btn btn-outline-secondary btn-sm"><i class="fas fa-plus me-1"></i>Add a sub <span class="text-muted">(متفرقة جديدة)</span></button>
+            </div>
+
+            <div id="subSummary" class="card mb-3" style="display:none;">
+                <div class="card-header fw-bold">Totals by sub · توتال كل متفرقة</div>
+                <div class="table-responsive">
+                    <table class="table table-sm mb-0 text-center align-middle">
+                        <thead class="table-light"><tr><th class="text-start">Sub</th><th>Workers</th><th>Days</th><th>Due · المستحق</th><th>Advance · سلف</th><th>Net · الصافي</th></tr></thead>
+                        <tbody id="subSummaryBody"></tbody>
+                        <tfoot><tr class="table-warning fw-bold"><td class="text-start">Project total · التوتال النهائي</td><td id="gWorkers">0</td><td id="gDays">0</td><td id="gDue">0.00</td><td id="gAdv">0.00</td><td id="gNet">0.00</td></tr></tfoot>
+                    </table>
+                </div>
+            </div>
+
+            <div class="mt-3">
+                <button type="submit" class="btn btn-warning"><i class="fas fa-save me-1"></i>Save manual entry</button>
+            </div>
+        </form>
+        <form id="clearProjectForm" method="post" action="{% url 'timesheets:wages_run_manual_clear_project' %}">
+            {% csrf_token %}
+            <input type="hidden" name="month" value="{{ month_param }}">
+            <input type="hidden" name="project" value="{{ manual_project.pk }}">
+        </form>
+        <script>
+        (function () {
+            var roster = JSON.parse(document.getElementById('rosterData').textContent);
+            var initial = JSON.parse(document.getElementById('blocksData').textContent);
+            var byLabel = {};
+            roster.forEach(function (w) { byLabel[w.label.toLowerCase()] = w; });
+            var blocksEl = document.getElementById('blocks');
+            var toggle = document.getElementById('subsToggle');
+            var f2 = function (n) { return (Math.round(n * 100) / 100).toFixed(2); };
+            var plain = function (n) { return String(Math.round(n * 100) / 100); };
+            var num = function (el) { var v = parseFloat(el.value); return isNaN(v) ? 0 : v; };
+            var escA = function (t) { return String(t == null ? '' : t).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); };
+            var blockSeq = 0, rowSeq = 0;
+            var HEAD = '<thead class="table-light"><tr>' +
+                '<th class="text-start">Worker<br><span class="small text-muted">الاســـم</span></th>' +
+                '<th>Days<br><span class="small text-muted">ايام العمل</span></th><th>Fridays<br><span class="small text-muted">ايام الجمع</span></th>' +
+                '<th>Total days<br><span class="small text-muted">شامل جمع</span></th><th>Daily wage<br><span class="small text-muted">الاجر اليومي</span></th>' +
+                '<th>Paid wage<br><span class="small text-muted">الاجر المدفوع</span></th><th>Total<br><span class="small text-muted">المجموع</span></th>' +
+                '<th>OT hours<br><span class="small text-muted">الساعات الاضافية</span></th><th>Hour rate<br><span class="small text-muted">سعر الساعة</span></th>' +
+                '<th>OT value<br><span class="small text-muted">قيمة الساعات</span></th><th>Due<br><span class="small text-muted">الاجر المستحق</span></th>' +
+                '<th>Advance<br><span class="small text-muted">سلف</span></th><th>Net<br><span class="small text-muted">الصافي للدفع</span></th><th style="width:46px;"></th></tr></thead>';
+
+            function subsOn() { return toggle.checked; }
+
+            function rowHtml(b, r) {
+                var i = rowSeq++, w = r.worker, dis = r.locked ? ' disabled' : '';
+                var inp = function (cls, name, step, value, width) {
+                    return '<td><input type="text" inputmode="decimal" autocomplete="off" name="' + name + '_' + i + '" value="' + escA(value) + '" class="form-control form-control-sm text-end calc-input ' + cls +
+                           '" style="min-width:' + width + 'px;"' + dis + '></td>';
+                };
+                return '<tr class="manual-row" data-w="' + w.id + '">' +
+                    '<td class="text-start"><input type="hidden" name="rows" value="' + i + '"><input type="hidden" name="w_' + i + '" value="' + w.id + '"><input type="hidden" name="blk_' + i + '" value="' + b + '">' +
+                    escA(w.name) +
+                    '<div class="text-muted small">' + escA(w.trade) + ' · ID ' + escA(w.national_id) + (r.locked ? ' · <span class="text-danger">month already posted</span>' : '') + '</div>' +
+                    '<input type="text" name="note_' + i + '" value="' + escA(r.note) + '" maxlength="300" class="form-control form-control-sm mt-1" placeholder="Note · ملاحظة" style="min-width:210px;"' + dis + '></td>' +
+                    inp('m-days', 'days', 'any', r.days, 75) + '<td class="m-fri">0</td><td class="m-totdays">0</td><td class="m-dw">0.00</td>' +
+                    inp('m-rate', 'rate', '0.01', r.rate, 85) + '<td class="m-total">0.00</td>' +
+                    inp('m-ot', 'ot', 'any', r.ot, 75) + '<td class="m-hr">0.00</td><td class="m-otv">0.00</td><td class="fw-bold m-due">0.00</td>' +
+                    inp('m-adv', 'adv', '0.01', r.advances, 80) + '<td class="fw-bold m-net table-warning">0.00</td>' +
+                    '<td>' + (r.locked ? '' : '<button type="button" class="btn btn-sm btn-outline-danger m-remove" title="Remove this worker"><i class="fas fa-trash"></i></button>') + '</td></tr>';
+            }
+
+            function addBlock(name, rows) {
+                var b = blockSeq++;
+                var div = document.createElement('div');
+                div.className = 'sub-block card mb-3';
+                div.dataset.b = b;
+                div.innerHTML =
+                    '<div class="card-header sub-head d-flex flex-wrap gap-2 align-items-center">' +
+                        '<i class="fas fa-layer-group text-muted"></i>' +
+                        '<input type="text" list="subList" name="subname_' + b + '" value="' + escA(name) + '" maxlength="120" class="form-control form-control-sm sub-name" placeholder="Sub name · اسم المتفرقة" style="max-width:340px;">' +
+                        '<button type="button" class="btn btn-sm btn-outline-danger sub-del ms-auto"><i class="fas fa-trash me-1"></i>Delete this sub</button>' +
+                    '</div>' +
+                    '<div class="card-body p-2">' +
+                        '<div class="row g-2 align-items-center mb-2"><div class="col-12 col-md-6"><input type="text" list="rosterList" class="form-control form-control-sm add-input" placeholder="Add a worker (type the name)…" autocomplete="off"></div>' +
+                        '<div class="col-auto"><button type="button" class="btn btn-sm btn-outline-primary add-btn"><i class="fas fa-plus me-1"></i>Add</button></div>' +
+                        '<div class="col-auto text-danger small add-msg" style="display:none;"></div></div>' +
+                        '<div class="table-responsive"><table class="table table-hover table-sm align-middle mb-0 text-center" style="min-width:1250px;">' + HEAD +
+                        '<tbody class="blk-body"></tbody>' +
+                        '<tfoot><tr class="table-light fw-bold"><td class="text-start blk-label">Total · المجموع</td><td class="t-days">0</td><td></td><td></td><td></td><td></td><td class="t-total">0.00</td>' +
+                        '<td class="t-ot">0</td><td></td><td class="t-otv">0.00</td><td class="t-due">0.00</td><td class="t-adv">0.00</td><td class="t-net table-warning">0.00</td><td></td></tr></tfoot></table></div>' +
+                        '<div class="blk-empty text-center text-muted py-3">No workers yet. Type a name above and press Add.</div>' +
+                    '</div>';
+                blocksEl.appendChild(div);
+                var body = div.querySelector('.blk-body');
+                (rows || []).forEach(function (r) { body.insertAdjacentHTML('beforeend', rowHtml(b, r)); });
+                return div;
+            }
+
+            function blocks() { return Array.prototype.slice.call(blocksEl.querySelectorAll('.sub-block')); }
+
+            function recalc() {
+                var on = subsOn();
+                var g = {workers: 0, days: 0, due: 0, adv: 0, net: 0};
+                var summary = '';
+                blocks().forEach(function (blk) {
+                    var s = {days: 0, total: 0, ot: 0, otv: 0, due: 0, adv: 0, net: 0};
+                    var rows = blk.querySelectorAll('.manual-row');
+                    rows.forEach(function (row) {
+                        var days = num(row.querySelector('.m-days')), rate = num(row.querySelector('.m-rate')),
+                            ot = num(row.querySelector('.m-ot')), adv = num(row.querySelector('.m-adv'));
+                        var fri = days / 6, total = rate * days, hr = rate / 8 * 1.5, otv = hr * ot, due = total + otv, net = due - adv;
+                        row.querySelector('.m-fri').textContent = plain(fri);
+                        row.querySelector('.m-totdays').textContent = plain(days + fri);
+                        row.querySelector('.m-dw').textContent = f2(rate * 6 / 7);
+                        row.querySelector('.m-total').textContent = f2(total);
+                        row.querySelector('.m-hr').textContent = f2(hr);
+                        row.querySelector('.m-otv').textContent = f2(otv);
+                        row.querySelector('.m-due').textContent = f2(due);
+                        row.querySelector('.m-net').textContent = f2(net);
+                        s.days += days; s.total += total; s.ot += ot; s.otv += otv; s.due += due; s.adv += adv; s.net += net;
+                    });
+                    blk.querySelector('.t-days').textContent = plain(s.days);
+                    blk.querySelector('.t-total').textContent = f2(s.total);
+                    blk.querySelector('.t-ot').textContent = plain(s.ot);
+                    blk.querySelector('.t-otv').textContent = f2(s.otv);
+                    blk.querySelector('.t-due').textContent = f2(s.due);
+                    blk.querySelector('.t-adv').textContent = f2(s.adv);
+                    blk.querySelector('.t-net').textContent = f2(s.net);
+                    blk.querySelector('.blk-empty').style.display = rows.length ? 'none' : '';
+                    blk.querySelector('.sub-head').classList.toggle('d-none', !on);
+                    var name = blk.querySelector('.sub-name').value.trim();
+                    blk.querySelector('.blk-label').textContent = on ? 'Sub total · ' + (name || '(no name)') : 'Project total · المجموع';
+                    g.workers += rows.length; g.days += s.days; g.due += s.due; g.adv += s.adv; g.net += s.net;
+                    summary += '<tr><td class="text-start">' + escA(name || '(no name)') + '</td><td>' + rows.length + '</td><td>' + plain(s.days) + '</td><td>' + f2(s.due) + '</td><td>' + f2(s.adv) + '</td><td class="fw-bold">' + f2(s.net) + '</td></tr>';
+                });
+                document.getElementById('subActions').style.display = on ? '' : 'none';
+                document.getElementById('subSummary').style.display = on ? '' : 'none';
+                document.getElementById('subSummaryBody').innerHTML = summary;
+                document.getElementById('gWorkers').textContent = g.workers;
+                document.getElementById('gDays').textContent = plain(g.days);
+                document.getElementById('gDue').textContent = f2(g.due);
+                document.getElementById('gAdv').textContent = f2(g.adv);
+                document.getElementById('gNet').textContent = f2(g.net);
+            }
+
+            function addWorker(blk) {
+                var input = blk.querySelector('.add-input'), msg = blk.querySelector('.add-msg');
+                var show = function (t) { msg.textContent = t; msg.style.display = t ? '' : 'none'; };
+                var w = byLabel[input.value.trim().toLowerCase()];
+                if (!w) { show('Pick a name from the suggestions (the worker must be in the day-labor roster).'); return; }
+                if (blk.querySelector('.manual-row[data-w="' + w.id + '"]')) { show(w.name + ' is already in this list.'); return; }
+                if (w.locked) { show(w.name + "'s wages for this month are already posted, so they can't be changed."); return; }
+                show('');
+                var row = {worker: {id: w.id, name: w.name, trade: w.trade, national_id: w.national_id}, note: '', days: '', rate: w.rate, ot: '', advances: '', locked: false};
+                blk.querySelector('.blk-body').insertAdjacentHTML('beforeend', rowHtml(blk.dataset.b, row));
+                input.value = '';
+                blk.querySelector('.blk-body').lastElementChild.querySelector('.m-days').focus();
+                recalc();
+            }
+
+            blocksEl.addEventListener('click', function (e) {
+                var btn = e.target.closest('button'); if (!btn) return;
+                var blk = btn.closest('.sub-block');
+                if (btn.classList.contains('add-btn')) { addWorker(blk); }
+                else if (btn.classList.contains('m-remove')) { btn.closest('.manual-row').remove(); recalc(); }
+                else if (btn.classList.contains('sub-del')) {
+                    var n = blk.querySelectorAll('.manual-row').length, name = blk.querySelector('.sub-name').value.trim() || '(no name)';
+                    if (!confirm('Delete the sub "' + name + '"' + (n ? ' and its ' + n + ' worker line(s)' : '') + '? Nothing is deleted from the database until you press Save.')) return;
+                    blk.remove();
+                    if (!blocks().length) addBlock('', []);
+                    recalc();
+                }
+            });
+            blocksEl.addEventListener('keydown', function (e) {
+                if (e.key === 'Enter' && e.target.classList.contains('add-input')) { e.preventDefault(); addWorker(e.target.closest('.sub-block')); }
+            });
+            blocksEl.addEventListener('input', recalc);
+            document.getElementById('addSubBtn').addEventListener('click', function () {
+                var blk = addBlock('', []); recalc(); blk.querySelector('.sub-name').focus();
+            });
+            toggle.addEventListener('change', function () {
+                if (!toggle.checked) {
+                    var list = blocks();
+                    if (list.length > 1) { alert('Delete the extra subs first (or keep them), then switch this off.'); toggle.checked = true; return; }
+                    list[0].querySelector('.sub-name').value = '';
+                }
+                recalc();
+            });
+
+            // ---- pop-up calculator: press + - x / in any number box to calculate (fractions too); the result goes into the box
+            var pop = document.createElement('div');
+            pop.id = 'calcPop'; pop.setAttribute('dir', 'ltr');
+            pop.style.cssText = 'position:fixed;z-index:3000;display:none;width:236px;background:#fff;border:1px solid #6c757d;border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,.28);padding:8px;';
+            pop.innerHTML = '<input type="text" id="calcDisplay" class="form-control form-control-sm text-end mb-1" autocomplete="off" style="font-size:18px;font-family:monospace;">' +
+                '<div id="calcResult" class="text-end text-muted small mb-1" style="min-height:18px;"></div>' +
+                '<div class="d-grid gap-1" style="grid-template-columns:repeat(4,1fr);">' +
+                ['7','8','9','÷','4','5','6','×','1','2','3','−','0','.','(',')','C','⌫','+','='].map(function (k) {
+                    return '<button type="button" class="btn btn-sm ' + (k === '=' ? 'btn-warning' : (/[0-9.]/.test(k) ? 'btn-outline-secondary' : 'btn-outline-primary')) + '" data-k="' + k + '">' + k + '</button>';
+                }).join('') + '</div><div class="small text-muted mt-1">Enter or = puts the result in the box · Esc cancels</div>';
+            document.body.appendChild(pop);
+            var display = pop.querySelector('#calcDisplay'), resultEl = pop.querySelector('#calcResult'), target = null;
+
+            function evaluate(text) {   // + - * / ( ) and numbers only; no eval
+                var s = text.replace(/×/g, '*').replace(/÷/g, '/').replace(/−/g, '-').replace(/\s+/g, ''), p = 0;
+                if (!s || /[^0-9.+\-*/()]/.test(s)) return null;
+                function expr() { var v = term(); while (s[p] === '+' || s[p] === '-') { var o = s[p++], r = term(); if (v === null || r === null) return null; v = o === '+' ? v + r : v - r; } return v; }
+                function term() { var v = factor(); while (s[p] === '*' || s[p] === '/') { var o = s[p++], r = factor(); if (v === null || r === null) return null; if (o === '/' && r === 0) return null; v = o === '*' ? v * r : v / r; } return v; }
+                function factor() {
+                    if (s[p] === '-') { p++; var f = factor(); return f === null ? null : -f; }
+                    if (s[p] === '(') { p++; var v = expr(); if (s[p] !== ')') return null; p++; return v; }
+                    var m = /^\d*\.?\d+|^\d+\.?/.exec(s.slice(p)); if (!m) return null; p += m[0].length; return parseFloat(m[0]);
+                }
+                var out = expr();
+                return (out === null || p !== s.length || !isFinite(out)) ? null : out;
+            }
+            var roundTo2 = function (n) { return Math.round(n * 100) / 100; };
+
+            function preview() {
+                var v = evaluate(display.value);
+                resultEl.textContent = v === null ? (display.value ? '…' : '') : '= ' + plain(roundTo2(v));
+            }
+            function closePop() { pop.style.display = 'none'; target = null; }
+            function commit() {
+                var v = evaluate(display.value);
+                if (v === null) { resultEl.textContent = 'Not a valid calculation'; return; }
+                if (v < 0) { resultEl.textContent = 'The result can’t be negative'; return; }
+                var box = target; closePop();
+                box.value = plain(roundTo2(v)); box.classList.remove('is-invalid');
+                box.dispatchEvent(new Event('input', {bubbles: true}));
+                box.focus();
+            }
+            function openPop(box, firstOp) {
+                target = box;
+                display.value = (box.value.trim() || '0') + firstOp;
+                var r = box.getBoundingClientRect(), left = Math.min(Math.max(r.left, 8), window.innerWidth - 250);
+                var top = r.bottom + 6; if (top + 250 > window.innerHeight) top = Math.max(r.top - 256, 8);
+                pop.style.left = left + 'px'; pop.style.top = top + 'px'; pop.style.display = '';
+                preview(); display.focus(); display.setSelectionRange(display.value.length, display.value.length);
+            }
+            pop.addEventListener('click', function (e) {
+                var b = e.target.closest('button'); if (!b) return;
+                var k = b.dataset.k;
+                if (k === '=') return commit();
+                if (k === 'C') display.value = '';
+                else if (k === '⌫') display.value = display.value.slice(0, -1);
+                else display.value += k;
+                preview(); display.focus();
+            });
+            display.addEventListener('input', function () { display.value = display.value.replace(/\*/g, '×').replace(/\//g, '÷').replace(/-/g, '−'); preview(); });
+            display.addEventListener('keydown', function (e) {
+                if (e.key === 'Enter' || e.key === '=') { e.preventDefault(); commit(); }
+                else if (e.key === 'Escape') { e.preventDefault(); var b = target; closePop(); if (b) b.focus(); }
+            });
+            document.addEventListener('mousedown', function (e) { if (target && !pop.contains(e.target) && e.target !== target) closePop(); });
+
+            blocksEl.addEventListener('keydown', function (e) {
+                if (!e.target.classList.contains('calc-input') || e.ctrlKey || e.metaKey || e.altKey) return;
+                var ops = {'+': '+', '-': '−', '*': '×', 'x': '×', 'X': '×', '/': '÷'};
+                if (ops[e.key]) { e.preventDefault(); openPop(e.target, ops[e.key]); }
+            });
+            blocksEl.addEventListener('change', function (e) {   // a pasted expression is calculated too
+                if (!e.target.classList.contains('calc-input')) return;
+                var raw = e.target.value.trim(); if (!raw) { e.target.classList.remove('is-invalid'); return; }
+                var v = evaluate(raw);
+                if (v === null || v < 0) { e.target.classList.add('is-invalid'); return; }
+                e.target.classList.remove('is-invalid'); e.target.value = plain(roundTo2(v)); recalc();
+            });
+            document.getElementById('manualForm').addEventListener('submit', function (e) {
+                var bad = blocksEl.querySelector('.calc-input.is-invalid');
+                if (bad) { e.preventDefault(); bad.focus(); alert('One of the number boxes is not a valid number.'); }
+            });
+
+            toggle.checked = JSON.parse(document.getElementById('hasSubsData').textContent);
+            if (initial.length) initial.forEach(function (blk) { addBlock(blk.name, blk.rows); }); else addBlock('', []);
+            recalc();
+        })();
+        </script>
+        {% else %}
+        <p class="text-muted mb-0">Choose a project to start.</p>
+        {% endif %}
+    </div>
+</div>
+{% endif %}
+
+{% if active_tab == 'sheet' %}
+<div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+    <p class="text-muted small mb-0">The month in the company's own wages sheet layout (كشف اجور عمال): one table per project, with a total for each and a grand total.</p>
+    <div class="d-flex gap-2">
+        <a href="{% url 'timesheets:export_wages_sheet_pdf' %}?month={{ month_param }}" target="_blank" class="btn btn-sm btn-outline-danger"><i class="fas fa-print me-1"></i>Print (PDF)</a>
+        <a href="{% url 'timesheets:export_wages_sheet_excel' %}?month={{ month_param }}" class="btn btn-sm btn-outline-success"><i class="fas fa-file-excel me-1"></i>Excel</a>
+    </div>
+</div>
+
+{% for sec in sheet.sections %}
+<div class="card mb-4" dir="rtl">
+    <div class="card-header text-white text-center fw-bold" style="background:#1f4788;">
+        {% if can_add_manual and sec.project %}<a href="?month={{ month_param }}&tab=manual&manual_project={{ sec.project.pk }}" class="btn btn-sm btn-light float-end" dir="ltr" title="Edit this project's lines in Manual Entry"><i class="fas fa-pen me-1"></i>Edit</a>{% endif %}
+        كشف اجور عمال ({% if sec.project %}{{ sec.project.name }}{% else %}—{% endif %})
+    </div>
+    <div class="table-responsive">
+        <table class="table table-sm table-bordered align-middle text-center mb-0" style="min-width:1250px;">
+            <thead class="table-light">
+                <tr>
+                    <th>#</th><th>الاســـم</th><th>طبيعة العمل</th><th>ايام العمل</th><th>ايام الجمع</th><th>مجموع الايام شامل جمع</th>
+                    <th>الاجر اليومي</th><th>الاجر المدفوع</th><th>المجموع</th><th>عدد الساعات الاضافية</th><th>سعر الساعة</th>
+                    <th>قيمة الساعات</th><th>الاجر المستحق</th><th>سلف</th><th>الصافي للدفع</th><th>رقم الهوية</th><th>التوقيع</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for g in sec.groups %}
+                {% if sec.has_subs %}
+                <tr class="table-info fw-bold"><td colspan="17" class="text-start">{% if g.name %}{{ g.name }}{% else %}بدون متفرقة{% endif %}</td></tr>
+                {% endif %}
+                    {% for r in g.rows %}
+                    <tr>
+                        <td>{{ r.n }}</td>
+                        <td class="text-start">{{ r.worker.full_name }}</td>
+                        <td>{{ r.trade|default:"" }}</td>
+                        <td>{{ r.days|floatformat:"-2" }}</td>
+                        <td>{{ r.friday_days|floatformat:"-2" }}</td>
+                        <td>{{ r.total_days|floatformat:"-2" }}</td>
+                        <td>{{ r.daily_wage|floatformat:2 }}</td>
+                        <td>{{ r.paid_rate|floatformat:2 }}</td>
+                        <td>{{ r.total|floatformat:2 }}</td>
+                        <td>{% if r.overtime_hours %}{{ r.overtime_hours|floatformat:"-2" }}{% endif %}</td>
+                        <td>{{ r.hour_rate|floatformat:2 }}</td>
+                        <td>{% if r.overtime_value %}{{ r.overtime_value|floatformat:2 }}{% endif %}</td>
+                        <td>{{ r.due|floatformat:2 }}</td>
+                        <td>{% if r.advances %}{{ r.advances|floatformat:2 }}{% endif %}</td>
+                        <td class="fw-bold table-warning">{{ r.net|floatformat:2 }}</td>
+                        <td>{{ r.national_id }}</td>
+                        <td></td>
+                    </tr>
+                    {% endfor %}
+                {% if sec.has_subs %}
+                <tr class="table-light fw-bold">
+                    <td></td><td>مجموع {% if g.name %}{{ g.name }}{% else %}بدون متفرقة{% endif %}</td><td colspan="10"></td>
+                    <td>{{ g.total_due|floatformat:2 }}</td><td></td>
+                    <td class="table-warning">{{ g.total_net|floatformat:2 }}</td><td></td><td></td>
+                </tr>
+                {% endif %}
+                {% endfor %}
+            </tbody>
+            <tfoot>
+                <tr class="table-light fw-bold">
+                    <td></td><td>{% if sec.has_subs %}المجموع النهائي للمتفرقات{% else %}المجموع{% endif %}</td><td colspan="10"></td>
+                    <td>{{ sec.total_due|floatformat:2 }}</td><td></td>
+                    <td class="table-warning">{{ sec.total_net|floatformat:2 }}</td><td></td><td></td>
+                </tr>
+            </tfoot>
+        </table>
+    </div>
+</div>
+{% empty %}
+<div class="text-center text-muted py-5">No day-labor attendance or manual entries for this month yet.</div>
+{% endfor %}
+
+{% if sheet.adjustments %}
+<div class="card mb-4" dir="rtl">
+    <div class="card-header text-white text-center fw-bold" style="background:#1f4788;">تسويات على مستوى العامل (بدلات / خصومات / سلف)</div>
+    <div class="table-responsive">
+        <table class="table table-sm table-bordered align-middle text-center mb-0">
+            <thead class="table-light"><tr><th>الاســـم</th><th>بدلات</th><th>خصومات</th><th>سلف</th><th>الأثر على الصافي</th></tr></thead>
+            <tbody>
+                {% for a in sheet.adjustments %}
+                <tr><td class="text-start">{{ a.worker.full_name }}</td><td>{{ a.allowances|floatformat:2 }}</td><td>{{ a.deductions|floatformat:2 }}</td><td>{{ a.advances|floatformat:2 }}</td><td>{{ a.effect|floatformat:2 }}</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+
+{% if sheet.sections %}
+<div class="text-end fs-5 fw-bold" dir="rtl">المجموع: <span class="px-3 py-1 border border-dark" style="background:#fff9c4;">₪{{ sheet.grand_total|floatformat:2 }}</span></div>
+{% endif %}
+{% endif %}
+<script>
+(function () {
+    var box = document.getElementById('voucherTermination');
+    if (!box) return;
+    function update() {
+        document.querySelectorAll('a.voucher-link').forEach(function (a) {
+            var url = new URL(a.getAttribute('href'), location.origin);
+            if (box.checked) url.searchParams.delete('termination'); else url.searchParams.set('termination', '0');
+            a.setAttribute('href', url.pathname + url.search);
+        });
+    }
+    box.addEventListener('change', update);
+})();
+</script>
 {% endblock %}

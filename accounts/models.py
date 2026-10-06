@@ -14,6 +14,7 @@ class CustomUser(AbstractUser):
         ('project_manager', _('Project Manager')),
         ('site_engineer', _('Site Engineer')),
         ('procurement_officer', _('Procurement Officer')),
+        ('accountant', _('Accountant')),
     )
     
     role = models.CharField(
@@ -86,6 +87,9 @@ class CustomUser(AbstractUser):
 
     def is_general_manager(self):
         return self.role == 'general_manager'
+
+    def is_accountant(self):
+        return self.role == 'accountant'
 
     def is_procurement_officer(self):
         return self.role == 'procurement_officer'

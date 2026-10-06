@@ -13,7 +13,7 @@ from datetime import datetime, timedelta
 import json
 import logging
 from rest_framework.views import APIView
-from rest_framework.exceptions import PermissionDenied
+from rest_framework.exceptions import APIException, PermissionDenied
 from django.shortcuts import get_object_or_404
 
 
@@ -250,7 +250,7 @@ class PayslipViewSet(viewsets.ReadOnlyModelViewSet):
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        return Payslip.objects.filter(employee__user=self.request.user).order_by('-period_start')
+        return Payslip.objects.filter(employee__user=self.request.user).exclude(status='excluded').order_by('-period_start')
 
     @action(detail=True, methods=['get'])
     def pdf(self, request, pk=None):
@@ -333,6 +333,10 @@ def location_check_in(request):
             
             return Response(result, status=status.HTTP_200_OK if result['success'] else status.HTTP_400_BAD_REQUEST)
             
+        except APIException:
+            # e.g. ProjectNotReady (403 with a clear reason) -- let DRF answer
+            # with it instead of hiding it behind a generic 500.
+            raise
         except Exception as e:
             logger.error(f"Check-in error for user {request.user.username}: {str(e)}")
             return Response({

@@ -14,6 +14,8 @@ any operational record of a project that isn't ready (reports, progress, purchas
 raises ProjectNotReady, which the middleware turns into a clear message. Setup records (the project itself, its
 insurance, tender documents, drawings, BOQ and pricing) are never blocked -- they are how a project becomes ready.
 Code that runs outside a request (management commands, shell, tests) is not blocked unless it opts in.
+Admins (CustomUser.is_admin()) are exempt: they may record manual entries on any project, whatever stage of the
+workflow it has reached (see admin_bypass()).
 """
 import threading
 from contextlib import contextmanager
@@ -35,13 +37,26 @@ def enforcing() -> bool:
 
 
 @contextmanager
-def request_scope():
-    """Wrapped around every web request by the middleware: the rule is only enforced inside it."""
+def request_scope(request=None):
+    """Wrapped around every web request by the middleware: the rule is only enforced inside it.
+    `request` lets admin_bypass() see who is acting (DRF sets request.user on the underlying request once it has
+    authenticated, so this also works for token-authenticated API calls, not just logged-in sessions)."""
+    previous = getattr(_state, "request", None)
     _state.requests = getattr(_state, "requests", 0) + 1
+    _state.request = request
     try:
         yield
     finally:
         _state.requests -= 1
+        _state.request = previous
+
+
+def admin_bypass() -> bool:
+    """True when the request being served was made by an admin: admins may record manual entries on any project,
+    whatever stage of the workflow it is at. Everyone else stays subject to the rule."""
+    request = getattr(_state, "request", None)
+    user = getattr(request, "user", None)
+    return bool(user is not None and user.is_authenticated and user.is_admin())
 
 
 @contextmanager
@@ -138,6 +153,9 @@ def ready_projects():
     from projects.models import Project, ProjectInsurance
     from reports.progress_models import ProjectPhase, ProjectPhaseSubItem
 
+    if admin_bypass():
+        return Project.objects.all()
+
     valid_policy = ProjectInsurance.objects.filter(project=OuterRef("pk"), end_date__gte=timezone.localdate()).exclude(document="")
     any_phase = ProjectPhase.objects.filter(project=OuterRef("pk"))
     bad_item = ProjectPhaseSubItem.objects.filter(phase__project=OuterRef("pk")).filter(
@@ -171,7 +189,7 @@ class ProjectNotReady(APIException):
 
 def enforce(project):
     """Raise ProjectNotReady if the rule is being enforced and `project` isn't ready. No-op for None."""
-    if project is None or not enforcing():
+    if project is None or not enforcing() or admin_bypass():
         return
     readiness = check(project)
     if not readiness.ok:

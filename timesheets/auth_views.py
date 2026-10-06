@@ -47,6 +47,31 @@ def hr_manager_required(view_func):
     return _wrapped_view
 
 
+def is_hr_manager(user):
+    """Same test hr_manager_required applies: who may prepare, edit and post the HR payroll pages."""
+    return bool(user.is_authenticated and (
+        user.is_staff or user.has_perm('timesheets.add_employee') or user.groups.filter(name='HR Managers').exists()
+    ))
+
+
+def wages_access_required(view_func):
+    """
+    The day-labor wages pages (Wages Run, vouchers): the HR managers who prepare them and the accountant who approves them
+    (role "accountant"), plus admins. Editing actions keep using hr_manager_required.
+    """
+    @wraps(view_func)
+    def _wrapped_view(request, *args, **kwargs):
+        user = request.user
+        if not user.is_authenticated:
+            return redirect('timesheets:login')
+        if (user.is_staff or user.has_perm('timesheets.add_employee') or user.groups.filter(name='HR Managers').exists()
+                or user.is_admin() or user.is_accountant()):
+            return view_func(request, *args, **kwargs)
+        return HttpResponseForbidden("You don't have permission to access this page.")
+
+    return _wrapped_view
+
+
 def login_view(request):
     """
     Custom login view for HR personnel

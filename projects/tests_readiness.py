@@ -215,6 +215,21 @@ class EnforcementTests(TestCase):
         with readiness.request_scope():
             self.daily(closed)
 
+    def test_an_admin_may_record_on_a_project_that_is_not_ready(self):
+        # Manual entries by an admin skip the whole start-up workflow; anyone else is still blocked.
+        class Req:
+            pass
+
+        admin_req, pm_req = Req(), Req()
+        admin_req.user, pm_req.user = self.admin, self.pm
+        with readiness.request_scope(admin_req):
+            self.daily(self.blocked)
+            self.assertEqual(readiness.ready_projects().filter(pk=self.blocked.pk).count(), 1)
+        with readiness.request_scope(pm_req):
+            with self.assertRaises(readiness.ProjectNotReady):
+                self.daily(self.blocked)
+            self.assertFalse(readiness.ready_projects().filter(pk=self.blocked.pk).exists())
+
 
 class WebBehaviourTests(TestCase):
     @classmethod
