@@ -1245,7 +1245,22 @@
                                 <option value="{{ lc.id }}">{{ lc.category.name }} - {{ lc.name }}</option>
                                 {% endfor %}
                             </select>
-                            <div class="form-text">Required so the printed report can group and total hours by trade.</div>
+                            <div class="form-text">Required so the printed report can group and total hours by trade.
+                                <a href="#" class="ms-1" onclick="toggleTradeBox(this); return false;">Trade not in the list? Add it</a></div>
+                            <div class="trade-add-box border rounded p-2 mt-2" style="display:none;">
+                                <div class="row g-2">
+                                    <div class="col-12 col-sm-6"><input type="text" class="form-control form-control-sm trade-name" placeholder="Trade name, e.g. Block Mason" maxlength="100"></div>
+                                    <div class="col-12 col-sm-6">
+                                        <select class="form-select form-select-sm trade-category">
+                                            {% for wc in workforce_categories %}<option value="{{ wc.id }}">{{ wc.name }}</option>{% endfor %}
+                                        </select>
+                                    </div>
+                                </div>
+                                <div class="mt-2 d-flex gap-2 align-items-center">
+                                    <button type="button" class="btn btn-sm btn-primary" onclick="saveNewTrade(this)">Add trade</button>
+                                    <span class="small text-danger trade-msg"></span>
+                                </div>
+                            </div>
                         </div>
                         <div class="col-md-6">
                             <label class="form-label">Contractor / Company</label>
@@ -1490,7 +1505,22 @@
                                 <option value="{{ lc.id }}">{{ lc.category.name }} - {{ lc.name }}</option>
                                 {% endfor %}
                             </select>
-                            <div class="form-text">Required so the printed report can group and total hours by trade.</div>
+                            <div class="form-text">Required so the printed report can group and total hours by trade.
+                                <a href="#" class="ms-1" onclick="toggleTradeBox(this); return false;">Trade not in the list? Add it</a></div>
+                            <div class="trade-add-box border rounded p-2 mt-2" style="display:none;">
+                                <div class="row g-2">
+                                    <div class="col-12 col-sm-6"><input type="text" class="form-control form-control-sm trade-name" placeholder="Trade name, e.g. Block Mason" maxlength="100"></div>
+                                    <div class="col-12 col-sm-6">
+                                        <select class="form-select form-select-sm trade-category">
+                                            {% for wc in workforce_categories %}<option value="{{ wc.id }}">{{ wc.name }}</option>{% endfor %}
+                                        </select>
+                                    </div>
+                                </div>
+                                <div class="mt-2 d-flex gap-2 align-items-center">
+                                    <button type="button" class="btn btn-sm btn-primary" onclick="saveNewTrade(this)">Add trade</button>
+                                    <span class="small text-danger trade-msg"></span>
+                                </div>
+                            </div>
                         </div>
                         <div class="col-md-6">
                             <label class="form-label">Contractor / Company</label>
@@ -2543,6 +2573,33 @@ function deleteNextDayPlan(id) {
             headers: {'X-CSRFToken': csrfToken}
         }).then(r => r.ok ? location.reload() : showAlert('Error deleting', 'danger'));
     }
+}
+
+function toggleTradeBox(link) {
+    var box = link.closest('.col-md-6').querySelector('.trade-add-box');
+    box.style.display = box.style.display === 'none' ? '' : 'none';
+    if (box.style.display === '') box.querySelector('.trade-name').focus();
+}
+
+function saveNewTrade(btn) {
+    var box = btn.closest('.trade-add-box'), col = box.closest('.col-md-6');
+    var msg = box.querySelector('.trade-msg'), name = box.querySelector('.trade-name').value.trim();
+    msg.textContent = '';
+    if (!name) { msg.textContent = 'Type the trade name.'; return; }
+    var body = new URLSearchParams({name: name, category: box.querySelector('.trade-category').value});
+    fetch("{% url 'reports:api_add_labor_classification' %}", {
+        method: 'POST', headers: {'X-CSRFToken': csrfToken, 'Content-Type': 'application/x-www-form-urlencoded'}, body: body.toString(),
+    }).then(function (r) { return r.json().then(function (d) { return {ok: r.ok, d: d}; }); }).then(function (res) {
+        if (!res.ok || !res.d.success) { msg.textContent = res.d.message || 'Could not add the trade.'; return; }
+        document.querySelectorAll('select[name="labor_classification"]').forEach(function (sel) {
+            if (!sel.querySelector('option[value="' + res.d.id + '"]')) {
+                var opt = document.createElement('option'); opt.value = res.d.id; opt.textContent = res.d.label; sel.appendChild(opt);
+            }
+        });
+        col.querySelector('select[name="labor_classification"]').value = res.d.id;
+        box.querySelector('.trade-name').value = '';
+        box.style.display = 'none';
+    }).catch(function () { msg.textContent = 'Connection problem. Try again.'; });
 }
 </script>
 {% endblock %}

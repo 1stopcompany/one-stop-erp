@@ -315,6 +315,27 @@ def edit_daily_attachment(request, report_id, attachment_id):
 
 @login_required
 @require_http_methods(["POST"])
+def add_labor_classification(request):
+    """
+    Add a trade to the master list (reports.LaborClassification) from the Daily Report page's worker form, so a missing trade
+    does not block the attendance entry. Anyone who can edit daily reports may add one; it is listed for everybody from then on.
+    """
+    from .master_data_models import LaborClassification, WorkforceCategory
+    name = ' '.join(request.POST.get('name', '').split())
+    if not name:
+        return JsonResponse({'success': False, 'message': 'The trade name is required.'}, status=400)
+    category = WorkforceCategory.objects.filter(pk=request.POST.get('category') or None, is_active=True).first()
+    if category is None:
+        return JsonResponse({'success': False, 'message': 'Pick the category of this trade.'}, status=400)
+    trade, created = LaborClassification.objects.get_or_create(category=category, name=name, defaults={'is_active': True})
+    if not trade.is_active:
+        trade.is_active = True
+        trade.save(update_fields=['is_active'])
+    return JsonResponse({'success': True, 'created': created, 'id': trade.id, 'label': f'{category.name} - {trade.name}'})
+
+
+@login_required
+@require_http_methods(["POST"])
 def add_daily_worker(request):
     """
     Add a new day laborer to the shared roster (timesheets.DailyWorker) from inside the Daily

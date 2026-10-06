@@ -386,6 +386,8 @@ class DailyReportDetailView(LoginRequiredMixin, DetailView):
             report_type='daily', report_id=report.id
         ).order_by('order', 'created_at')
         context['labor_classifications'] = LaborClassification.objects.filter(is_active=True)
+        from .master_data_models import WorkforceCategory
+        context['workforce_categories'] = WorkforceCategory.objects.filter(is_active=True).order_by('order', 'name')
         context['phase_sub_items'] = ProjectPhaseSubItem.objects.filter(
             phase__project=report.project
         ).select_related('phase')
