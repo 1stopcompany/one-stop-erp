@@ -32,6 +32,8 @@
 
     L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
         maxZoom: 19,
+        // OpenStreetMap refuses tile requests that carry no Referer ("Access blocked", HTTP 403)
+        referrerPolicy: "strict-origin-when-cross-origin",
         attribution: "&copy; OpenStreetMap contributors"
     }).addTo(map);
 

@@ -277,6 +277,9 @@ EMAIL_USE_TLS = env_bool('EMAIL_USE_TLS', True)
 DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL', 'no-reply@one-stop-erp.local')
 COMPANY_NAME = os.getenv('COMPANY_NAME', 'One Stop Contracting and Services')
 SITE_URL = os.getenv('SITE_URL', 'http://127.0.0.1:8000').rstrip('/')
+# Django's default (same-origin) sends no Referer to other sites, and OpenStreetMap's tile servers answer 403
+# "Access blocked" to requests without one (the Attendance Map). Send just the site's address to other sites.
+SECURE_REFERRER_POLICY = 'strict-origin-when-cross-origin'
 # Names printed at the foot of the day-labor wages sheet ("اعداد / تدقيق"); blank = an empty line to sign.
 WAGES_PREPARED_BY = os.getenv('WAGES_PREPARED_BY', '')
 WAGES_REVIEWED_BY = os.getenv('WAGES_REVIEWED_BY', '')
