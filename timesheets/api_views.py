@@ -37,7 +37,7 @@ class MyEmployeeView(APIView):
 
     def get(self, request):
         # يرجّع الموظف المرتبط بالمستخدم الحالي
-        emp = get_object_or_404(Employee.objects.select_related('department', 'position'), user=request.user)
+        emp = get_object_or_404(Employee.objects.select_related('department', 'position', 'project'), user=request.user)
 
         return Response({
             "id": emp.id,
@@ -47,6 +47,7 @@ class MyEmployeeView(APIView):
             "last_name": emp.last_name,
             "department": emp.department.name if emp.department_id else None,
             "position": emp.position.title if emp.position_id else None,
+            "project": emp.project.name if emp.project_id else None,
             "email": emp.email,
             "phone_number": emp.phone_number,
             "employment_status": emp.employment_status,
