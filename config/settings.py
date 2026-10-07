@@ -282,6 +282,9 @@ SITE_URL = os.getenv('SITE_URL', 'http://127.0.0.1:8000').rstrip('/')
 SECURE_REFERRER_POLICY = 'strict-origin-when-cross-origin'
 # Names printed at the foot of the day-labor wages sheet ("اعداد / تدقيق"); blank = an empty line to sign.
 WAGES_PREPARED_BY = os.getenv('WAGES_PREPARED_BY', '')
+# Names on the employee payroll sheet ("إعداد : شؤون الموظفين / تدقيق"), as on the company's salary sheet.
+PAYROLL_PREPARED_BY = os.getenv('PAYROLL_PREPARED_BY', 'بلقيس عواوده')
+PAYROLL_REVIEWED_BY = os.getenv('PAYROLL_REVIEWED_BY', 'أمل دودين')
 WAGES_REVIEWED_BY = os.getenv('WAGES_REVIEWED_BY', '')
 
 # -------------------------

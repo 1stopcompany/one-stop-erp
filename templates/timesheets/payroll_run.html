@@ -21,7 +21,8 @@
   .pr-page .badge { font-size: 10.5px; font-weight: 700; }
   .pr-page .text-muted.small, .pr-page .small { font-size: 11.5px; }
   .pr-page details summary { cursor: pointer; font-size: 12px; color: #5b6b82; }
-  .pr-page .table input[type=number] { min-width: 84px; }
+  .pr-page .table input[type=number] { min-width: 62px; width: 72px; padding-left: 4px; padding-right: 4px; }
+  .pr-page .table > tbody td, .pr-page .table > thead th { padding-left: 5px; padding-right: 5px; }
   .pr-page .card { border-color: #d9e0ec; box-shadow: none; }
   .pr-page .drag-handle { padding: 4px 2px; user-select: none; }
   .pr-page .drag-handle:active { cursor: grabbing; }
@@ -140,7 +141,7 @@
                                 {% if p.note %}<div class="small fst-italic text-muted">{{ p.note }}</div>{% endif %}
                             {% else %}
                                 <input type="text" name="note" form="row-{{ p.pk }}" value="{{ p.note }}" maxlength="300"
-                                       class="form-control form-control-sm mt-1" placeholder="Note · ملاحظة" style="min-width:200px;">
+                                       class="form-control form-control-sm mt-1" placeholder="Note · ملاحظة" style="min-width:150px;">
                             {% endif %}
                         </td>
                         {% if p.status == 'posted' %}
@@ -171,7 +172,7 @@
                             <form id="row-{{ p.pk }}" method="post" action="{% url 'timesheets:payroll_run_update_row' p.pk %}"></form>
                             <td class="text-end">
                                 <input type="number" step="0.01" name="base_pay" form="row-{{ p.pk }}"
-                                       value="{{ p.base_pay }}" class="form-control form-control-sm text-end" style="min-width:95px;">
+                                       value="{{ p.base_pay }}" class="form-control form-control-sm text-end" style="min-width:76px;">
                                 {% if p.manual_base_pay is not None %}<span class="badge bg-info text-dark">manual</span>{% endif %}
                             </td>
                             <td class="text-end">
@@ -228,6 +229,35 @@
             </table>
         </div>
     </div>
+</div>
+
+
+<div class="card mt-4" id="payroll-notes">
+    <div class="card-header fw-bold"><i class="fas fa-sticky-note me-2"></i>Notes · ملاحظات
+        <span class="text-muted fw-normal small">(printed under the table in the PDF and Excel)</span></div>
+    <ul class="list-group list-group-flush">
+        {% for n in notes %}
+        <li class="list-group-item">
+            <form method="post" action="{% url 'timesheets:payroll_note_save' %}" class="d-flex gap-2 align-items-center">
+                {% csrf_token %}
+                <input type="hidden" name="month" value="{{ month_param }}"><input type="hidden" name="pk" value="{{ n.pk }}">
+                <input type="text" name="text" value="{{ n.text }}" maxlength="500" class="form-control form-control-sm" dir="auto">
+                <button type="submit" class="btn btn-sm btn-outline-primary" title="Save this note"><i class="fas fa-save"></i></button>
+                <button type="submit" formaction="{% url 'timesheets:payroll_note_delete' n.pk %}" class="btn btn-sm btn-outline-danger"
+                        onclick="return confirm('Delete this note?');" title="Delete this note"><i class="fas fa-trash"></i></button>
+            </form>
+        </li>
+        {% endfor %}
+        <li class="list-group-item bg-light">
+            <form method="post" action="{% url 'timesheets:payroll_note_save' %}" class="d-flex gap-2 align-items-center">
+                {% csrf_token %}
+                <input type="hidden" name="month" value="{{ month_param }}">
+                <input type="text" name="text" maxlength="500" class="form-control form-control-sm" dir="auto"
+                       placeholder="Write a note, e.g. ** تم خصم 1500 شيكل عن ... (you can add as many as you need)" required>
+                <button type="submit" class="btn btn-sm btn-primary text-nowrap"><i class="fas fa-plus me-1"></i>Add note</button>
+            </form>
+        </li>
+    </ul>
 </div>
 
 {% if excluded %}

@@ -1248,7 +1248,7 @@ def payroll_run(request):
     was posted. Export is still available from here, but it's the last
     step, not the first.
     """
-    from .models import Payslip
+    from .models import Payslip, PayrollNote
     from .services.payroll_service import compute_payslip_salaried
 
     period_start, period_end = _resolve_month_period(request.GET.get("month"))
@@ -1293,6 +1293,7 @@ def payroll_run(request):
         ),
         "is_admin_user": request.user.is_admin(),
         "posted_count": sum(1 for p in payslips if p.status == "posted"),
+        "notes": list(PayrollNote.objects.filter(period_start=period_start)),
     }
     return render(request, "timesheets/payroll_run.html", context)
 
@@ -1345,6 +1346,44 @@ def payroll_run_update_row(request, pk):
     )
     messages.success(request, f'Updated {payslip.employee.full_name}.')
     return redirect(f"{reverse('timesheets:payroll_run')}?month={payslip.period_start.strftime('%Y-%m')}")
+
+
+@hr_manager_required
+@require_http_methods(["POST"])
+def payroll_note_save(request):
+    """Add a note under the month's payroll table (no `pk`), or change one (`pk`); an empty text on an existing note deletes it."""
+    from .models import PayrollNote
+
+    period_start, _ = _resolve_month_period(request.POST.get("month"))
+    back = redirect(f"{reverse('timesheets:payroll_run')}?month={period_start.strftime('%Y-%m')}#payroll-notes")
+    text = " ".join((request.POST.get("text") or "").split())[:500]
+    pk = request.POST.get("pk")
+    if pk:
+        note = get_object_or_404(PayrollNote, pk=pk)
+        if not text:
+            note.delete()
+            messages.info(request, 'The note was deleted.')
+        else:
+            note.text = text
+            note.save(update_fields=['text'])
+        return back
+    if not text:
+        messages.error(request, 'Write the note first.')
+        return back
+    last = PayrollNote.objects.filter(period_start=period_start).order_by('-order').first()
+    PayrollNote.objects.create(period_start=period_start, text=text, order=(last.order + 1) if last else 1, created_by=request.user)
+    return back
+
+
+@hr_manager_required
+@require_http_methods(["POST"])
+def payroll_note_delete(request, pk):
+    from .models import PayrollNote
+
+    note = get_object_or_404(PayrollNote, pk=pk)
+    month = note.period_start.strftime('%Y-%m')
+    note.delete()
+    return redirect(f"{reverse('timesheets:payroll_run')}?month={month}#payroll-notes")
 
 
 @hr_manager_required
@@ -1482,105 +1521,18 @@ def payroll_run_post(request):
     return redirect(f"{reverse('timesheets:payroll_run')}?month={period_start.strftime('%Y-%m')}")
 
 
-@login_required
-def export_payroll_excel(request):
-    """
-    One row per active employee for a given calendar month (default: the
-    current month; pass ?month=YYYY-MM for another one), on the fixed
-    monthly-salary basis (see payroll_service.compute_payslip_salaried) --
-    reflects whatever the payroll_run review screen currently holds for
-    that month (draft or posted).
-
-    Overtime hours / other allowances / other deductions / advances / tax
-    are HR-entered figures, not auto-computed -- if a Payslip already
-    exists for an employee+month, those figures are carried forward (and
-    a posted payslip is left untouched) so this never wipes out reviewed
-    data; otherwise they default to 0 for a first pass.
-    """
+def _payroll_slips_for_export(request, period_start, period_end):
+    """The month's payslips in the order of the sheet (the same people and order as the Payroll Run page)."""
     from .models import Payslip
     from .services.payroll_service import compute_payslip_salaried
 
-    period_start, period_end = _resolve_month_period(request.GET.get("month"))
-
-    wb = openpyxl.Workbook()
-    ws = wb.active
-    ws.title = "Payroll"
-
-    headers = [
-        "Employee ID", "Name", "Department",
-        "Base Pay", "Overtime Hours", "Overtime Pay", "Other Allowances",
-        "Gross Pay", "Unpaid Leave Days", "Unpaid Leave Deduction",
-        "Other Deductions", "Advances", "Net Pay", "Tax (info only)",
-    ]
-    ws.append(headers)
-    money_cols = [4, 6, 7, 8, 10, 11, 12, 13, 14]
-
-    totals = [0.0] * len(headers)
-    row_idx = 1
-    for emp in _payroll_employees(period_start, period_end):
-        existing = Payslip.objects.filter(employee=emp, period_start=period_start, period_end=period_end).first()
-        payslip = compute_payslip_salaried(
-            emp, period_start, period_end,
-            overtime_hours=existing.overtime_hours if existing else 0,
-            other_allowances=existing.other_allowances if existing else 0,
-            other_deductions=existing.other_deductions if existing else 0,
-            advances=existing.advances if existing else 0,
-            tax=existing.tax if existing else 0,
-            generated_by=request.user,
-        )
-
-        row = [
-            emp.employee_id, emp.full_name, emp.department.name if emp.department_id else "",
-            float(payslip.base_pay), float(payslip.overtime_hours), float(payslip.overtime_pay),
-            float(payslip.other_allowances), float(payslip.gross_pay),
-            float(payslip.unpaid_leave_days), float(payslip.unpaid_leave_deduction),
-            float(payslip.other_deductions), float(payslip.advances), float(payslip.net_pay), float(payslip.tax),
-        ]
-        ws.append(row)
-        row_idx += 1
-        for i, v in enumerate(row):
-            if isinstance(v, (int, float)):
-                totals[i] += v
-
-    total_row_idx = row_idx + 1
-    total_row = ["", "TOTAL", ""] + [totals[i] for i in range(3, len(headers))]
-    ws.append(total_row)
-
-    for r in range(2, row_idx + 1):
-        for c in money_cols:
-            ws.cell(row=r, column=c).number_format = "#,##0.00"
-    for c in money_cols:
-        ws.cell(row=total_row_idx, column=c).number_format = "#,##0.00"
-
-    _style_excel_header(ws, len(headers))
-    _style_excel_totals_row(ws, total_row_idx, len(headers))
-    _autosize_excel_columns(ws, [12, 22, 16, 12, 10, 12, 12, 12, 12, 14, 12, 12, 12, 12])
-    ws.title = "Payroll"
-
-    response = HttpResponse(
-        content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-    )
-    response["Content-Disposition"] = f"attachment; filename=payroll-{period_start.strftime('%Y-%m')}.xlsx"
-    wb.save(response)
-    return response
-
-
-@login_required
-def export_payroll_pdf(request):
-    """PDF twin of export_payroll_excel -- same figures, formatted for printing/sharing (see timesheets/pdf.py)."""
-    from .models import Payslip
-    from .services.payroll_service import compute_payslip_salaried
-    from .pdf import generate_payroll_run_pdf
-
-    period_start, period_end = _resolve_month_period(request.GET.get("month"))
-
-    payslips = []
+    slips = []
     for emp in _payroll_employees(period_start, period_end):
         existing = Payslip.objects.filter(employee=emp, period_start=period_start, period_end=period_end).first()
         if existing and existing.status == "posted":
-            payslips.append(existing)
+            slips.append(existing)
             continue
-        payslips.append(compute_payslip_salaried(
+        slips.append(compute_payslip_salaried(
             emp, period_start, period_end,
             overtime_hours=existing.overtime_hours if existing else 0,
             other_allowances=existing.other_allowances if existing else 0,
@@ -1589,12 +1541,39 @@ def export_payroll_pdf(request):
             tax=existing.tax if existing else 0,
             generated_by=request.user,
         ))
+    return slips
 
-    is_posted = bool(payslips) and all(p.status == "posted" for p in payslips)
-    generated_by = request.user.get_full_name() or request.user.username
 
-    pdf_bytes = generate_payroll_run_pdf(payslips, period_start, is_posted, generated_by=generated_by)
-    response = HttpResponse(pdf_bytes, content_type="application/pdf")
+@login_required
+def export_payroll_excel(request):
+    """
+    The employee payroll of a month (?month=YYYY-MM) as the company's salary sheet: same columns, right-to-left, one landscape
+    page, totals, prepared/reviewed line and the notes written under the table (see timesheets.payroll_sheet_excel). It reflects what the
+    Payroll Run page holds for that month (draft or posted); employees taken out of the month are left out.
+    """
+    from .models import PayrollNote
+    from .payroll_sheet_excel import build_payroll_workbook
+
+    period_start, period_end = _resolve_month_period(request.GET.get("month"))
+    slips = _payroll_slips_for_export(request, period_start, period_end)
+    notes = list(PayrollNote.objects.filter(period_start=period_start).values_list('text', flat=True))
+    wb = build_payroll_workbook(slips, period_start, notes)
+    response = HttpResponse(content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+    response["Content-Disposition"] = f"attachment; filename=payroll-{period_start.strftime('%Y-%m')}.xlsx"
+    wb.save(response)
+    return response
+
+
+@login_required
+def export_payroll_pdf(request):
+    """PDF twin of export_payroll_excel: the company's salary sheet, same numbers and the same notes."""
+    from .models import PayrollNote
+    from .payroll_sheet_pdf import generate_payroll_sheet_pdf
+
+    period_start, period_end = _resolve_month_period(request.GET.get("month"))
+    slips = _payroll_slips_for_export(request, period_start, period_end)
+    notes = list(PayrollNote.objects.filter(period_start=period_start).values_list('text', flat=True))
+    response = HttpResponse(generate_payroll_sheet_pdf(slips, period_start, notes), content_type="application/pdf")
     response["Content-Disposition"] = f"attachment; filename=payroll-{period_start.strftime('%Y-%m')}.pdf"
     return response
 

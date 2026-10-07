@@ -854,6 +854,24 @@ class DailyWorkerPayslip(models.Model):
         return f'{self.worker.full_name} - {self.period_start} to {self.period_end}'
 
 
+class PayrollNote(models.Model):
+    """A note written under the employee payroll table of one month (printed in its PDF and Excel); a month can have several."""
+
+    period_start = models.DateField(db_index=True, help_text='First day of the month the note belongs to')
+    text = models.CharField(max_length=500)
+    order = models.PositiveIntegerField(default=0)
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='payroll_notes',
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['period_start', 'order', 'id']
+
+    def __str__(self):
+        return f'{self.period_start:%Y-%m}: {self.text[:40]}'
+
+
 class DailyWorkerManualEntry(models.Model):
     """
     An exceptional, admin-only entry typed into the Wages Run's "Manual
