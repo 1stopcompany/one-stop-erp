@@ -40,7 +40,7 @@ HEADER_LINES = [
     ['التاريخ'], ['اليوم'], ['الحالة'], ['الدخول'], ['الخروج'], ['استراحة', '(س)'], ['الساعات', '(س)'], ['إضافي', '(س)'],
     ['تأخير', '(د)'], ['نقص', '(د)'], ['المشاريع - تفصيل الساعات'], ['ملاحظات'],
 ]
-WEIGHTS = [9, 8.5, 11, 6, 6, 6.5, 6.5, 6, 5.5, 5.5, 28, 11]
+WEIGHTS = [9, 8.5, 11, 6.5, 6.5, 7, 7, 6.5, 6, 6, 18, 14]
 
 # Spacing levels, roomy first. The first that gives a single page is used; the last one is used (and may need a second page) otherwise.
 LEVELS = [
@@ -81,6 +81,7 @@ def _build(employee, records, period_start, generated_by, allocations, breakdown
     cell = ParagraphStyle('DCell', parent=base, fontName=FONT, fontSize=size, leading=size + 1.7, alignment=TA_CENTER)
     cell_r = ParagraphStyle('DCellR', parent=cell, alignment=TA_RIGHT)
     small_r = ParagraphStyle('DSmallR', parent=cell_r, fontSize=size - 0.6, leading=size + 0.9)
+    small_c = ParagraphStyle('DSmallC', parent=cell, fontSize=size - 0.4, leading=size + 0.9)
     head = ParagraphStyle('DHead', parent=cell, fontName=BOLD, fontSize=size - 0.2, leading=size + 1.1, textColor=colors.white)
     bold = ParagraphStyle('DBold', parent=cell, fontName=BOLD)
     bold_r = ParagraphStyle('DBoldR', parent=bold, alignment=TA_RIGHT)
@@ -150,12 +151,11 @@ def _build(employee, records, period_start, generated_by, allocations, breakdown
         if info:
             lines = []
             for row in info['rows']:
-                name = row['project'].name
-                part = f"{name if len(name) <= 30 else name[:29] + '…'}: {_num(row['regular'], False)}"
+                part = f"{row['project'].project_symbol}: {_num(row['regular'], False)}"
                 if row['overtime']:
-                    part += f" + {_num(row['overtime'], False)} إضافي"
+                    part += f" + {_num(row['overtime'], False)} OT"
                 lines.append(part)
-            project_cell = text('\n'.join(lines), small_r, widths[10])
+            project_cell = Paragraph('<br/>'.join(lines), small_c)   # project symbols and numbers only: plain left-to-right text
         else:
             project_cell = ''
         worked = hours is not None
@@ -203,11 +203,11 @@ def _build(employee, records, period_start, generated_by, allocations, breakdown
                                  ('BOTTOMPADDING', (0, 0), (-1, -1), level['pad'])]))
     closing = [summary]
     if breakdown:
-        project_rows = [rtl([Paragraph(_t(h), head) for h in ['المشروع', 'عدد الأيام', 'الساعات', 'الساعات الإضافية']])]
+        project_rows = [rtl([Paragraph(_t(h), head) for h in ['الرمز', 'المشروع', 'عدد الأيام', 'الساعات', 'الساعات الإضافية']])]
         for item in breakdown:
-            project_rows.append(rtl([text(item['project'].name, cell_r, page_width * 0.5), str(item['days']),
-                                     _num(item['regular_hours'], False), _num(item['overtime_hours'], False)]))
-        pw = [page_width * 0.5, page_width * 0.16, page_width * 0.17, page_width * 0.17]
+            project_rows.append(rtl([Paragraph(item['project'].project_symbol, bold), text(item['project'].name, cell_r, page_width * 0.5),
+                                     str(item['days']), _num(item['regular_hours'], False), _num(item['overtime_hours'], False)]))
+        pw = [page_width * 0.12, page_width * 0.42, page_width * 0.14, page_width * 0.16, page_width * 0.16]
         project_table = Table(project_rows, colWidths=rtl(pw), repeatRows=1)
         project_table.setStyle(TableStyle([('FONTNAME', (0, 0), (-1, -1), FONT), ('FONTSIZE', (0, 0), (-1, -1), size), ('BACKGROUND', (0, 0), (-1, 0), NAVY_C),
                                            ('GRID', (0, 0), (-1, -1), 0.4, GRID_C), ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
