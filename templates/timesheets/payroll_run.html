@@ -21,7 +21,8 @@
   .pr-page .badge { font-size: 10.5px; font-weight: 700; }
   .pr-page .text-muted.small, .pr-page .small { font-size: 11.5px; }
   .pr-page details summary { cursor: pointer; font-size: 12px; color: #5b6b82; }
-  .pr-page .table input[type=number] { min-width: 62px; width: 72px; padding-left: 4px; padding-right: 4px; }
+  /* the boxes sit flush right under their right-aligned headers, so each header is clearly above its own box */
+  .pr-page .table input[type=number] { display: block; margin-left: auto; width: 78px; min-width: 62px; padding-left: 4px; padding-right: 4px; text-align: right; }
   .pr-page .table > tbody td, .pr-page .table > thead th { padding-left: 5px; padding-right: 5px; }
   .pr-page .card { border-color: #d9e0ec; box-shadow: none; }
   .pr-page .drag-handle { padding: 4px 2px; user-select: none; }
@@ -119,14 +120,14 @@
                     <tr>
                         <th>Employee</th>
                         <th class="text-end">Base Pay</th>
-                        <th class="text-end" style="width:90px;">OT Hours</th>
+                        <th class="text-end" style="width:92px;">OT Hours</th>
                         <th class="text-end">OT Pay</th>
-                        <th class="text-end" style="width:110px;">Allowances</th>
+                        <th class="text-end" style="width:92px;">Allowances</th>
                         <th class="text-end">Gross</th>
-                        <th class="text-end" style="width:110px;">Deductions</th>
-                        <th class="text-end" style="width:110px;" title="Unpaid-leave deduction (automatic from the Daily Time Record, or typed)">Unpaid leave</th>
-                        <th class="text-end" style="width:110px;">Advances</th>
-                        <th class="text-end" style="width:100px;">Tax (info)</th>
+                        <th class="text-end" style="width:92px;">Deductions</th>
+                        <th class="text-end" style="width:92px;" title="Unpaid-leave deduction (automatic from the Daily Time Record, or typed)">Unpaid leave</th>
+                        <th class="text-end" style="width:92px;">Advances</th>
+                        <th class="text-end" style="width:92px;">Tax (info)</th>
                         <th class="text-end">Net Pay</th>
                         <th></th>
                     </tr>
@@ -137,12 +138,6 @@
                         <td>
                             <span class="drag-handle me-2 text-muted" title="Drag to move this employee up or down" style="cursor:grab;"><i class="fas fa-grip-vertical"></i></span><a href="{% url 'timesheets:employee_detail' p.employee.pk %}" class="text-decoration-none">{{ p.employee.full_name }}</a>
                             <div class="text-muted small">{{ p.employee.position.title }}</div>
-                            {% if p.status == 'posted' %}
-                                {% if p.note %}<div class="small fst-italic text-muted">{{ p.note }}</div>{% endif %}
-                            {% else %}
-                                <input type="text" name="note" form="row-{{ p.pk }}" value="{{ p.note }}" maxlength="300"
-                                       class="form-control form-control-sm mt-1" placeholder="Note · ملاحظة" style="min-width:150px;">
-                            {% endif %}
                         </td>
                         {% if p.status == 'posted' %}
                             <td class="text-end">₪{{ p.base_pay }}</td>

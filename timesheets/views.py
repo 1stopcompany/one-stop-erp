@@ -1342,7 +1342,6 @@ def payroll_run_update_row(request, pk):
         generated_by=request.user,
         manual_base_pay=_typed_or_auto('base_pay', auto_base_pay(employee, start, end)),
         manual_unpaid_leave_deduction=_typed_or_auto('unpaid_leave_deduction', auto_unpaid_leave(employee, start, end)[1]),
-        note=request.POST.get('note', '').strip()[:300],
     )
     messages.success(request, f'Updated {payslip.employee.full_name}.')
     return redirect(f"{reverse('timesheets:payroll_run')}?month={payslip.period_start.strftime('%Y-%m')}")
