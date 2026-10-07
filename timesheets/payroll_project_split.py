@@ -124,38 +124,6 @@ def add_split_sheet(wb, people, projects, period_start, period_end):
             if c in (6, 8, 9):
                 cell.number_format = MONEY
         r += 1
-    r += 1
-
-    # what each project is charged in all
-    merge(r, 'التكلفة على كل مشروع', font(12, True, 'FFFFFF'), 22)
-    for c in range(1, last_col + 1):
-        ws.cell(r, c).fill = PatternFill('solid', fgColor=NAVY)
-    r += 1
-    header(r, ['#', '', 'المشروع', '', 'الساعات', 'تكلفة الساعات', 'ساعات إضافية', 'تكلفة الإضافي', 'الإجمالي'])
-    r += 1
-    first = r
-    for number, item in enumerate(projects, start=1):
-        values = {1: number, 3: item['project'].name, 5: float(item['regular_hours']), 6: float(item['regular_cost']),
-                  7: float(item['overtime_hours']), 8: float(item['overtime_cost']), 9: f'=F{r}+H{r}'}
-        for c in range(1, last_col + 1):
-            cell = ws.cell(r, c, values.get(c))
-            cell.font, cell.border = font(11, c == 9), GRID
-            cell.alignment = right if c == 3 else centre
-            if c in (6, 8, 9):
-                cell.number_format = MONEY
-        r += 1
-    last = r - 1
-    ws.cell(r, 3, 'المجموع')
-    for c in (5, 6, 7, 8, 9):
-        ws.cell(r, c, f'=SUM({L(c)}{first}:{L(c)}{last})')
-    for c in range(1, last_col + 1):
-        cell = ws.cell(r, c)
-        cell.font, cell.fill = font(11.5, True), PatternFill('solid', fgColor=TOTAL_FILL)
-        cell.border = Border(top=Side(style='medium', color=NAVY), bottom=Side(style='double', color=NAVY), left=HAIR, right=HAIR)
-        cell.alignment = right if c == 3 else centre
-        if c in (6, 8, 9):
-            cell.number_format = MONEY
-    ws.row_dimensions[r].height = 22
 
 
 # ------------------------------------------------------------------------------------------------ PDF
@@ -253,33 +221,6 @@ def generate_split_pdf(people, projects, period_start, period_end):
         style += [('BACKGROUND', (0, r), (-1, r), colors.HexColor('#DCE6F2')), ('FONTNAME', (0, r), (-1, r), BOLD)]
     table.setStyle(TableStyle(style))
 
-    # what each project is charged in all
-    project_rows = [rtl([Paragraph(_t(h), head) for h in ['#', 'المشروع', 'الساعات', 'تكلفة الساعات', 'ساعات إضافية', 'تكلفة الإضافي', 'الإجمالي']])]
-    sums = [ZERO] * 5
-    for number, item in enumerate(projects, start=1):
-        project_rows.append(rtl([
-            str(number), text(item['project'].name, cell_r, widths[1] + widths[2]), _plain(item['regular_hours']), _money(item['regular_cost']),
-            _plain(item['overtime_hours']), _money(item['overtime_cost']), _money(item['cost']),
-        ]))
-        for k, key in enumerate(('regular_hours', 'regular_cost', 'overtime_hours', 'overtime_cost', 'cost')):
-            sums[k] += item[key]
-    project_rows.append(rtl([
-        '', Paragraph(_t('المجموع'), bold_r), Paragraph(_plain(sums[0]), bold), Paragraph(_money(sums[1]), bold), Paragraph(_plain(sums[2]), bold),
-        Paragraph(_money(sums[3]), bold), Paragraph(_money(sums[4]), bold),
-    ]))
-    pw = [widths[0], widths[1] + widths[2], widths[4], widths[5], widths[6], widths[7], widths[8]]
-    project_table = Table(project_rows, colWidths=rtl(pw), repeatRows=1)
-    last = len(project_rows) - 1
-    project_table.setStyle(TableStyle([
-        ('FONTNAME', (0, 0), (-1, -1), FONT), ('FONTSIZE', (0, 0), (-1, -1), size), ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-        ('FONTNAME', (0, last), (-1, last), BOLD), ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'), ('GRID', (0, 0), (-1, -1), 0.4, GRID_C), ('TOPPADDING', (0, 0), (-1, -1), 2.6),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 2.6), ('BACKGROUND', (0, 0), (-1, 0), NAVY_C),
-        ('BACKGROUND', (0, last), (-1, last), colors.HexColor('#' + TOTAL_FILL)), ('LINEABOVE', (0, last), (-1, last), 1.2, NAVY_C),
-        ('LINEBELOW', (0, last), (-1, last), 1.6, NAVY_C),
-    ]))
-    bar_row = Table([[Paragraph(_t('التكلفة على كل مشروع'), bar)]], colWidths=[sum(pw)])
-    bar_row.setStyle(TableStyle([('BACKGROUND', (0, 0), (-1, -1), NAVY_C), ('TOPPADDING', (0, 0), (-1, -1), 4), ('BOTTOMPADDING', (0, 0), (-1, -1), 4)]))
-
     def footer(canvas, document):
         canvas.saveState()
         canvas.setFont(FONT, 8)
@@ -290,7 +231,7 @@ def generate_split_pdf(people, projects, period_start, period_end):
         canvas.line(margin, 0.42 * inch, page[0] - margin, 0.42 * inch)
         canvas.restoreState()
 
-    doc.build([banner, Spacer(1, 6), table, Spacer(1, 14), CondPageBreak(1.8 * inch), bar_row, project_table], onFirstPage=footer, onLaterPages=footer)
+    doc.build([banner, Spacer(1, 6), table], onFirstPage=footer, onLaterPages=footer)
     return buffer.getvalue()
 
 
