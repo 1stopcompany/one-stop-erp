@@ -2243,7 +2243,7 @@ def export_wages_excel(request):
 @login_required
 def export_wages_sheet_pdf(request):
     """The month in the company's own "كشف اجور عمال" layout: one table per project (see timesheets/pdf.py)."""
-    from .pdf import generate_wages_sheet_pdf
+    from .wages_sheet_pdf import generate_wages_sheet_pdf
     from .services.daily_worker_payroll_service import wages_sheet
 
     period_start, period_end = _resolve_month_period(request.GET.get("month"))
