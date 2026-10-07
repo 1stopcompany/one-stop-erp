@@ -1271,6 +1271,9 @@ def payroll_run(request):
         payslips.append(payslip)
 
     payslips.sort(key=lambda p: _payroll_sort_key(p.employee))
+    from .services.attendance_service import count_actual_days
+    for p in payslips:
+        p.actual_days = count_actual_days(p.employee, period_start, period_end)   # days he really clocked in
     is_posted = bool(payslips) and all(p.status == 'posted' for p in payslips)
 
     context = {

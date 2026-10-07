@@ -119,6 +119,7 @@
                 <thead>
                     <tr>
                         <th>Employee</th>
+                        <th class="text-center" title="Days of the month the employee really clocked in (GPS clock-in)">Days<br><span class="small fw-normal text-muted">أيام الدوام الفعلية</span></th>
                         <th class="text-end">Base Pay</th>
                         <th class="text-end" style="width:92px;">OT Hours</th>
                         <th class="text-end">OT Pay</th>
@@ -139,6 +140,7 @@
                             <span class="drag-handle me-2 text-muted" title="Drag to move this employee up or down" style="cursor:grab;"><i class="fas fa-grip-vertical"></i></span><a href="{% url 'timesheets:employee_detail' p.employee.pk %}" class="text-decoration-none">{{ p.employee.full_name }}</a>
                             <div class="text-muted small">{{ p.employee.position.title }}</div>
                         </td>
+                        <td class="text-center fw-bold">{{ p.actual_days }}</td>
                         {% if p.status == 'posted' %}
                             <td class="text-end">₪{{ p.base_pay }}</td>
                             <td class="text-end">{{ p.overtime_hours }}</td>
@@ -212,7 +214,7 @@
                     </tr>
                     {% empty %}
                     <tr>
-                        <td colspan="12" class="text-center py-5">
+                        <td colspan="13" class="text-center py-5">
                             <div class="text-muted">
                                 <i class="fas fa-users-slash fa-3x mb-3 opacity-50"></i>
                                 <p class="mb-0">No active employees to run payroll for.</p>
@@ -225,6 +227,7 @@
                 <tfoot>
                     <tr class="fw-bold" style="background:#dbe7f5;border-top:2px solid #98a8bf;">
                         <td>Total · المجموع <span class="text-muted fw-normal small">({{ payslips|length }})</span></td>
+                        <td></td>
                         <td class="text-end">₪{{ totals.base_pay }}</td>
                         <td class="text-end">{{ totals.overtime_hours }}</td>
                         <td class="text-end">₪{{ totals.overtime_pay }}</td>

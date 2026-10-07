@@ -219,6 +219,11 @@ def generate_daily_attendance(employee, period_start, period_end):
     return records
 
 
+def count_actual_days(employee, period_start, period_end):
+    """How many days of the period the employee really clocked in (a GPS clock-in on that day), Fridays included."""
+    return sum(1 for clock_in, _ in _checkins_by_day(employee, period_start, period_end).values() if clock_in is not None)
+
+
 def count_unpaid_leave_days(employee, period_start, period_end):
     return DailyAttendanceRecord.objects.filter(
         employee=employee, date__gte=period_start, date__lte=period_end, status='unpaid_leave',
