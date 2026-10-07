@@ -97,6 +97,8 @@ def build_wages_sheet_workbook(sheet):
     row += 3
     net_cells, used = [], 140
 
+    SUMMED = (4, 5, 6, 9, 10, 12, 13, 14, 15)   # days, Friday days, total days, total, OT hours, OT value, due, advances, net
+
     def money_cols(cell, c):
         if c in (7, 8, 9, 11, 12, 13, 14, 15):
             cell.number_format = MONEY
@@ -155,8 +157,8 @@ def build_wages_sheet_workbook(sheet):
             last = r - 1
             if section['has_subs']:
                 ws.cell(r, 2, f"مجموع {group['name'] or 'بدون متفرقة'}")
-                ws.cell(r, 13, f'=SUM(M{first}:M{last})')
-                ws.cell(r, 15, f'=SUM(O{first}:O{last})')
+                for col in SUMMED:
+                    ws.cell(r, col, f'=SUM({L(col)}{first}:{L(col)}{last})')
                 for c in range(1, last_col + 1):
                     cell = ws.cell(r, c)
                     cell.font, cell.fill, cell.border = font(11, True, NAVY), PatternFill('solid', fgColor=SUB_FILL), GRID
@@ -165,12 +167,12 @@ def build_wages_sheet_workbook(sheet):
                 subtotal_rows.append(r)
                 r += 1
         if section['has_subs']:
-            ws.cell(r, 13, '=' + '+'.join(f'M{x}' for x in subtotal_rows))
-            ws.cell(r, 15, '=' + '+'.join(f'O{x}' for x in subtotal_rows))
+            for col in SUMMED:
+                ws.cell(r, col, '=' + '+'.join(f'{L(col)}{x}' for x in subtotal_rows))
             ws.cell(r, 2, 'المجموع النهائي للمتفرقات')
         else:
-            ws.cell(r, 13, f'=SUM(M{first_all}:M{r - 1})')
-            ws.cell(r, 15, f'=SUM(O{first_all}:O{r - 1})')
+            for col in SUMMED:
+                ws.cell(r, col, f'=SUM({L(col)}{first_all}:{L(col)}{r - 1})')
             ws.cell(r, 2, 'المجموع')
         for c in range(1, last_col + 1):
             cell = ws.cell(r, c)

@@ -658,18 +658,26 @@
                     {% endfor %}
                 {% if sec.has_subs %}
                 <tr class="table-light fw-bold">
-                    <td></td><td>مجموع {% if g.name %}{{ g.name }}{% else %}بدون متفرقة{% endif %}</td><td colspan="10"></td>
-                    <td>{{ g.total_due|floatformat:2 }}</td><td></td>
-                    <td class="table-warning">{{ g.total_net|floatformat:2 }}</td><td></td><td></td>
+                    <td></td><td>مجموع {% if g.name %}{{ g.name }}{% else %}بدون متفرقة{% endif %}</td><td></td>
+                    <td>{{ g.sums.days|floatformat:"-2" }}</td><td>{{ g.sums.friday_days|floatformat:"-2" }}</td><td>{{ g.sums.total_days|floatformat:"-2" }}</td>
+                    <td></td><td></td><td>{{ g.sums.total|floatformat:2 }}</td>
+                    <td>{% if g.sums.overtime_hours %}{{ g.sums.overtime_hours|floatformat:"-2" }}{% endif %}</td><td></td>
+                    <td>{% if g.sums.overtime_value %}{{ g.sums.overtime_value|floatformat:2 }}{% endif %}</td>
+                    <td>{{ g.sums.due|floatformat:2 }}</td><td>{% if g.sums.advances %}{{ g.sums.advances|floatformat:2 }}{% endif %}</td>
+                    <td class="table-warning">{{ g.sums.net|floatformat:2 }}</td><td></td><td></td>
                 </tr>
                 {% endif %}
                 {% endfor %}
             </tbody>
             <tfoot>
                 <tr class="table-light fw-bold">
-                    <td></td><td>{% if sec.has_subs %}المجموع النهائي للمتفرقات{% else %}المجموع{% endif %}</td><td colspan="10"></td>
-                    <td>{{ sec.total_due|floatformat:2 }}</td><td></td>
-                    <td class="table-warning">{{ sec.total_net|floatformat:2 }}</td><td></td><td></td>
+                    <td></td><td>{% if sec.has_subs %}المجموع النهائي للمتفرقات{% else %}المجموع{% endif %}</td><td></td>
+                    <td>{{ sec.sums.days|floatformat:"-2" }}</td><td>{{ sec.sums.friday_days|floatformat:"-2" }}</td><td>{{ sec.sums.total_days|floatformat:"-2" }}</td>
+                    <td></td><td></td><td>{{ sec.sums.total|floatformat:2 }}</td>
+                    <td>{% if sec.sums.overtime_hours %}{{ sec.sums.overtime_hours|floatformat:"-2" }}{% endif %}</td><td></td>
+                    <td>{% if sec.sums.overtime_value %}{{ sec.sums.overtime_value|floatformat:2 }}{% endif %}</td>
+                    <td>{{ sec.sums.due|floatformat:2 }}</td><td>{% if sec.sums.advances %}{{ sec.sums.advances|floatformat:2 }}{% endif %}</td>
+                    <td class="table-warning">{{ sec.sums.net|floatformat:2 }}</td><td></td><td></td>
                 </tr>
             </tfoot>
         </table>

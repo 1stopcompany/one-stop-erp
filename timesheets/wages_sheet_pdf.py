@@ -113,11 +113,15 @@ def generate_wages_sheet_pdf(sheet, generated_by=None):
                 rtl([Paragraph('<br/>'.join(_t(line) for line in lines), head) for lines in HEADER_LINES])]
         sub_title_rows, sub_total_rows = [], []
 
-        def total_line(label_text, due, net):
+        def total_line(label_text, sums):
             line = [''] * ncols
             line[idx['name']] = Paragraph(_t(label_text), ParagraphStyle('WTL', parent=bold_cell, alignment=TA_RIGHT))
-            line[idx['due']] = Paragraph(_money(due), bold_cell)
-            line[idx['net']] = Paragraph(_money(net), bold_cell)
+            for key, column, money in (('days', 'days', False), ('friday_days', 'friday', False), ('total_days', 'tdays', False),
+                                       ('total', 'total', True), ('overtime_hours', 'oth', False), ('overtime_value', 'otv', True),
+                                       ('due', 'due', True), ('advances', 'adv', True), ('net', 'net', True)):
+                value = sums[key]
+                shown = _money(value, key != 'total') if money else (_plain(value) if value else '')
+                line[idx[column]] = Paragraph(shown, bold_cell) if shown else ''
             return line
 
         banded = []
@@ -137,8 +141,8 @@ def generate_wages_sheet_pdf(sheet, generated_by=None):
                 ]))
             if section['has_subs']:
                 sub_total_rows.append(len(rows))
-                rows.append(total_line(f"مجموع {group['name'] or 'بدون متفرقة'}", group['total_due'], group['total_net']))
-        rows.append(total_line('المجموع النهائي للمتفرقات' if section['has_subs'] else 'المجموع', section['total_due'], section['total_net']))
+                rows.append(total_line(f"مجموع {group['name'] or 'بدون متفرقة'}", group['sums']))
+        rows.append(total_line('المجموع النهائي للمتفرقات' if section['has_subs'] else 'المجموع', section['sums']))
         last = len(rows) - 1
         net_col = idx['net']
         style = [

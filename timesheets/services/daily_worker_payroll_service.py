@@ -202,6 +202,14 @@ def compute_daily_worker_payslip(
     return payslip
 
 
+SUMMED_COLUMNS = ('days', 'friday_days', 'total_days', 'total', 'overtime_hours', 'overtime_value', 'due', 'advances', 'net')
+
+
+def _column_sums(lines):
+    """The totals printed under the sheet's numeric columns (rates are not added up)."""
+    return {key: sum((line[key] for line in lines), Decimal('0')) for key in SUMMED_COLUMNS}
+
+
 def wages_sheet(period_start, period_end):
     """
     The month laid out like the company's own "كشف اجور عمال" sheet: one section per
@@ -255,12 +263,13 @@ def wages_sheet(period_start, period_end):
             for n, line in enumerate(lines, start=1):
                 line['n'] = n
             section['groups'].append({
-                'name': name, 'rows': lines,
+                'name': name, 'rows': lines, 'sums': _column_sums(lines),
                 'total_due': sum((r['due'] for r in lines), Decimal('0')),
                 'total_net': sum((r['net'] for r in lines), Decimal('0')),
             })
             flat += lines
         section['rows'] = flat
+        section['sums'] = _column_sums(flat)
         section['total_due'] = sum((r['due'] for r in section['rows']), Decimal('0'))
         section['total_net'] = sum((r['net'] for r in section['rows']), Decimal('0'))
 
