@@ -1254,7 +1254,7 @@ def daily_time_record_update_row(request, pk):
 
     messages.success(request, f'Updated {record.date} for {record.employee.full_name}.')
     return redirect(
-        f"{reverse('timesheets:daily_time_record', args=[record.employee_id])}?month={record.date.strftime('%Y-%m')}"
+        f"{reverse('timesheets:daily_time_record', args=[record.employee_id])}?month={record.date.strftime('%Y-%m')}#day-{record.date.isoformat()}"
     )
 
 

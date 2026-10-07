@@ -180,6 +180,11 @@
 </div>
 {% endif %}
 
+<style>
+    /* the floating assistant bubble sits over the last columns (Split / Save) of the rows near the bottom of the screen */
+    .aic-teaser { display: none !important; }
+    main { padding-bottom: 110px; }
+</style>
 <style>tr:target > td { animation: dayFlash 2.2s ease-out; } @keyframes dayFlash { from { background-color: #fff3a8; } to { background-color: transparent; } }</style>
 {% if can_split %}
 <div class="modal fade" id="splitModal" tabindex="-1" aria-hidden="true">
@@ -247,6 +252,14 @@
         body.appendChild(tr);
     }
     document.getElementById('splitAdd').onclick = function () { addRow(); };
+    window.addEventListener('pageshow', function (e) {
+        window.__dtrSubmitting = false;
+        if (e.persisted) {
+            document.body.classList.remove('modal-open'); document.body.style.removeProperty('overflow'); document.body.style.removeProperty('padding-right');
+            document.querySelectorAll('.modal-backdrop').forEach(function (b) { b.remove(); });
+            modalEl.classList.remove('show'); modalEl.style.display = 'none'; modalEl.removeAttribute('aria-modal');
+        }
+    });
     var reopen = new URLSearchParams(location.search).get('split');
     document.querySelectorAll('.split-btn').forEach(function (btn) {
         if (reopen && btn.dataset.date === reopen) { window.addEventListener('load', function () { btn.click(); }); }
@@ -258,10 +271,10 @@
                  btn.dataset.source === 'manual' ? 'Typed split for this day.' : 'No hours from the daily reports for this day.');
             body.innerHTML = '';
             var rows = JSON.parse(btn.dataset.rows || '[]');
-            var total = parseFloat(btn.dataset.total), overtime = parseFloat(btn.dataset.ot) || 0;
+            var dayTotal = parseFloat(btn.dataset.total), overtime = parseFloat(btn.dataset.ot) || 0;   // (not `total`: that is the function below)
             if (!rows.length) {
                 // nothing from the daily reports: start from the day's clock hours (regular = total - overtime), still editable
-                if (total > 0) addRow('', '', Math.round(Math.max(total - overtime, 0) * 100) / 100 || '', overtime || '');
+                if (dayTotal > 0) addRow('', '', Math.round(Math.max(dayTotal - overtime, 0) * 100) / 100 || '', overtime || '');
                 else addRow();
             }
             rows.forEach(function (r) { addRow(r.project, r.sub, parseFloat(r.regular) || '', parseFloat(r.overtime) || ''); });
