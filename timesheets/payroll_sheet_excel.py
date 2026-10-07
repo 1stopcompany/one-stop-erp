@@ -99,7 +99,7 @@ def build_payroll_workbook(payslips, period_start, notes, period_end=None):
     if logo and os.path.exists(logo):
         image = XLImage(logo)
         image.height, image.width = 62, 62 * image.width / image.height if image.height else 62
-        ws.add_image(image, 'B1')
+        ws.add_image(image, 'N1')   # the sheet is right-to-left, so the last columns are the left edge of the page
     header_row = 6
     ws.row_dimensions[5].height = 6
 

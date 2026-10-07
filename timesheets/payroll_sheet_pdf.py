@@ -106,21 +106,20 @@ def _build(payslips, period_start, notes, period_end, level):
     banner_rows = [[Paragraph(_t(COMPANY_AR), company)], [Paragraph(COMPANY_EN, company_en)],
                    [Paragraph(_t(title), title_style)],
                    [Paragraph(_t(f'{period_start:%d/%m/%Y}  -  {period_end:%d/%m/%Y}'), period_style)]]
-    banner_text = Table(banner_rows, colWidths=[page_width * 0.6])
+    side = page_width * 0.25
+    banner_text = Table(banner_rows, colWidths=[page_width - 2 * side])
     banner_text.setStyle(TableStyle([('TOPPADDING', (0, 0), (-1, -1), 1), ('BOTTOMPADDING', (0, 0), (-1, -1), 1)]))
-    cells = [banner_text]
-    cols = [page_width * 0.62]
+    # three equal-weight cells so the text is exactly in the middle of the page and the logo sits on the left edge
+    logo = ''
     if logo_path:
         from PIL import Image as PILImage
         with PILImage.open(logo_path) as logo_file:
             ratio = logo_file.width / logo_file.height
         logo = Image(logo_path, width=level['logo'] * inch * ratio, height=level['logo'] * inch)
-        cells.append(logo)
-        cols.append(page_width * 0.38)
-    banner = Table([cells], colWidths=cols)
-    banner.setStyle(TableStyle([('VALIGN', (0, 0), (-1, -1), 'MIDDLE'), ('ALIGN', (0, 0), (0, 0), 'CENTER'),
-                                ('ALIGN', (1, 0), (1, 0), 'LEFT'), ('LINEBELOW', (0, 0), (-1, 0), 1.2, NAVY_C),
-                                ('BOTTOMPADDING', (0, 0), (-1, -1), 6)]))
+    banner = Table([[logo, banner_text, '']], colWidths=[side, page_width - 2 * side, side])
+    banner.setStyle(TableStyle([('VALIGN', (0, 0), (-1, -1), 'MIDDLE'), ('ALIGN', (0, 0), (0, 0), 'LEFT'), ('ALIGN', (1, 0), (1, 0), 'CENTER'),
+                                ('LINEBELOW', (0, 0), (-1, 0), 1.2, NAVY_C), ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
+                                ('LEFTPADDING', (0, 0), (0, 0), 0)]))
 
     # ---- the table
     table_rows = [rtl([Paragraph('<br/>'.join(_t(line) for line in lines), head) for lines in sheet_data.HEADER_LINES])]
