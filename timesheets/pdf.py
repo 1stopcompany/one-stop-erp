@@ -364,34 +364,37 @@ def generate_dtr_pdf(employee, records, period_start, generated_by=None):
     total_overtime = 0
     total_late = 0
     total_undertime = 0
-    headers = ['Date', 'Day', 'Status', 'Clock In', 'Clock Out', 'Late (m)', 'Undertime (m)', 'OT (h)', 'Notes']
+    total_hours = 0
+    headers = ['Date', 'Day', 'Status', 'In', 'Out', 'Break (h)', 'Total (h)', 'Late (m)', 'Under (m)', 'OT (h)', 'Notes']
     rows = [headers]
     for r in records:
         counts[r.status] = counts.get(r.status, 0) + 1
         total_overtime += float(r.overtime_hours)
         total_late += r.late_minutes
         total_undertime += r.undertime_minutes
+        total_hours += float(r.total_hours or 0)
         rows.append([
             r.date.strftime('%Y-%m-%d'), r.date.strftime('%a'),
             STATUS_LABELS.get(r.status, r.status),
             r.clock_in.strftime('%H:%M') if r.clock_in else '—',
             r.clock_out.strftime('%H:%M') if r.clock_out else '—',
+            f'{r.break_hours:g}' if r.total_hours is not None else '—', f'{r.total_hours:g}' if r.total_hours is not None else '—',
             str(r.late_minutes), str(r.undertime_minutes), f'{r.overtime_hours:g}',
             _smart(r.notes, S['cell'], default=''),
         ])
-    col_widths = [page_width * w for w in [0.11, 0.07, 0.14, 0.1, 0.1, 0.1, 0.12, 0.08, 0.18]]
+    col_widths = [page_width * w for w in [0.11, 0.06, 0.12, 0.07, 0.07, 0.07, 0.08, 0.08, 0.08, 0.07, 0.19]]
     elements.append(_hdr_table(rows, col_widths, font_size=8))
     elements.append(Spacer(1, 0.2 * inch))
 
     elements.append(Paragraph('Summary', S['heading']))
     summary_rows = [['Present', 'Absent', 'On Leave', 'Unpaid Leave', 'Rest Day', 'Holiday',
-                      'Total OT (h)', 'Total Late (m)', 'Total Undertime (m)']]
+                      'Total Hours', 'Total OT (h)', 'Total Late (m)', 'Total Undertime (m)']]
     summary_rows.append([
         str(counts.get('present', 0)), str(counts.get('absent', 0)), str(counts.get('on_leave', 0)),
         str(counts.get('unpaid_leave', 0)), str(counts.get('rest_day', 0)), str(counts.get('holiday', 0)),
-        f'{total_overtime:g}', str(total_late), str(total_undertime),
+        f'{total_hours:g}', f'{total_overtime:g}', str(total_late), str(total_undertime),
     ])
-    elements.append(_hdr_table(summary_rows, [page_width / 9] * 9, font_size=8.5))
+    elements.append(_hdr_table(summary_rows, [page_width / 10] * 10, font_size=8))
 
     _footer(elements, S, generated_by)
 

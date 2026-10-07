@@ -1,5 +1,6 @@
 
 from datetime import datetime, timedelta
+from decimal import Decimal
 from django.db import models
 from django.conf import settings
 from django.core.validators import RegexValidator
@@ -488,6 +489,10 @@ class DailyAttendanceRecord(models.Model):
     late_minutes = models.PositiveIntegerField(default=0)
     undertime_minutes = models.PositiveIntegerField(default=0)
     overtime_hours = models.DecimalField(max_digits=5, decimal_places=2, default=0)
+    break_hours = models.DecimalField(
+        max_digits=4, decimal_places=2, default=1,
+        help_text='Lunch / rest break inside the day (hours), taken off the time between clock in and clock out',
+    )
     notes = models.CharField(max_length=255, blank=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -495,6 +500,16 @@ class DailyAttendanceRecord(models.Model):
         unique_together = [('employee', 'date')]
         ordering = ['date']
         indexes = [models.Index(fields=['employee', 'date'])]
+
+    @property
+    def total_hours(self):
+        """Hours worked that day: (clock out - clock in) - break; None when a time is missing or the times do not make a day."""
+        if not (self.clock_in and self.clock_out):
+            return None
+        minutes = (self.clock_out.hour * 60 + self.clock_out.minute) - (self.clock_in.hour * 60 + self.clock_in.minute)
+        if minutes <= 0:
+            return None
+        return max(Decimal(minutes) / Decimal(60) - Decimal(self.break_hours or 0), Decimal('0')).quantize(Decimal('0.01'))
 
     def __str__(self):
         return f'{self.employee.full_name} - {self.date} ({self.get_status_display()})'

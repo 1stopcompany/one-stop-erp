@@ -990,6 +990,7 @@ def daily_time_record(request, employee_id):
         "breakdown_totals": breakdown_totals,
         "projects": Project.objects.exclude(status="archived").order_by("name"),
         "can_split": is_hr_manager(request.user),
+        "month_total_hours": sum((r.total_hours or Decimal("0") for r in records), Decimal("0")),
         "ot_multiplier": pay_rates(employee)[1],
         "period_start": period_start,
         "month_param": period_start.strftime("%Y-%m"),
@@ -1005,13 +1006,13 @@ def daily_time_record(request, employee_id):
 @hr_manager_required
 @require_http_methods(["POST"])
 def dtr_fill_defaults(request, employee_id):
-    """One click: the empty working days of the month (no check-in, not Friday / holiday / leave / future) get the default 08:00-16:00."""
+    """One click: the empty working days of the month (no check-in, not Friday / holiday / leave / future) get the default 08:00-17:00."""
     from .services.attendance_service import fill_default_hours
 
     employee = get_object_or_404(Employee, pk=employee_id)
     period_start, period_end = _resolve_month_period(request.POST.get("month"))
     filled = fill_default_hours(employee, period_start, period_end)
-    messages.success(request, f"{filled} empty working day(s) set to 08:00-16:00." if filled else "No empty working days to fill.")
+    messages.success(request, f"{filled} empty working day(s) set to 08:00-17:00." if filled else "No empty working days to fill.")
     return redirect(f"{reverse('timesheets:daily_time_record', args=[employee.pk])}?month={period_start.strftime('%Y-%m')}")
 
 
@@ -1089,11 +1090,11 @@ def export_dtr_excel(request, employee_id):
     ws.title = "DTR"
 
     ws.append([f"Daily Time Record - {employee.full_name} - {period_start.strftime('%B %Y')}"])
-    ws.merge_cells(start_row=1, start_column=1, end_row=1, end_column=9)
+    ws.merge_cells(start_row=1, start_column=1, end_row=1, end_column=11)
     ws["A1"].font = Font(bold=True, size=13)
     ws.append([])
 
-    headers = ["Date", "Day", "Status", "Clock In", "Clock Out", "Late (min)", "Undertime (min)", "Overtime (h)", "Notes"]
+    headers = ["Date", "Day", "Status", "Clock In", "Clock Out", "Break (h)", "Total (h)", "Late (min)", "Undertime (min)", "Overtime (h)", "Notes"]
     ws.append(headers)
     header_row = ws.max_row
 
@@ -1105,6 +1106,7 @@ def export_dtr_excel(request, employee_id):
     total_overtime = 0
     total_late = 0
     total_undertime = 0
+    total_hours = 0
     for r in records:
         counts[r.status] = counts.get(r.status, 0) + 1
         total_overtime += float(r.overtime_hours)
@@ -1113,14 +1115,16 @@ def export_dtr_excel(request, employee_id):
         ws.append([
             r.date.strftime("%Y-%m-%d"), r.date.strftime("%A"), STATUS_LABELS.get(r.status, r.status),
             r.clock_in.strftime("%H:%M") if r.clock_in else "", r.clock_out.strftime("%H:%M") if r.clock_out else "",
+            float(r.break_hours) if r.total_hours is not None else "", float(r.total_hours) if r.total_hours is not None else "",
             r.late_minutes, r.undertime_minutes, float(r.overtime_hours), r.notes,
         ])
+        total_hours += float(r.total_hours or 0)
         if r.status in status_fills:
             for c in range(1, len(headers) + 1):
                 ws.cell(row=ws.max_row, column=c).fill = status_fills[r.status]
 
     _style_excel_header(ws, len(headers), row=header_row)
-    _autosize_excel_columns(ws, [12, 12, 14, 10, 10, 11, 14, 12, 30])
+    _autosize_excel_columns(ws, [12, 12, 14, 10, 10, 10, 10, 11, 14, 12, 30])
 
     ws.append([])
     ws.append(["Summary"])
@@ -1129,7 +1133,7 @@ def export_dtr_excel(request, employee_id):
         ("Present", counts.get("present", 0)), ("Absent", counts.get("absent", 0)),
         ("On Leave", counts.get("on_leave", 0)), ("Unpaid Leave", counts.get("unpaid_leave", 0)),
         ("Rest Day", counts.get("rest_day", 0)), ("Holiday", counts.get("holiday", 0)),
-        ("Total Overtime (h)", total_overtime), ("Total Late (min)", total_late),
+        ("Total Hours Worked (h)", total_hours), ("Total Overtime (h)", total_overtime), ("Total Late (min)", total_late),
         ("Total Undertime (min)", total_undertime),
     ]
     for label, value in summary_rows:
@@ -1194,6 +1198,8 @@ def daily_time_record_update_row(request, pk):
     record.late_minutes = _int('late_minutes')
     record.undertime_minutes = _int('undertime_minutes')
     record.overtime_hours = _decimal('overtime_hours')
+    if 'break_hours' in request.POST:
+        record.break_hours = min(_decimal('break_hours'), Decimal('12'))
     record.notes = request.POST.get('notes', '')[:255]
     record.save()
 

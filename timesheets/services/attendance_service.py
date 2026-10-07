@@ -53,12 +53,25 @@ UNDERTIME_MINUTES_PER_DEDUCTED_DAY = 8 * 60
 
 
 DEFAULT_CLOCK_IN = time(8, 0)
-DEFAULT_CLOCK_OUT = time(16, 0)
+DEFAULT_CLOCK_OUT = time(17, 0)   # with the one-hour lunch break that is a standard 8-hour day
+STANDARD_DAY_HOURS = Decimal('8')
+DEFAULT_BREAK_HOURS = Decimal('1')
+
+
+def day_overtime(clock_in, clock_out, break_hours=DEFAULT_BREAK_HOURS):
+    """Overtime of a day: the hours worked (clock out - clock in - break) above the standard 8; 0 when a time is missing."""
+    if not (clock_in and clock_out):
+        return Decimal('0')
+    minutes = (clock_out.hour * 60 + clock_out.minute) - (clock_in.hour * 60 + clock_in.minute)
+    if minutes <= 0:
+        return Decimal('0')
+    worked = Decimal(minutes) / Decimal(60) - Decimal(break_hours)
+    return max(worked - STANDARD_DAY_HOURS, Decimal('0')).quantize(Decimal('0.01'))
 
 
 def fill_default_hours(employee, period_start, period_end, today=None):
     """
-    The standard day (08:00-16:00) for every day HR left empty: a working day (not Friday, holiday or leave -- those have their own
+    The standard day (08:00-17:00, one hour of lunch) for every day HR left empty: a working day (not Friday, holiday or leave -- those have their own
     status) with no GPS check-in at all, that is not in the future, becomes 'present' with the default times. Nothing that already has
     a time, a status other than 'absent', or an HR note is touched, so real check-ins and manual corrections are never overwritten.
     Returns the number of days filled.
@@ -71,7 +84,7 @@ def fill_default_hours(employee, period_start, period_end, today=None):
             continue
         record.status = 'present'
         record.clock_in, record.clock_out = DEFAULT_CLOCK_IN, DEFAULT_CLOCK_OUT
-        record.notes = 'Default 08:00-16:00 (no clock-in)'
+        record.notes = 'Default 08:00-17:00 (no clock-in)'
         record.save()
         filled += 1
     return filled
@@ -233,7 +246,7 @@ def generate_daily_attendance(employee, period_start, period_end):
             defaults = {'status': 'rest_day'}
         elif day in checkins:
             clock_in, clock_out = checkins[day]
-            defaults = {'status': 'present', 'clock_in': clock_in, 'clock_out': clock_out}
+            defaults = {'status': 'present', 'clock_in': clock_in, 'clock_out': clock_out, 'overtime_hours': day_overtime(clock_in, clock_out)}
         else:
             defaults = {'status': 'absent'}
 
