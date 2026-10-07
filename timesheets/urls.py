@@ -73,6 +73,7 @@ urlpatterns = [
     path("payroll/run/add/", views.payroll_run_add, name="payroll_run_add"),
     path("payroll/run/<int:pk>/exclude/", views.payroll_run_exclude, name="payroll_run_exclude"),
     path("payroll/run/reorder/", views.payroll_run_reorder, name="payroll_run_reorder"),
+    path("payroll/run/reopen/", views.payroll_run_reopen, name="payroll_run_reopen"),
     path("payroll/run/<int:pk>/restore/", views.payroll_run_restore, name="payroll_run_restore"),
     path("payroll/export/", views.export_payroll_excel, name="export_payroll"),
     path("payroll/export/pdf/", views.export_payroll_pdf, name="export_payroll_pdf"),

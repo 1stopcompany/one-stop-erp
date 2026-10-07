@@ -1292,6 +1292,7 @@ def payroll_run(request):
             .order_by('first_name', 'last_name')
         ),
         "is_admin_user": request.user.is_admin(),
+        "posted_count": sum(1 for p in payslips if p.status == "posted"),
     }
     return render(request, "timesheets/payroll_run.html", context)
 
@@ -1369,6 +1370,39 @@ def payroll_run_reorder(request):
             if employee.payroll_order != position:
                 Employee.objects.filter(pk=employee.pk).update(payroll_order=position)
     return JsonResponse({"ok": True, "count": len(ordered)})
+
+
+@hr_manager_required
+@require_http_methods(["POST"])
+def payroll_run_reopen(request):
+    """
+    Admin only: take posted payslips back to draft so their figures can be typed again (then saved and posted again).
+    With `pk` it reopens that one employee, without it every posted payslip of the month. Nothing else changes: the
+    figures stay as they were until they are edited, and an excluded employee stays excluded.
+    """
+    import logging
+    from .models import Payslip
+
+    period_start, period_end = _resolve_month_period(request.POST.get("month"))
+    back = redirect(f"{reverse('timesheets:payroll_run')}?month={period_start.strftime('%Y-%m')}")
+    if not request.user.is_admin():
+        messages.error(request, 'Only an admin can reopen posted payroll.')
+        return back
+    posted = Payslip.objects.filter(period_start=period_start, period_end=period_end, status='posted')
+    pk = request.POST.get("pk")
+    if pk:
+        posted = posted.filter(pk=pk)
+    names = list(posted.select_related('employee').values_list('employee__first_name', 'employee__last_name'))
+    count = posted.update(status='draft', posted_at=None, posted_by=None)
+    if not count:
+        messages.info(request, 'Nothing to reopen.')
+    elif pk and names:
+        messages.warning(request, f'{names[0][0]} {names[0][1]} was reopened for editing. Save the changes, then post the payroll again.')
+    else:
+        messages.warning(request, f'{period_start:%B %Y} was reopened for editing ({count} employee(s)). Save the changes, then post the payroll again.')
+    logging.getLogger(__name__).warning('Payroll %s reopened by %s (%s payslips%s)', period_start.strftime('%Y-%m'),
+                                         request.user.username, count, f', pk={pk}' if pk else '')
+    return back
 
 
 @hr_manager_required

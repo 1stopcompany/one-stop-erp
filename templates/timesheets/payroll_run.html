@@ -62,6 +62,13 @@
         {% else %}
             <span class="badge bg-warning text-dark ms-2">Draft</span>
         {% endif %}
+            {% if is_admin_user and posted_count %}
+            <form method="post" action="{% url 'timesheets:payroll_run_reopen' %}" class="d-inline ms-2"
+                  onsubmit="return confirm('Reopen all of {{ period_start|date:"F Y" }} for editing? Every posted payslip goes back to draft; save the changes and post again.');">
+                {% csrf_token %}<input type="hidden" name="month" value="{{ month_param }}">
+                <button type="submit" class="btn btn-sm btn-outline-warning py-0"><i class="fas fa-unlock me-1"></i>Reopen month</button>
+            </form>
+            {% endif %}
         <span class="text-muted ms-3">Total Net: ₪{{ total_net }}</span>
     </div>
     {% if not is_posted and payslips %}
@@ -149,6 +156,11 @@
                             <td class="text-end fw-bold">₪{{ p.net_pay }}</td>
                             <td class="text-nowrap">
                                 {% if is_admin_user %}
+                                <form method="post" action="{% url 'timesheets:payroll_run_reopen' %}" class="d-inline"
+                                      onsubmit="return confirm('Unlock {{ p.employee.full_name|escapejs }} for editing? The row goes back to draft; save the changes and post again.');">
+                                    {% csrf_token %}<input type="hidden" name="month" value="{{ month_param }}"><input type="hidden" name="pk" value="{{ p.pk }}">
+                                    <button type="submit" class="btn btn-sm btn-outline-warning" title="Unlock this row to edit it"><i class="fas fa-pen"></i></button>
+                                </form>
                                 <form method="post" action="{% url 'timesheets:payroll_run_exclude' p.pk %}" class="d-inline"
                                       onsubmit="return confirm('Take {{ p.employee.full_name|escapejs }} out of the {{ period_start|date:"F Y" }} payroll? This row is already POSTED.');">
                                     {% csrf_token %}<button type="submit" class="btn btn-sm btn-outline-secondary" title="Take out of this month"><i class="fas fa-user-minus"></i></button>
