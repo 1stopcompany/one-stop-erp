@@ -1273,7 +1273,8 @@ def payroll_run(request):
     payslips.sort(key=lambda p: _payroll_sort_key(p.employee))
     from .services.attendance_service import count_actual_days
     for p in payslips:
-        p.actual_days = count_actual_days(p.employee, period_start, period_end)   # days he really clocked in
+        p.auto_actual_days = count_actual_days(p.employee, period_start, period_end)   # days he really clocked in
+        p.actual_days = p.auto_actual_days if p.manual_actual_days is None else p.manual_actual_days
     is_posted = bool(payslips) and all(p.status == 'posted' for p in payslips)
 
     context = {
@@ -1365,6 +1366,19 @@ def payroll_run_update_row(request, pk):
         manual_base_pay=_typed_or_auto('base_pay', auto_base_pay(employee, start, end)),
         **extra,
     )
+    if 'actual_days' in request.POST:
+        # attendance days typed over the counted ones are kept as a manual figure; the counted value (or blank) means automatic
+        from .services.attendance_service import count_actual_days
+        raw = request.POST.get('actual_days', '').strip()
+        try:
+            typed = Decimal(raw) if raw else None
+        except InvalidOperation:
+            typed = None
+        if typed is not None and (typed < 0 or typed > 366):
+            typed = None
+        if typed is not None and abs(typed - count_actual_days(employee, start, end)) < Decimal('0.01'):
+            typed = None
+        Payslip.objects.filter(pk=payslip.pk).update(manual_actual_days=typed)
     messages.success(request, f'Updated {payslip.employee.full_name}.')
     return redirect(f"{reverse('timesheets:payroll_run')}?month={payslip.period_start.strftime('%Y-%m')}")
 

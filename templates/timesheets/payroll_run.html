@@ -140,7 +140,16 @@
                             <span class="drag-handle me-2 text-muted" title="Drag to move this employee up or down" style="cursor:grab;"><i class="fas fa-grip-vertical"></i></span><a href="{% url 'timesheets:employee_detail' p.employee.pk %}" class="text-decoration-none">{{ p.employee.full_name }}</a>
                             <div class="text-muted small">{{ p.employee.position.title }}</div>
                         </td>
-                        <td class="text-center fw-bold">{{ p.actual_days }}</td>
+                        {% if p.status == 'posted' %}
+                        <td class="text-center fw-bold">{{ p.actual_days|floatformat:"-2" }}{% if p.manual_actual_days is not None %} <span class="badge bg-info text-dark">manual</span>{% endif %}</td>
+                        {% else %}
+                        <td class="text-center">
+                            <input type="number" step="0.5" min="0" max="366" name="actual_days" form="row-{{ p.pk }}"
+                                   value="{{ p.actual_days|stringformat:'s' }}" class="form-control form-control-sm text-center fw-bold" style="min-width:64px;"
+                                   title="Counted from GPS clock-ins: {{ p.auto_actual_days }}. Type a different number to override it (display only, pay is not changed).">
+                            {% if p.manual_actual_days is not None %}<span class="badge bg-info text-dark" title="Counted from clock-ins: {{ p.auto_actual_days }}">manual</span>{% endif %}
+                        </td>
+                        {% endif %}
                         {% if p.status == 'posted' %}
                             <td class="text-end">₪{{ p.base_pay }}</td>
                             <td class="text-end">{{ p.overtime_hours }}</td>

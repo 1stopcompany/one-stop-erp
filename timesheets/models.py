@@ -730,6 +730,10 @@ class Payslip(models.Model):
         max_digits=12, decimal_places=2, null=True, blank=True,
         help_text='Typed by HR instead of the automatic unpaid-leave deduction (blank = automatic)',
     )
+    manual_actual_days = models.DecimalField(
+        max_digits=5, decimal_places=2, null=True, blank=True,
+        help_text='Attendance days typed by HR instead of the days counted from GPS clock-ins (blank = automatic). Display only: does not change pay',
+    )
     note = models.CharField(max_length=300, blank=True, help_text='Free note on this employee for this month')
     gross_pay = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     net_pay = models.DecimalField(max_digits=12, decimal_places=2, default=0)
