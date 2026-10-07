@@ -238,6 +238,17 @@
         input.addEventListener('blur', function () { input.value = normalize(input.value); });
         input.form && input.form.addEventListener('submit', function () { input.value = normalize(input.value); });
     });
+    // choosing Present in a row's status list fills 08:00 / 16:00 when the times are empty (still editable before saving)
+    document.querySelectorAll('select[name="status"][form^="dtr-"]').forEach(function (select) {
+        select.addEventListener('change', function () {
+            if (select.value !== 'present') return;
+            var formId = select.getAttribute('form');
+            var tin = document.querySelector('input[name="clock_in"][form="' + formId + '"]');
+            var tout = document.querySelector('input[name="clock_out"][form="' + formId + '"]');
+            if (tin && !tin.value) tin.value = '08:00';
+            if (tout && !tout.value) tout.value = '16:00';
+        });
+    });
     // the inputs belong to per-row forms through the form="..." attribute, so normalise on every row's save button too
     document.querySelectorAll('button[form^="dtr-"]').forEach(function (btn) {
         btn.addEventListener('click', function () {
