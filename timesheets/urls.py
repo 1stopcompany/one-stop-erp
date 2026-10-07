@@ -67,6 +67,7 @@ urlpatterns = [
     path("employees/<int:employee_id>/dtr/export/pdf/", views.export_dtr_pdf, name="export_dtr_pdf"),
     path("dtr/<int:pk>/update/", views.daily_time_record_update_row, name="daily_time_record_update_row"),
     path("employees/<int:employee_id>/dtr/project-hours/", views.dtr_project_hours_save, name="dtr_project_hours_save"),
+    path("employees/<int:employee_id>/dtr/fill-defaults/", views.dtr_fill_defaults, name="dtr_fill_defaults"),
     path("map/", views.EmployeeMapView.as_view(), name="attendance_map"),
     path("payroll/run/", views.payroll_run, name="payroll_run"),
     path("payroll/run/<int:pk>/update/", views.payroll_run_update_row, name="payroll_run_update_row"),

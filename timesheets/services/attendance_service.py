@@ -26,7 +26,7 @@ must not clobber that correction.
 """
 
 from collections import defaultdict
-from datetime import date, timedelta
+from datetime import date, time, timedelta
 from decimal import Decimal
 
 from django.db.models import Sum
@@ -50,6 +50,31 @@ LEAVE_DAYS_AT_THRESHOLD = 21
 # below a full workday (DailyAttendanceRecord.undertime_minutes, on
 # 'present' days) deducts one day from the annual leave balance.
 UNDERTIME_MINUTES_PER_DEDUCTED_DAY = 8 * 60
+
+
+DEFAULT_CLOCK_IN = time(8, 0)
+DEFAULT_CLOCK_OUT = time(16, 0)
+
+
+def fill_default_hours(employee, period_start, period_end, today=None):
+    """
+    The standard day (08:00-16:00) for every day HR left empty: a working day (not Friday, holiday or leave -- those have their own
+    status) with no GPS check-in at all, that is not in the future, becomes 'present' with the default times. Nothing that already has
+    a time, a status other than 'absent', or an HR note is touched, so real check-ins and manual corrections are never overwritten.
+    Returns the number of days filled.
+    """
+    today = today or timezone.localdate()
+    records = generate_daily_attendance(employee, period_start, period_end)
+    filled = 0
+    for record in records:
+        if record.date > today or record.status != 'absent' or record.clock_in or record.clock_out or record.notes:
+            continue
+        record.status = 'present'
+        record.clock_in, record.clock_out = DEFAULT_CLOCK_IN, DEFAULT_CLOCK_OUT
+        record.notes = 'Default 08:00-16:00 (no clock-in)'
+        record.save()
+        filled += 1
+    return filled
 
 
 def _annual_leave_allocation(employee, year):

@@ -16,6 +16,13 @@
                     <input type="month" name="month" value="{{ month_param }}" class="form-control form-control-sm" style="width: auto;">
                     <button type="submit" class="btn btn-sm btn-outline-primary">Load</button>
                 </form>
+                {% if can_split %}
+                <form method="post" action="{% url 'timesheets:dtr_fill_defaults' employee.pk %}" class="d-inline"
+                      onsubmit="return confirm('Set every empty working day of this month (no check-in, not Friday / holiday / leave / a future day) to Present 08:00-16:00? Days with real check-ins or your own corrections are not touched; you can still edit any day afterwards.');">
+                    {% csrf_token %}<input type="hidden" name="month" value="{{ month_param }}">
+                    <button type="submit" class="btn btn-sm btn-outline-secondary" title="Fill the empty working days with the standard 08:00-16:00"><i class="fas fa-clock me-1"></i>Fill empty days 08:00-16:00</button>
+                </form>
+                {% endif %}
                 <a href="{% url 'timesheets:export_dtr_excel' employee.pk %}?month={{ month_param }}" class="btn btn-sm btn-outline-success">
                     <i class="fas fa-file-excel me-1"></i>Export Excel
                 </a>

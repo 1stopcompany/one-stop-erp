@@ -1004,6 +1004,19 @@ def daily_time_record(request, employee_id):
 
 @hr_manager_required
 @require_http_methods(["POST"])
+def dtr_fill_defaults(request, employee_id):
+    """One click: the empty working days of the month (no check-in, not Friday / holiday / leave / future) get the default 08:00-16:00."""
+    from .services.attendance_service import fill_default_hours
+
+    employee = get_object_or_404(Employee, pk=employee_id)
+    period_start, period_end = _resolve_month_period(request.POST.get("month"))
+    filled = fill_default_hours(employee, period_start, period_end)
+    messages.success(request, f"{filled} empty working day(s) set to 08:00-16:00." if filled else "No empty working days to fill.")
+    return redirect(f"{reverse('timesheets:daily_time_record', args=[employee.pk])}?month={period_start.strftime('%Y-%m')}")
+
+
+@hr_manager_required
+@require_http_methods(["POST"])
 def dtr_project_hours_save(request, employee_id):
     """Split (or reset) one day of an employee's DTR over projects: rows of project + regular hours + overtime hours."""
     from projects.models import Project
