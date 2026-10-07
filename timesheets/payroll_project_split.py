@@ -25,9 +25,24 @@ from .payroll_sheet_excel import BAND, COMPANY_AR, COMPANY_EN, FONT as XL_FONT, 
 from .services.project_hours import month_breakdown
 
 TITLE = 'توزيع ساعات الموظفين على المشاريع'
-HEADERS = ['#', 'الاسم', 'المشروع', 'عدد الأيام', 'الساعات', 'تكلفة الساعات', 'ساعات إضافية', 'تكلفة الإضافي', 'الإجمالي']
-WIDTHS = [4.5, 26, 34, 9, 10, 13, 11, 13, 14]
+HEADERS = ['#', 'الاسم', 'المشروع', 'عدد الأيام', 'الساعات', 'جمع وعطل ونقص (س)', 'تكلفة الساعات', 'ساعات إضافية', 'تكلفة الإضافي', 'الإجمالي']
+WIDTHS = [4.5, 24, 30, 8, 9, 13, 13, 10, 12, 13]
 ZERO = Decimal('0')
+
+
+def _num(value):
+    value = Decimal(value).quantize(Decimal('0.01'))
+    return f'{value:f}'.rstrip('0').rstrip('.') if value else '0'
+
+
+def detail_text(totals):
+    """One line under an employee: where the hours nobody recorded came from, and what happens with a shortfall."""
+    parts = [f"الجمع (مدفوعة، تُحسب حضوراً): {totals['fridays']} × 8 = {_num(totals['friday_hours'])} س"]
+    if totals['leave_hours']:
+        parts.append(f"عطل وإجازات مدفوعة: {_num(totals['leave_hours'])} س")
+    if totals['shortfall_hours']:
+        parts.append(f"نقص الدوام: {_num(totals['shortfall_hours'])} س (لا يؤثر على الراتب، ويُرحَّل على الإجازة السنوية: كل 8 ساعات = يوم)")
+    return '  |  '.join(parts)
 
 
 def split_data(payslips, period_start, period_end):
@@ -103,26 +118,32 @@ def add_split_sheet(wb, people, projects, period_start, period_end):
         for index, row in enumerate(person['rows']):
             values = {
                 1: number if index == 0 else None, 2: person['employee'].full_name if index == 0 else None, 3: row['project'].name,
-                4: row['days'], 5: float(row['regular_hours']), 6: float(row['regular_cost']), 7: float(row['overtime_hours']),
-                8: float(row['overtime_cost']), 9: f'=F{r}+H{r}',
+                4: row['days'], 5: float(row['regular_hours']), 6: float(row['extra_hours']), 7: float(row['regular_cost']),
+                8: float(row['overtime_hours']), 9: float(row['overtime_cost']), 10: f'=G{r}+I{r}',
             }
             for c in range(1, last_col + 1):
                 cell = ws.cell(r, c, values.get(c))
-                cell.font, cell.border = font(11, c == 9), GRID
+                cell.font, cell.border = font(11, c == 10), GRID
                 cell.alignment = right if c in (2, 3) else centre
-                if c in (6, 8, 9):
+                if c in (7, 9, 10):
                     cell.number_format = MONEY
             r += 1
         last = r - 1
         ws.cell(r, 2, f"مجموع {person['employee'].full_name}")
-        for c in (5, 6, 7, 8, 9):
+        for c in (5, 6, 7, 8, 9, 10):
             ws.cell(r, c, f'=SUM({L(c)}{first}:{L(c)}{last})')
         for c in range(1, last_col + 1):
             cell = ws.cell(r, c)
             cell.font, cell.fill, cell.border = font(11, True, NAVY), sub_fill, GRID
             cell.alignment = right if c == 2 else centre
-            if c in (6, 8, 9):
+            if c in (7, 9, 10):
                 cell.number_format = MONEY
+        r += 1
+        # what the hours nobody recorded are: Fridays, paid holidays, and the shortfall that is settled through the leave balance
+        ws.merge_cells(start_row=r, start_column=2, end_row=r, end_column=last_col)
+        note = ws.cell(r, 2, detail_text(person['totals']))
+        note.font, note.alignment = Font(name=XL_FONT, size=9.5, italic=True, color='595959'), right
+        ws.row_dimensions[r].height = 18
         r += 1
 
 
@@ -162,6 +183,7 @@ def generate_split_pdf(people, projects, period_start, period_end):
     title_style = ParagraphStyle('SPTitle', parent=cell, fontName=BOLD, fontSize=13, leading=17)
     period_style = ParagraphStyle('SPPeriod', parent=cell, fontSize=9, leading=12, textColor=colors.HexColor('#595959'))
     bar = ParagraphStyle('SPBar', parent=cell, fontName=BOLD, fontSize=10.5, leading=14, textColor=colors.white)
+    small_r = ParagraphStyle('SPSmallR', parent=cell_r, fontSize=7.8, leading=10, textColor=colors.HexColor('#444444'))
 
     widths = [page_width * w / sum(WIDTHS) for w in WIDTHS]
 
@@ -195,21 +217,23 @@ def generate_split_pdf(people, projects, period_start, period_end):
 
     header_row = rtl([Paragraph(_t(h), head) for h in HEADERS])
     rows = [header_row]
-    sub_rows, total_rows = [], []
+    sub_rows, note_rows = [], []
     for number, person in enumerate(people, start=1):
         for index, row in enumerate(person['rows']):
             rows.append(rtl([
                 str(number) if index == 0 else '', text(person['employee'].full_name, cell_r, widths[1]) if index == 0 else '',
-                text(row['project'].name, cell_r, widths[2]), str(row['days']), _plain(row['regular_hours']), _money(row['regular_cost']),
-                _plain(row['overtime_hours']), _money(row['overtime_cost']), _money(row['cost']),
+                text(row['project'].name, cell_r, widths[2]), str(row['days']), _plain(row['regular_hours']), _plain(row['extra_hours']),
+                _money(row['regular_cost']), _plain(row['overtime_hours']), _money(row['overtime_cost']), _money(row['cost']),
             ]))
         totals = person['totals']
         sub_rows.append(len(rows))
         rows.append(rtl([
             '', text(f"مجموع {person['employee'].full_name}", bold_r, widths[1] + widths[2]), '', '', Paragraph(_plain(totals['regular_hours']), bold),
-            Paragraph(_money(totals['regular_cost']), bold), Paragraph(_plain(totals['overtime_hours']), bold),
-            Paragraph(_money(totals['overtime_cost']), bold), Paragraph(_money(totals['cost']), bold),
+            Paragraph(_plain(totals['extra_hours']), bold), Paragraph(_money(totals['regular_cost']), bold),
+            Paragraph(_plain(totals['overtime_hours']), bold), Paragraph(_money(totals['overtime_cost']), bold), Paragraph(_money(totals['cost']), bold),
         ]))
+        note_rows.append(len(rows))
+        rows.append([text(detail_text(totals), small_r, page_width - 6)] + [''] * (len(WIDTHS) - 1))
     table = Table(rows, colWidths=rtl(widths), repeatRows=1)
     style = [
         ('FONTNAME', (0, 0), (-1, -1), FONT), ('FONTSIZE', (0, 0), (-1, -1), size), ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
@@ -219,6 +243,8 @@ def generate_split_pdf(people, projects, period_start, period_end):
     ]
     for r in sub_rows:
         style += [('BACKGROUND', (0, r), (-1, r), colors.HexColor('#DCE6F2')), ('FONTNAME', (0, r), (-1, r), BOLD)]
+    for r in note_rows:
+        style += [('SPAN', (0, r), (-1, r)), ('BACKGROUND', (0, r), (-1, r), colors.HexColor('#F7F9FC'))]
     table.setStyle(TableStyle(style))
 
     def footer(canvas, document):

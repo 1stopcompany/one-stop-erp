@@ -58,17 +58,17 @@ def _num(value, blank_zero=True):
     return f'{value:f}'.rstrip('0').rstrip('.')
 
 
-def generate_dtr_pdf(employee, records, period_start, generated_by=None, allocations=None, breakdown=None):
+def generate_dtr_pdf(employee, records, period_start, generated_by=None, allocations=None, breakdown=None, totals_info=None):
     """`allocations`: {date: {'source', 'rows': [{'project', 'regular', 'overtime'}]}}; `breakdown`: month_breakdown() rows."""
     result = None
     for level in LEVELS:
-        result, pages = _build(employee, records, period_start, generated_by, allocations or {}, breakdown or [], level)
+        result, pages = _build(employee, records, period_start, generated_by, allocations or {}, breakdown or [], totals_info or {}, level)
         if pages == 1:
             break
     return result
 
 
-def _build(employee, records, period_start, generated_by, allocations, breakdown, level):
+def _build(employee, records, period_start, generated_by, allocations, breakdown, totals_info, level):
     margin = 0.34 * inch
     page = A4
     page_width = page[0] - 2 * margin
@@ -203,11 +203,12 @@ def _build(employee, records, period_start, generated_by, allocations, breakdown
                                  ('BOTTOMPADDING', (0, 0), (-1, -1), level['pad'])]))
     closing = [summary]
     if breakdown:
-        project_rows = [rtl([Paragraph(_t(h), head) for h in ['الرمز', 'المشروع', 'عدد الأيام', 'الساعات', 'الساعات الإضافية']])]
+        project_rows = [rtl([Paragraph(_t(h), head) for h in ['الرمز', 'المشروع', 'عدد الأيام', 'الساعات', 'جمع وعطل ونقص (س)', 'الساعات الإضافية']])]
         for item in breakdown:
             project_rows.append(rtl([Paragraph(item['project'].project_symbol, bold), text(item['project'].name, cell_r, page_width * 0.5),
-                                     str(item['days']), _num(item['regular_hours'], False), _num(item['overtime_hours'], False)]))
-        pw = [page_width * 0.12, page_width * 0.42, page_width * 0.14, page_width * 0.16, page_width * 0.16]
+                                     str(item['days']), _num(item['regular_hours'], False), _num(item['extra_hours'], False),
+                                     _num(item['overtime_hours'], False)]))
+        pw = [page_width * 0.11, page_width * 0.37, page_width * 0.1, page_width * 0.13, page_width * 0.15, page_width * 0.14]
         project_table = Table(project_rows, colWidths=rtl(pw), repeatRows=1)
         project_table.setStyle(TableStyle([('FONTNAME', (0, 0), (-1, -1), FONT), ('FONTSIZE', (0, 0), (-1, -1), size), ('BACKGROUND', (0, 0), (-1, 0), NAVY_C),
                                            ('GRID', (0, 0), (-1, -1), 0.4, GRID_C), ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
@@ -215,7 +216,13 @@ def _build(employee, records, period_start, generated_by, allocations, breakdown
                                            ('BOTTOMPADDING', (0, 0), (-1, -1), level['pad'])]))
         bar_row = Table([[Paragraph(_t('ساعات الشهر حسب المشروع'), bar)]], colWidths=[page_width])
         bar_row.setStyle(TableStyle([('BACKGROUND', (0, 0), (-1, -1), NAVY_C), ('TOPPADDING', (0, 0), (-1, -1), 3), ('BOTTOMPADDING', (0, 0), (-1, -1), 3)]))
-        closing += [Spacer(1, level['gap'] * 0.7), bar_row, project_table]
+        parts = [f"الجمع (تُحسب حضوراً): {totals_info['fridays']} × 8 = {_num(totals_info['friday_hours'], False)} س"]
+        if totals_info['leave_hours']:
+            parts.append(f"عطل وإجازات مدفوعة: {_num(totals_info['leave_hours'], False)} س")
+        if totals_info['shortfall_hours']:
+            parts.append(f"نقص الدوام: {_num(totals_info['shortfall_hours'], False)} س (لا يؤثر على الراتب، ويُرحَّل على الإجازة السنوية: كل 8 ساعات = يوم)")
+        note = text('  |  '.join(parts), small_r, page_width - 6)
+        closing += [Spacer(1, level['gap'] * 0.7), bar_row, project_table, Spacer(1, 2), note]
 
     sign_w = page_width / 3
     sign = Table(

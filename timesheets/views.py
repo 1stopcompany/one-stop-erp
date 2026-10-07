@@ -1158,10 +1158,11 @@ def export_dtr_pdf(request, employee_id):
     records = generate_daily_attendance(employee, period_start, period_end)
     generated_by = request.user.get_full_name() or request.user.username
 
+    breakdown_rows, breakdown_totals = month_breakdown(employee, period_start, period_end)
     pdf_bytes = generate_dtr_pdf(
         employee, records, period_start, generated_by=generated_by,
         allocations=day_allocations(employee, period_start, period_end),
-        breakdown=month_breakdown(employee, period_start, period_end)[0],
+        breakdown=breakdown_rows, totals_info=breakdown_totals,
     )
     response = HttpResponse(pdf_bytes, content_type="application/pdf")
     response["Content-Disposition"] = f"attachment; filename=dtr-{employee.employee_id}-{period_start.strftime('%Y-%m')}.pdf"

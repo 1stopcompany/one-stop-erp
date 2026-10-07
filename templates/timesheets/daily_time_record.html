@@ -157,16 +157,19 @@
 {% endif %}
 {% if breakdown %}
 <div class="card mt-4">
-    <div class="card-header"><strong>Hours and cost per project</strong> <span class="text-muted small">&middot; {{ period_start|date:"F Y" }} &middot; the monthly salary is unchanged, this only shows what each project is charged</span></div>
+    <div class="card-header"><strong>Hours and cost per project</strong> <span class="text-muted small">&middot; {{ period_start|date:"F Y" }} &middot; the monthly salary is unchanged and is spread over the projects by their hours</span></div>
+    <div class="px-3 py-2 small text-muted border-bottom">
+        Counted as present: <strong>{{ breakdown_totals.fridays }} Friday(s) &times; 8 = {{ breakdown_totals.friday_hours|floatformat:"-2" }} h</strong>{% if breakdown_totals.leave_hours %}, paid holidays / leave {{ breakdown_totals.leave_hours|floatformat:"-2" }} h{% endif %}{% if breakdown_totals.shortfall_hours %}, <strong>shortfall {{ breakdown_totals.shortfall_hours|floatformat:"-2" }} h</strong> (it does not reduce the salary; it is settled through the annual leave balance: every 8 hours of undertime = one day){% endif %}.
+    </div>
     <div class="table-responsive">
         <table class="table table-sm mb-0 align-middle">
-            <thead><tr><th>Project</th><th class="text-end">Days</th><th class="text-end">Hours</th><th class="text-end">Cost</th><th class="text-end">OT hours</th><th class="text-end">OT cost (x{{ ot_multiplier|floatformat:"-2" }})</th><th class="text-end">Total</th></tr></thead>
+            <thead><tr><th>Project</th><th class="text-end">Days</th><th class="text-end">Hours</th><th class="text-end" title="This project's share of the Fridays, paid holidays / leave and any shortfall in hours, which are counted as present">Fri / leave / short (h)</th><th class="text-end">Cost</th><th class="text-end">OT hours</th><th class="text-end">OT cost (x{{ ot_multiplier|floatformat:"-2" }})</th><th class="text-end">Total</th></tr></thead>
             <tbody>
                 {% for b in breakdown %}
-                <tr><td>{{ b.project.name }}</td><td class="text-end">{{ b.days }}</td><td class="text-end">{{ b.regular_hours|floatformat:"-2" }}</td><td class="text-end">{{ b.regular_cost|floatformat:2 }}</td><td class="text-end">{{ b.overtime_hours|floatformat:"-2" }}</td><td class="text-end">{{ b.overtime_cost|floatformat:2 }}</td><td class="text-end fw-bold">{{ b.cost|floatformat:2 }}</td></tr>
+                <tr><td>{{ b.project.name }}</td><td class="text-end">{{ b.days }}</td><td class="text-end">{{ b.regular_hours|floatformat:"-2" }}</td><td class="text-end">{{ b.extra_hours|floatformat:"-2" }}</td><td class="text-end">{{ b.regular_cost|floatformat:2 }}</td><td class="text-end">{{ b.overtime_hours|floatformat:"-2" }}</td><td class="text-end">{{ b.overtime_cost|floatformat:2 }}</td><td class="text-end fw-bold">{{ b.cost|floatformat:2 }}</td></tr>
                 {% endfor %}
             </tbody>
-            <tfoot><tr class="table-light fw-bold"><td colspan="2">Total</td><td class="text-end">{{ breakdown_totals.regular_hours|floatformat:"-2" }}</td><td class="text-end">{{ breakdown_totals.regular_cost|floatformat:2 }}</td><td class="text-end">{{ breakdown_totals.overtime_hours|floatformat:"-2" }}</td><td class="text-end">{{ breakdown_totals.overtime_cost|floatformat:2 }}</td><td class="text-end">{{ breakdown_totals.cost|floatformat:2 }}</td></tr></tfoot>
+            <tfoot><tr class="table-light fw-bold"><td colspan="2">Total</td><td class="text-end">{{ breakdown_totals.regular_hours|floatformat:"-2" }}</td><td class="text-end">{{ breakdown_totals.extra_hours|floatformat:"-2" }}</td><td class="text-end">{{ breakdown_totals.regular_cost|floatformat:2 }}</td><td class="text-end">{{ breakdown_totals.overtime_hours|floatformat:"-2" }}</td><td class="text-end">{{ breakdown_totals.overtime_cost|floatformat:2 }}</td><td class="text-end">{{ breakdown_totals.cost|floatformat:2 }}</td></tr></tfoot>
         </table>
     </div>
 </div>
