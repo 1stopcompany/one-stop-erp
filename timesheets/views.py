@@ -1348,30 +1348,27 @@ def payroll_run_update_row(request, pk):
 
 @hr_manager_required
 @require_http_methods(["POST"])
-def payroll_run_move(request, pk):
+def payroll_run_reorder(request):
     """
-    Move one employee up or down in the payroll sheet (Payroll Run, its Excel and its PDF). The order belongs to the
-    employee, so it carries over to the next months; it changes nothing about money, so it works on a posted month too.
-    The first move numbers everybody currently in the month 1..n in the order shown, then swaps the two neighbours.
+    Save the order the employees were dragged into on the Payroll Run page (also used by its Excel and PDF). `ids` is the
+    employees' ids in the new order. The order belongs to the employee, so it carries over to the next months; it changes
+    nothing about money, so it is also allowed on a posted month. Anybody in the month who is not listed keeps his place after them.
     """
     from django.db import transaction
-    from .models import Payslip
 
-    payslip = get_object_or_404(Payslip, pk=pk)
-    back = f"{reverse('timesheets:payroll_run')}?month={payslip.period_start.strftime('%Y-%m')}#emp-{payslip.employee_id}"
-    employees = _payroll_employees(payslip.period_start, payslip.period_end)
-    ids = [e.pk for e in employees]
-    if payslip.employee_id not in ids:
-        return redirect(back)
-    index = ids.index(payslip.employee_id)
-    target = index - 1 if request.POST.get('direction') == 'up' else index + 1
-    if 0 <= target < len(employees):
-        employees[index], employees[target] = employees[target], employees[index]
+    period_start, period_end = _resolve_month_period(request.POST.get("month"))
+    employees = _payroll_employees(period_start, period_end)
+    known = {e.pk: e for e in employees}
+    wanted = []
+    for raw in (request.POST.get("ids") or "").split(","):
+        if raw.strip().isdigit() and int(raw) in known and int(raw) not in wanted:
+            wanted.append(int(raw))
+    ordered = [known[i] for i in wanted] + [e for e in employees if e.pk not in wanted]
     with transaction.atomic():
-        for position, employee in enumerate(employees, start=1):
+        for position, employee in enumerate(ordered, start=1):
             if employee.payroll_order != position:
                 Employee.objects.filter(pk=employee.pk).update(payroll_order=position)
-    return redirect(back)
+    return JsonResponse({"ok": True, "count": len(ordered)})
 
 
 @hr_manager_required

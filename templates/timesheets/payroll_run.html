@@ -23,6 +23,12 @@
   .pr-page details summary { cursor: pointer; font-size: 12px; color: #5b6b82; }
   .pr-page .table input[type=number] { min-width: 84px; }
   .pr-page .card { border-color: #d9e0ec; box-shadow: none; }
+  .pr-page .drag-handle { padding: 4px 2px; user-select: none; }
+  .pr-page .drag-handle:active { cursor: grabbing; }
+  .pr-page tr.sortable-ghost { background: #fff3cd !important; opacity: .75; }
+  .pr-page tr.sortable-chosen { box-shadow: 0 4px 14px rgba(0,0,0,.18); }
+  .pr-saved { position: fixed; right: 18px; bottom: 18px; z-index: 2000; background: #198754; color: #fff; padding: 7px 14px; border-radius: 8px;
+              font-size: 12.5px; opacity: 0; transition: opacity .25s; pointer-events: none; }
 </style>
 <div class="pr-page">
 <div class="row">
@@ -117,11 +123,11 @@
                         <th></th>
                     </tr>
                 </thead>
-                <tbody>
+                <tbody id="payrollBody" data-month="{{ month_param }}">
                     {% for p in payslips %}
                     <tr id="emp-{{ p.employee_id }}">
                         <td>
-                            <a href="{% url 'timesheets:employee_detail' p.employee.pk %}" class="text-decoration-none">{{ p.employee.full_name }}</a>
+                            <span class="drag-handle me-2 text-muted" title="Drag to move this employee up or down" style="cursor:grab;"><i class="fas fa-grip-vertical"></i></span><a href="{% url 'timesheets:employee_detail' p.employee.pk %}" class="text-decoration-none">{{ p.employee.full_name }}</a>
                             <div class="text-muted small">{{ p.employee.position.title }}</div>
                             {% if p.status == 'posted' %}
                                 {% if p.note %}<div class="small fst-italic text-muted">{{ p.note }}</div>{% endif %}
@@ -142,11 +148,6 @@
                             <td class="text-end">₪{{ p.tax }}</td>
                             <td class="text-end fw-bold">₪{{ p.net_pay }}</td>
                             <td class="text-nowrap">
-                                <form method="post" action="{% url 'timesheets:payroll_run_move' p.pk %}" class="d-inline-flex flex-column me-1 align-middle">
-                                    {% csrf_token %}
-                                    <button type="submit" name="direction" value="up" class="btn btn-sm btn-outline-secondary py-0 px-1" style="line-height:1.1;" title="Move up" {% if forloop.first %}disabled{% endif %}><i class="fas fa-chevron-up" style="font-size:10px;"></i></button>
-                                    <button type="submit" name="direction" value="down" class="btn btn-sm btn-outline-secondary py-0 px-1 mt-1" style="line-height:1.1;" title="Move down" {% if forloop.last %}disabled{% endif %}><i class="fas fa-chevron-down" style="font-size:10px;"></i></button>
-                                </form>
                                 {% if is_admin_user %}
                                 <form method="post" action="{% url 'timesheets:payroll_run_exclude' p.pk %}" class="d-inline"
                                       onsubmit="return confirm('Take {{ p.employee.full_name|escapejs }} out of the {{ period_start|date:"F Y" }} payroll? This row is already POSTED.');">
@@ -191,11 +192,6 @@
                             <td class="text-end fw-bold">₪{{ p.net_pay }}</td>
                             <td class="text-nowrap">
                                 <input type="hidden" name="csrfmiddlewaretoken" value="{{ csrf_token }}" form="row-{{ p.pk }}">
-                                <form method="post" action="{% url 'timesheets:payroll_run_move' p.pk %}" class="d-inline-flex flex-column me-1 align-middle">
-                                    {% csrf_token %}
-                                    <button type="submit" name="direction" value="up" class="btn btn-sm btn-outline-secondary py-0 px-1" style="line-height:1.1;" title="Move up" {% if forloop.first %}disabled{% endif %}><i class="fas fa-chevron-up" style="font-size:10px;"></i></button>
-                                    <button type="submit" name="direction" value="down" class="btn btn-sm btn-outline-secondary py-0 px-1 mt-1" style="line-height:1.1;" title="Move down" {% if forloop.last %}disabled{% endif %}><i class="fas fa-chevron-down" style="font-size:10px;"></i></button>
-                                </form>
                                 <button type="submit" form="row-{{ p.pk }}" class="btn btn-sm btn-outline-primary" title="Save">
                                     <i class="fas fa-save"></i>
                                 </button>
@@ -237,5 +233,32 @@
     </ul>
 </div>
 {% endif %}
+<div class="pr-saved" id="prSaved">Order saved</div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.15.2/Sortable.min.js"></script>
+<script>
+(function () {
+    var body = document.getElementById('payrollBody');
+    if (!body || typeof Sortable === 'undefined') return;
+    var csrf = document.querySelector('[name=csrfmiddlewaretoken]');
+    var toast = document.getElementById('prSaved');
+    function flash(text, ok) {
+        toast.textContent = text; toast.style.background = ok ? '#198754' : '#dc3545'; toast.style.opacity = 1;
+        setTimeout(function () { toast.style.opacity = 0; }, 1600);
+    }
+    Sortable.create(body, {
+        handle: '.drag-handle', animation: 160, draggable: 'tr[id^="emp-"]', fallbackTolerance: 3,
+        onEnd: function (evt) {
+            if (evt.oldIndex === evt.newIndex) return;
+            var ids = Array.prototype.map.call(body.querySelectorAll('tr[id^="emp-"]'), function (tr) { return tr.id.replace('emp-', ''); });
+            var data = new URLSearchParams({month: body.dataset.month, ids: ids.join(',')});
+            fetch("{% url 'timesheets:payroll_run_reorder' %}", {
+                method: 'POST', headers: {'X-CSRFToken': csrf ? csrf.value : '', 'Content-Type': 'application/x-www-form-urlencoded'}, body: data.toString(),
+            }).then(function (r) { return r.json(); }).then(function (d) {
+                if (d.ok) flash('Order saved', true); else { flash('Could not save the order', false); }
+            }).catch(function () { flash('Could not save the order - reload the page', false); });
+        }
+    });
+})();
+</script>
 </div>
 {% endblock %}
