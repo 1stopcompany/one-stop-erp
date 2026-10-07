@@ -41,7 +41,9 @@ def detail_text(totals):
     if totals['leave_hours']:
         parts.append(f"عطل وإجازات مدفوعة: {_num(totals['leave_hours'])} س")
     if totals['shortfall_hours']:
-        parts.append(f"نقص الدوام: {_num(totals['shortfall_hours'])} س (لا يؤثر على الراتب، ويُرحَّل على الإجازة السنوية: كل 8 ساعات = يوم)")
+        parts.append(f"نقص الدوام (Undertime): {_num(totals['shortfall_hours'])} س (لا يؤثر على الراتب، ويُرحَّل على الإجازة السنوية: كل 8 ساعات = يوم)")
+    if totals['unrecorded_hours']:
+        parts.append(f"ساعات غير مسجّلة: {_num(totals['unrecorded_hours'])} س (لم تُدخل في Undertime)")
     return '  |  '.join(parts)
 
 

@@ -17,7 +17,7 @@ top: overtime hours x hourly rate x the structure's multiplier.
 from collections import OrderedDict
 from decimal import Decimal
 
-from django.db.models import Q
+from django.db.models import Q, Sum
 
 ZERO = Decimal('0')
 CENT = Decimal('0.01')
@@ -113,8 +113,16 @@ def _rest_and_shortfall(employee, start, end, extra_hours, worked_days=()):
     standard = Decimal('8')
     friday_hours = min(Decimal(fridays) * standard, extra_hours)
     leave_hours = min(Decimal(leave_days) * standard, extra_hours - friday_hours)
+    # the shortfall is what HR wrote in the Undertime box of the Daily Time Record (minutes); it never touches the pay -- it is
+    # settled through the annual-leave balance. Whatever is still unexplained is hours nobody recorded anywhere.
+    undertime_minutes = DailyAttendanceRecord.objects.filter(
+        employee=employee, date__gte=start, date__lte=end, status='present',
+    ).aggregate(total=Sum('undertime_minutes'))['total'] or 0
+    undertime_hours = (Decimal(undertime_minutes) / Decimal(60)).quantize(Decimal('0.01'))
+    remaining = extra_hours - friday_hours - leave_hours
+    shortfall_hours = min(undertime_hours, remaining)
     return {'fridays': fridays, 'friday_hours': friday_hours, 'leave_days': leave_days, 'leave_hours': leave_hours,
-            'shortfall_hours': extra_hours - friday_hours - leave_hours}
+            'shortfall_hours': shortfall_hours, 'unrecorded_hours': remaining - shortfall_hours}
 
 
 def month_breakdown(employee, start, end):
@@ -123,7 +131,8 @@ def month_breakdown(employee, start, end):
         [{'project', 'regular_hours', 'extra_hours', 'overtime_hours', 'regular_cost', 'overtime_cost', 'cost', 'days'}], totals
     `regular_hours` are the hours recorded on the project; `extra_hours` its share of the paid hours nobody recorded (Fridays, paid
     holidays / leave, shortfall). The regular costs add up to the month's regular pay exactly. `totals` also carries `recorded_hours`,
-    `paid_hours` and the split of the unrecorded hours (`fridays`, `friday_hours`, `leave_days`, `leave_hours`, `shortfall_hours`).
+    `paid_hours` and the split of the unrecorded hours (`fridays`, `friday_hours`, `leave_days`, `leave_hours`, `shortfall_hours` = the
+    Undertime HR entered, `unrecorded_hours` = what is still unexplained).
     Returns ([], totals) when the employee has no hours recorded in the period.
     """
     base, rate, multiplier = month_pay(employee, start, end)
@@ -142,7 +151,7 @@ def month_breakdown(employee, start, end):
     paid_hours = (base / rate) if rate else ZERO
     extra = max(paid_hours - recorded, ZERO) if recorded else ZERO
     detail = _rest_and_shortfall(employee, start, end, extra, list(allocations)) if rows else {
-        'fridays': 0, 'friday_hours': ZERO, 'leave_days': 0, 'leave_hours': ZERO, 'shortfall_hours': ZERO}
+        'fridays': 0, 'friday_hours': ZERO, 'leave_days': 0, 'leave_hours': ZERO, 'shortfall_hours': ZERO, 'unrecorded_hours': ZERO}
 
     spread = ZERO
     for item in rows:

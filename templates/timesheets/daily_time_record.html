@@ -159,7 +159,7 @@
 <div class="card mt-4">
     <div class="card-header"><strong>Hours and cost per project</strong> <span class="text-muted small">&middot; {{ period_start|date:"F Y" }} &middot; the monthly salary is unchanged and is spread over the projects by their hours</span></div>
     <div class="px-3 py-2 small text-muted border-bottom">
-        Counted as present: <strong>{{ breakdown_totals.fridays }} Friday(s) &times; 8 = {{ breakdown_totals.friday_hours|floatformat:"-2" }} h</strong>{% if breakdown_totals.leave_hours %}, paid holidays / leave {{ breakdown_totals.leave_hours|floatformat:"-2" }} h{% endif %}{% if breakdown_totals.shortfall_hours %}, <strong>shortfall {{ breakdown_totals.shortfall_hours|floatformat:"-2" }} h</strong> (it does not reduce the salary; it is settled through the annual leave balance: every 8 hours of undertime = one day){% endif %}.
+        Counted as present: <strong>{{ breakdown_totals.fridays }} Friday(s) &times; 8 = {{ breakdown_totals.friday_hours|floatformat:"-2" }} h</strong>{% if breakdown_totals.leave_hours %}, paid holidays / leave {{ breakdown_totals.leave_hours|floatformat:"-2" }} h{% endif %}{% if breakdown_totals.shortfall_hours %}, <strong>undertime {{ breakdown_totals.shortfall_hours|floatformat:"-2" }} h</strong> (typed in the Undertime box; it does not reduce the salary, it is settled through the annual leave balance: every 8 hours = one day){% endif %}{% if breakdown_totals.unrecorded_hours %}, <span class="text-warning-emphasis">{{ breakdown_totals.unrecorded_hours|floatformat:"-2" }} h not recorded anywhere (not entered as Undertime)</span>{% endif %}.
     </div>
     <div class="table-responsive">
         <table class="table table-sm mb-0 align-middle">

@@ -220,7 +220,9 @@ def _build(employee, records, period_start, generated_by, allocations, breakdown
         if totals_info['leave_hours']:
             parts.append(f"عطل وإجازات مدفوعة: {_num(totals_info['leave_hours'], False)} س")
         if totals_info['shortfall_hours']:
-            parts.append(f"نقص الدوام: {_num(totals_info['shortfall_hours'], False)} س (لا يؤثر على الراتب، ويُرحَّل على الإجازة السنوية: كل 8 ساعات = يوم)")
+            parts.append(f"نقص الدوام (Undertime): {_num(totals_info['shortfall_hours'], False)} س (لا يؤثر على الراتب، ويُرحَّل على الإجازة السنوية: كل 8 ساعات = يوم)")
+        if totals_info['unrecorded_hours']:
+            parts.append(f"ساعات غير مسجّلة: {_num(totals_info['unrecorded_hours'], False)} س (لم تُدخل في Undertime)")
         note = text('  |  '.join(parts), small_r, page_width - 6)
         closing += [Spacer(1, level['gap'] * 0.7), bar_row, project_table, Spacer(1, 2), note]
 
