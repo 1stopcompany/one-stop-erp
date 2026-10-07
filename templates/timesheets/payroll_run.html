@@ -150,6 +150,8 @@
                                 </table>
                                 {% if p.project_split_totals.overtime_hours != p.overtime_hours %}<div class="text-warning">Projects' overtime: {{ p.project_split_totals.overtime_hours|floatformat:"-2" }} h (this row: {{ p.overtime_hours|floatformat:"-2" }} h)</div>{% endif %}
                             </details>
+                            {% else %}
+                            <a class="small text-muted text-decoration-none" href="{% url 'timesheets:daily_time_record' p.employee.pk %}?month={{ month_param }}" title="Split this employee's hours over projects in the Daily Time Record"><i class="fas fa-code-branch me-1"></i>Split hours by project</a>
                             {% endif %}
                         </td>
                         {% if p.status == 'posted' %}
