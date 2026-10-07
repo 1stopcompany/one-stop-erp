@@ -1,12 +1,54 @@
 {% extends 'timesheets/_hr_base.html' %}
 
 {% block hr_body %}
-<h1 class="h2 mb-4">
-    <i class="fas fa-map-marker-alt me-2 text-primary"></i>
-    Attendance Map
-</h1>
+<div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
+    <h1 class="h2 mb-0">
+        <i class="fas fa-map-marker-alt me-2 text-primary"></i>
+        Attendance Map
+    </h1>
+    <form method="get" class="d-flex align-items-center gap-2" id="day-form">
+        <a class="btn btn-outline-secondary" href="?date={{ prev_day }}" title="Previous day"><i class="fas fa-chevron-left"></i></a>
+        <input type="date" name="date" value="{{ day_param }}" max="{{ today_param|default:day_param }}" class="form-control" style="width:auto;" onchange="this.form.submit()">
+        {% if next_day %}<a class="btn btn-outline-secondary" href="?date={{ next_day }}" title="Next day"><i class="fas fa-chevron-right"></i></a>{% else %}<span class="btn btn-outline-secondary disabled"><i class="fas fa-chevron-right"></i></span>{% endif %}
+        {% if not is_today %}<a class="btn btn-primary" href="{% url 'timesheets:attendance_map' %}">Today</a>{% endif %}
+    </form>
+</div>
 
-<div id="map" style="height: 500px; border-radius: 0.5rem;"></div>
+<div class="row g-3">
+    <div class="col-lg-4">
+        <div class="card h-100">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <strong>{{ day|date:"l, d M Y" }}</strong>
+                <span class="badge bg-primary">{{ people|length }} employee{{ people|length|pluralize }}</span>
+            </div>
+            {% if still_in %}<div class="px-3 pt-2 small text-muted">{{ still_in }} still on site (no check-out yet)</div>{% endif %}
+            <div class="list-group list-group-flush" style="max-height: 560px; overflow:auto;">
+                {% for p in people %}
+                <button type="button" class="list-group-item list-group-item-action person-row" data-employee="{{ p.id }}">
+                    <div class="d-flex justify-content-between">
+                        <strong>{{ p.name }}</strong>
+                        {% if p.outside %}<span class="badge bg-warning text-dark" title="At least one punch was outside the geofence">outside</span>{% endif %}
+                    </div>
+                    <div class="small text-muted">{{ p.position }}{% if p.position and p.project %} · {% endif %}{{ p.project }}</div>
+                    <div class="mt-1">
+                        <span class="badge bg-success">In {{ p.first_in|default:"—" }}</span>
+                        {% if p.last_out %}<span class="badge bg-danger">Out {{ p.last_out }}</span>{% else %}<span class="badge bg-secondary">still on site</span>{% endif %}
+                        {% if p.hours %}<span class="small text-muted ms-1">{{ p.hours }} h</span>{% endif %}
+                    </div>
+                </button>
+                {% empty %}
+                <div class="list-group-item text-muted text-center py-5">No check-ins on this day.<br><span class="small">لا يوجد تسجيل حضور في هذا اليوم</span></div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-8">
+        <div id="map" style="height: 560px; border-radius: 0.5rem;"></div>
+        <div class="small text-muted mt-2">
+            <span class="badge bg-success">In</span> check-in &nbsp; <span class="badge bg-danger">Out</span> check-out &nbsp; · click an employee to find them on the map
+        </div>
+    </div>
+</div>
 
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
       integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
@@ -24,11 +66,7 @@
 
     // Default center is only used when no attendance locations are available.
     const defaultCenter = [31.53, 35.10];
-    const initialCenter = locations.length
-        ? [Number(locations[0].latitude), Number(locations[0].longitude)]
-        : defaultCenter;
-
-    const map = L.map("map").setView(initialCenter, locations.length ? 15 : 10);
+    const map = L.map("map").setView(defaultCenter, 10);
 
     L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
         maxZoom: 19,
@@ -37,41 +75,38 @@
         attribution: "&copy; OpenStreetMap contributors"
     }).addTo(map);
 
+    function pin(kind) {
+        const colour = kind === "in" ? "#198754" : "#dc3545";
+        return L.divIcon({
+            className: "",
+            html: '<div style="background:' + colour + ';color:#fff;border:2px solid #fff;border-radius:50%;width:26px;height:26px;' +
+                  'line-height:22px;text-align:center;font-size:11px;font-weight:700;box-shadow:0 1px 4px rgba(0,0,0,.5);">' +
+                  (kind === "in" ? "In" : "Out") + '</div>',
+            iconSize: [26, 26], iconAnchor: [13, 13], popupAnchor: [0, -12]
+        });
+    }
+
     const markerBounds = [];
+    const byEmployee = {};
 
     locations.forEach((location) => {
         const latitude = Number(location.latitude);
         const longitude = Number(location.longitude);
-
-        if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
-            return;
-        }
+        if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) { return; }
 
         const popup = document.createElement("div");
-
         const employeeName = document.createElement("strong");
         employeeName.textContent = location.employee || "Unknown employee";
         popup.appendChild(employeeName);
-
-        const details = [location.type, location.timestamp, location.address]
-            .filter(Boolean);
-
-        details.forEach((value) => {
+        [location.type + " " + location.time, location.address].filter(Boolean).forEach((value) => {
             popup.appendChild(document.createElement("br"));
             popup.appendChild(document.createTextNode(value));
         });
+        popup.appendChild(document.createElement("br"));
+        popup.appendChild(document.createTextNode(location.within_geofence ? "Inside geofence" : "Outside geofence"));
 
-        if (location.within_geofence !== undefined) {
-            popup.appendChild(document.createElement("br"));
-            popup.appendChild(document.createTextNode(
-                location.within_geofence ? "Inside geofence" : "Outside geofence"
-            ));
-        }
-
-        L.marker([latitude, longitude])
-            .addTo(map)
-            .bindPopup(popup);
-
+        const marker = L.marker([latitude, longitude], {icon: pin(location.kind)}).addTo(map).bindPopup(popup);
+        (byEmployee[location.employee_id] = byEmployee[location.employee_id] || []).push(marker);
         markerBounds.push([latitude, longitude]);
     });
 
@@ -80,6 +115,16 @@
     } else if (markerBounds.length === 1) {
         map.setView(markerBounds[0], 16);
     }
+
+    document.querySelectorAll(".person-row").forEach((row) => {
+        row.addEventListener("click", () => {
+            const markers = byEmployee[row.dataset.employee] || [];
+            if (!markers.length) { return; }
+            const group = L.featureGroup(markers);
+            map.fitBounds(group.getBounds(), {padding: [60, 60], maxZoom: 17});
+            markers[0].openPopup();
+        });
+    });
 })();
 </script>
 {% endblock %}

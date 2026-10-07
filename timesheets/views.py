@@ -1139,37 +1139,79 @@ class EmployeeAttendanceSummaryView(LoginRequiredMixin, DetailView):
         return context
 
 class EmployeeMapView(LoginRequiredMixin, TemplateView):
+    """One calendar day at a time: who clocked in/out that day (list) and where (map pins). Default day: today."""
     template_name = "timesheets/employee_map.html"
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
 
-        # json_script cannot serialize a Django QuerySet directly. Convert the
-        # records into a plain list of dictionaries before sending them to the
-        # template. Timestamps are formatted as strings to keep the payload
-        # predictable for JavaScript and across database backends.
-        location_records = (
+        today = timezone.localdate()
+        try:
+            day = datetime.strptime(self.request.GET.get("date", ""), "%Y-%m-%d").date()
+        except ValueError:
+            day = today
+
+        tz = timezone.get_current_timezone()
+        start = timezone.make_aware(datetime.combine(day, datetime.min.time()), tz)
+        records = (
             CheckInLocation.objects
-            .select_related("employee")
-            .order_by("-timestamp")[:500]
+            .filter(timestamp__gte=start, timestamp__lt=start + timedelta(days=1))
+            .select_related("employee", "employee__position", "project")
+            .order_by("timestamp")
         )
 
-        context["locations"] = [
-            {
+        # json_script cannot serialize a QuerySet: plain dicts, timestamps as strings.
+        locations, people = [], {}
+        for location in records:
+            local = timezone.localtime(location.timestamp)
+            locations.append({
                 "latitude": location.latitude,
                 "longitude": location.longitude,
                 "employee": location.employee.full_name,
+                "employee_id": location.employee_id,
+                "kind": location.check_type,
                 "type": location.get_check_type_display(),
-                "timestamp": timezone.localtime(location.timestamp).strftime(
-                    "%Y-%m-%d %H:%M:%S"
-                ),
+                "timestamp": local.strftime("%Y-%m-%d %H:%M:%S"),
+                "time": local.strftime("%H:%M"),
                 "address": location.address or "",
                 "within_geofence": location.is_within_geofence,
-            }
-            for location in location_records
-        ]
+            })
+            person = people.setdefault(location.employee_id, {
+                "id": location.employee_id,
+                "name": location.employee.full_name,
+                "position": location.employee.position.title if location.employee.position_id else "",
+                "project": "", "first_in": None, "last_out": None, "outside": False,
+            })
+            if location.project_id and not person["project"]:
+                person["project"] = location.project.name
+            if not location.is_within_geofence:
+                person["outside"] = True
+            if location.check_type == "in" and person["first_in"] is None:
+                person["first_in"] = local
+            elif location.check_type == "out":
+                person["last_out"] = local
+        rows = []
+        for person in sorted(people.values(), key=lambda x: x["first_in"] or x["last_out"]):
+            hours = None
+            if person["first_in"] and person["last_out"] and person["last_out"] > person["first_in"]:
+                hours = round((person["last_out"] - person["first_in"]).total_seconds() / 3600, 1)
+            rows.append({**person, "first_in": person["first_in"].strftime("%H:%M") if person["first_in"] else "",
+                         "last_out": person["last_out"].strftime("%H:%M") if person["last_out"] else "", "hours": hours})
+
+        context.update({
+            "locations": locations,
+            "people": rows,
+            "day": day,
+            "day_param": day.isoformat(),
+            "prev_day": (day - timedelta(days=1)).isoformat(),
+            "next_day": (day + timedelta(days=1)).isoformat() if day < today else "",
+            "is_today": day == today,
+            "today_param": today.isoformat(),
+            "still_in": sum(1 for r in rows if r["first_in"] and not r["last_out"]),
+        })
         return context
-    
+
+
 def _resolve_month_period(month_param):
     """('YYYY-MM' or None) -> (period_start, period_end) for that calendar month, default: the current month."""
     import calendar
