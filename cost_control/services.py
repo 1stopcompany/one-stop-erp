@@ -170,6 +170,7 @@ def project_cost_summary(project, as_of=None) -> dict:
         phases     every phase row, flat
         totals     the project roll-up (assigned spending only)
         unassigned committed / actual spending not tied to any BOQ item
+        staff_labor what the project is charged for employees' hours (cost, hours, overtime hours, per employee)
         counts     lines per status bucket
     """
     committed_by, actual_by = spending_by_sub_item(project)
@@ -216,7 +217,11 @@ def project_cost_summary(project, as_of=None) -> dict:
     })
 
     overall = calculate_project_progress(project, as_of_date=as_of)["overall_percentage"]
+    # Employees' hours on this project (Daily Time Record split / daily reports), costed at each one's salary rate. Shown next to the
+    # BOQ figures, not inside them: the BOQ budget is for materials, subcontractors and the like, and staff salaries are paid anyway.
+    from timesheets.services.project_hours import project_labor_cost
     return {
+        "staff_labor": project_labor_cost(project, as_of),
         "project": project, "sections": list(sections.values()), "lines": flat_lines, "phases": flat_phases,
         "totals": totals, "counts": counts,
         "unassigned": {"committed": q2(committed_by.get(None, ZERO)), "actual": q2(actual_by.get(None, ZERO))},

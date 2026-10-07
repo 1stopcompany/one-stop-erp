@@ -1,3 +1,4 @@
+import json
 from datetime import date, datetime, timedelta
 from decimal import Decimal, InvalidOperation
 
@@ -9,6 +10,7 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.core.paginator import Paginator
+from django.db import transaction
 from django.db.models import Q
 from django.http import HttpResponse, HttpResponseForbidden, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
@@ -970,9 +972,25 @@ def daily_time_record(request, employee_id):
     records = generate_daily_attendance(employee, period_start, period_end)
     undertime = compute_undertime_deduction(employee, period_start.year)
 
+    from projects.models import Project
+    from .services.project_hours import day_allocations, month_breakdown, pay_rates
+    allocations = day_allocations(employee, period_start, period_end)
+    for r in records:
+        info = allocations.get(r.date)
+        r.alloc = info
+        r.alloc_json = json.dumps([
+            {"project": row["project"].pk, "regular": str(row["regular"]), "overtime": str(row["overtime"])} for row in info["rows"]
+        ]) if info else "[]"
+    breakdown, breakdown_totals = month_breakdown(employee, period_start, period_end)
+
     context = {
         "employee": employee,
         "records": records,
+        "breakdown": breakdown,
+        "breakdown_totals": breakdown_totals,
+        "projects": Project.objects.exclude(status="archived").order_by("name"),
+        "can_split": is_hr_manager(request.user),
+        "ot_multiplier": pay_rates(employee)[1],
         "period_start": period_start,
         "month_param": period_start.strftime("%Y-%m"),
         "status_choices": DailyAttendanceRecord.STATUS_CHOICES,
@@ -982,6 +1000,65 @@ def daily_time_record(request, employee_id):
         "undertime": undertime,
     }
     return render(request, "timesheets/daily_time_record.html", context)
+
+
+@hr_manager_required
+@require_http_methods(["POST"])
+def dtr_project_hours_save(request, employee_id):
+    """Split (or reset) one day of an employee's DTR over projects: rows of project + regular hours + overtime hours."""
+    from projects.models import Project
+    from .models import EmployeeProjectHours
+
+    employee = get_object_or_404(Employee, pk=employee_id)
+    try:
+        day = datetime.strptime(request.POST.get("date", ""), "%Y-%m-%d").date()
+    except ValueError:
+        messages.error(request, "Bad date.")
+        return redirect("timesheets:daily_time_record", employee_id=employee.pk)
+    back = f"{reverse('timesheets:daily_time_record', args=[employee.pk])}?month={day.strftime('%Y-%m')}"
+
+    if request.POST.get("action") == "reset":
+        EmployeeProjectHours.objects.filter(employee=employee, date=day).delete()
+        messages.success(request, f"{day}: back to the hours from the daily reports.")
+        return redirect(back)
+
+    def _hours(raw):
+        try:
+            value = Decimal((raw or "0").strip() or "0")
+        except InvalidOperation:
+            return None
+        return value if Decimal("0") <= value <= Decimal("24") else None
+
+    merged = {}
+    for project_id, regular, overtime in zip(
+        request.POST.getlist("project"), request.POST.getlist("regular"), request.POST.getlist("overtime")
+    ):
+        if not project_id:
+            continue
+        regular_h, overtime_h = _hours(regular), _hours(overtime)
+        if regular_h is None or overtime_h is None:
+            messages.error(request, "Hours must be numbers between 0 and 24.")
+            return redirect(back)
+        if regular_h == 0 and overtime_h == 0:
+            continue
+        item = merged.setdefault(int(project_id), [Decimal("0"), Decimal("0")])
+        item[0] += regular_h
+        item[1] += overtime_h
+    if any(r + o > 24 for r, o in merged.values()) or sum(r + o for r, o in merged.values()) > 24:
+        messages.error(request, "A day cannot have more than 24 hours in total.")
+        return redirect(back)
+    projects = {p.pk: p for p in Project.objects.filter(pk__in=merged)}
+
+    with transaction.atomic():
+        EmployeeProjectHours.objects.filter(employee=employee, date=day).delete()
+        for project_id, (regular_h, overtime_h) in merged.items():
+            if project_id in projects:
+                EmployeeProjectHours.objects.create(
+                    employee=employee, project=projects[project_id], date=day, regular_hours=regular_h,
+                    overtime_hours=overtime_h, updated_by=request.user,
+                )
+    messages.success(request, f"{day}: hours split over {len(merged)} project(s).")
+    return redirect(back)
 
 
 @hr_required
@@ -1301,9 +1378,13 @@ def payroll_run(request):
         if existing and existing.status == 'posted':
             payslips.append(existing)
             continue
+        # the overtime hours the employee's project split (DTR / daily reports) already shows are the starting figure; HR can overtype
+        from .services.project_hours import month_breakdown
+        split_rows, split_totals = month_breakdown(emp, period_start, period_end)
+        typed_overtime = existing.overtime_hours if existing else 0
         payslip = compute_payslip_salaried(
             emp, period_start, period_end,
-            overtime_hours=existing.overtime_hours if existing else 0,
+            overtime_hours=typed_overtime if typed_overtime else split_totals['overtime_hours'],
             other_allowances=existing.other_allowances if existing else 0,
             other_deductions=existing.other_deductions if existing else 0,
             advances=existing.advances if existing else 0,
@@ -1314,7 +1395,9 @@ def payroll_run(request):
 
     payslips.sort(key=lambda p: _payroll_sort_key(p.employee))
     from .services.attendance_service import count_actual_days
+    from .services.project_hours import month_breakdown
     for p in payslips:
+        p.project_split, p.project_split_totals = month_breakdown(p.employee, period_start, period_end)
         p.auto_actual_days = count_actual_days(p.employee, period_start, period_end)   # days he really clocked in
         p.actual_days = p.auto_actual_days if p.manual_actual_days is None else p.manual_actual_days
     is_posted = bool(payslips) and all(p.status == 'posted' for p in payslips)
@@ -1609,9 +1692,11 @@ def _payroll_slips_for_export(request, period_start, period_end):
         if existing and existing.status == "posted":
             slips.append(existing)
             continue
+        from .services.project_hours import month_breakdown
+        typed_overtime = existing.overtime_hours if existing else 0
         slips.append(compute_payslip_salaried(
             emp, period_start, period_end,
-            overtime_hours=existing.overtime_hours if existing else 0,
+            overtime_hours=typed_overtime if typed_overtime else month_breakdown(emp, period_start, period_end)[1]['overtime_hours'],
             other_allowances=existing.other_allowances if existing else 0,
             other_deductions=existing.other_deductions if existing else 0,
             advances=existing.advances if existing else 0,
@@ -1635,6 +1720,9 @@ def export_payroll_excel(request):
     slips = _payroll_slips_for_export(request, period_start, period_end)
     notes = list(PayrollNote.objects.filter(period_start=period_start).values_list('text', flat=True))
     wb = build_payroll_workbook(slips, period_start, notes, period_end)
+    from .payroll_project_split import add_split_sheet, split_data
+    people, projects = split_data(slips, period_start, period_end)
+    add_split_sheet(wb, people, projects, period_start, period_end)
     response = HttpResponse(content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
     response["Content-Disposition"] = f"attachment; filename=payroll-{period_start.strftime('%Y-%m')}.xlsx"
     wb.save(response)
@@ -1650,7 +1738,11 @@ def export_payroll_pdf(request):
     period_start, period_end = _resolve_month_period(request.GET.get("month"))
     slips = _payroll_slips_for_export(request, period_start, period_end)
     notes = list(PayrollNote.objects.filter(period_start=period_start).values_list('text', flat=True))
-    response = HttpResponse(generate_payroll_sheet_pdf(slips, period_start, notes, period_end), content_type="application/pdf")
+    from .payroll_project_split import generate_split_pdf, merge_pdfs, split_data
+    people, projects = split_data(slips, period_start, period_end)
+    pdf = merge_pdfs(generate_payroll_sheet_pdf(slips, period_start, notes, period_end),
+                     generate_split_pdf(people, projects, period_start, period_end))
+    response = HttpResponse(pdf, content_type="application/pdf")
     response["Content-Disposition"] = f"attachment; filename=payroll-{period_start.strftime('%Y-%m')}.pdf"
     return response
 

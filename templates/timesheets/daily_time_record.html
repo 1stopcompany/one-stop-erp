@@ -73,6 +73,7 @@
                         <th style="width:100px;">Undertime (min)</th>
                         <th style="width:90px;">Overtime (h)</th>
                         <th>Notes</th>
+                        <th style="min-width:190px;">Projects <span class="small fw-normal text-muted">(hours split)</span></th>
                         <th></th>
                     </tr>
                 </thead>
@@ -95,13 +96,23 @@
                         <td><input type="number" step="0.5" name="overtime_hours" form="dtr-{{ r.pk }}" value="{{ r.overtime_hours }}" class="form-control form-control-sm"></td>
                         <td><input type="text" name="notes" form="dtr-{{ r.pk }}" value="{{ r.notes }}" class="form-control form-control-sm" placeholder="—"></td>
                         <td>
+                            {% for row in r.alloc.rows %}
+                            <div class="small text-nowrap"><strong>{{ row.project.name|truncatechars:22 }}</strong>: {{ row.regular|floatformat:"-2" }}h{% if row.overtime %} <span class="text-danger">+{{ row.overtime|floatformat:"-2" }} OT</span>{% endif %}</div>
+                            {% endfor %}
+                            {% if r.alloc.source == 'daily_report' %}<span class="badge bg-light text-dark border" title="Taken from the daily reports' worker attendance">from daily report</span>
+                            {% elif r.alloc.source == 'manual' %}<span class="badge bg-info text-dark" title="Typed here; replaces the daily reports for this day">manual</span>{% endif %}
+                            {% if can_split %}<button type="button" class="btn btn-sm btn-outline-secondary py-0 split-btn" data-date="{{ r.date|date:'Y-m-d' }}" data-label="{{ r.date|date:'D, M j' }}"
+                                    data-source="{{ r.alloc.source|default:'' }}" data-rows="{{ r.alloc_json }}"
+                                    data-clock="{{ r.clock_in|time:'H:i' }}-{{ r.clock_out|time:'H:i' }}" title="Split this day's hours over projects"><i class="fas fa-code-branch"></i> Split</button>{% endif %}
+                        </td>
+                        <td>
                             <input type="hidden" name="csrfmiddlewaretoken" value="{{ csrf_token }}" form="dtr-{{ r.pk }}">
                             <button type="submit" form="dtr-{{ r.pk }}" class="btn btn-sm btn-outline-primary" title="Save"><i class="fas fa-save"></i></button>
                         </td>
                     </tr>
                     {% empty %}
                     <tr>
-                        <td colspan="9" class="text-center py-5">
+                        <td colspan="10" class="text-center py-5">
                             <div class="text-muted">
                                 <i class="fas fa-calendar-times fa-3x mb-3 opacity-50"></i>
                                 <p class="mb-0">No days to show for this month.</p>
@@ -114,4 +125,91 @@
         </div>
     </div>
 </div>
+{% if breakdown %}
+<div class="card mt-4">
+    <div class="card-header"><strong>Hours and cost per project</strong> <span class="text-muted small">&middot; {{ period_start|date:"F Y" }} &middot; the monthly salary is unchanged, this only shows what each project is charged</span></div>
+    <div class="table-responsive">
+        <table class="table table-sm mb-0 align-middle">
+            <thead><tr><th>Project</th><th class="text-end">Days</th><th class="text-end">Hours</th><th class="text-end">Cost</th><th class="text-end">OT hours</th><th class="text-end">OT cost (x{{ ot_multiplier|floatformat:"-2" }})</th><th class="text-end">Total</th></tr></thead>
+            <tbody>
+                {% for b in breakdown %}
+                <tr><td>{{ b.project.name }}</td><td class="text-end">{{ b.days }}</td><td class="text-end">{{ b.regular_hours|floatformat:"-2" }}</td><td class="text-end">{{ b.regular_cost|floatformat:2 }}</td><td class="text-end">{{ b.overtime_hours|floatformat:"-2" }}</td><td class="text-end">{{ b.overtime_cost|floatformat:2 }}</td><td class="text-end fw-bold">{{ b.cost|floatformat:2 }}</td></tr>
+                {% endfor %}
+            </tbody>
+            <tfoot><tr class="table-light fw-bold"><td colspan="2">Total</td><td class="text-end">{{ breakdown_totals.regular_hours|floatformat:"-2" }}</td><td class="text-end">{{ breakdown_totals.regular_cost|floatformat:2 }}</td><td class="text-end">{{ breakdown_totals.overtime_hours|floatformat:"-2" }}</td><td class="text-end">{{ breakdown_totals.overtime_cost|floatformat:2 }}</td><td class="text-end">{{ breakdown_totals.cost|floatformat:2 }}</td></tr></tfoot>
+        </table>
+    </div>
+</div>
+{% endif %}
+
+{% if can_split %}
+<div class="modal fade" id="splitModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg">
+    <form method="post" action="{% url 'timesheets:dtr_project_hours_save' employee.pk %}" class="modal-content">
+      {% csrf_token %}
+      <input type="hidden" name="date" id="splitDate">
+      <div class="modal-header">
+        <h5 class="modal-title">Split the day over projects &mdash; <span id="splitLabel"></span></h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <p class="small text-muted mb-2" id="splitHint"></p>
+        <table class="table table-sm align-middle mb-2">
+          <thead><tr><th>Project</th><th style="width:130px;">Hours</th><th style="width:130px;">Overtime hours</th><th style="width:40px;"></th></tr></thead>
+          <tbody id="splitRows"></tbody>
+        </table>
+        <button type="button" class="btn btn-sm btn-outline-primary" id="splitAdd"><i class="fas fa-plus me-1"></i>Add project</button>
+        <span class="ms-3 small">Day total: <strong id="splitTotal">0</strong> h</span>
+      </div>
+      <div class="modal-footer justify-content-between">
+        <button type="submit" name="action" value="reset" class="btn btn-outline-secondary" formnovalidate
+                onclick="return confirm('Remove what was typed for this day and use the daily reports again?');">Use daily reports</button>
+        <div><button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
+        <button type="submit" name="action" value="save" class="btn btn-primary">Save split</button></div>
+      </div>
+    </form>
+  </div>
+</div>
+<template id="splitProjects">{% for p in projects %}<option value="{{ p.pk }}">{{ p.name }}</option>{% endfor %}</template>
+<script>
+(function () {
+    var modalEl = document.getElementById('splitModal');
+    if (!modalEl) return;
+    var body = document.getElementById('splitRows');
+    var options = document.getElementById('splitProjects').innerHTML;
+    function total() {
+        var sum = 0;
+        body.querySelectorAll('input[type=number]').forEach(function (i) { sum += parseFloat(i.value) || 0; });
+        document.getElementById('splitTotal').textContent = (Math.round(sum * 100) / 100);
+    }
+    function addRow(project, regular, overtime) {
+        var tr = document.createElement('tr');
+        tr.innerHTML = '<td><select name="project" class="form-select form-select-sm"><option value="">Choose project...</option>' + options + '</select></td>' +
+            '<td><input type="number" name="regular" min="0" max="24" step="0.25" class="form-control form-control-sm" value="' + (regular || '') + '"></td>' +
+            '<td><input type="number" name="overtime" min="0" max="24" step="0.25" class="form-control form-control-sm" value="' + (overtime || '') + '"></td>' +
+            '<td><button type="button" class="btn btn-sm btn-outline-danger py-0" title="Remove"><i class="fas fa-times"></i></button></td>';
+        if (project) tr.querySelector('select').value = project;
+        tr.querySelector('button').onclick = function () { tr.remove(); total(); };
+        tr.addEventListener('input', total);
+        body.appendChild(tr);
+    }
+    document.getElementById('splitAdd').onclick = function () { addRow(); };
+    document.querySelectorAll('.split-btn').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            document.getElementById('splitDate').value = btn.dataset.date;
+            document.getElementById('splitLabel').textContent = btn.dataset.label;
+            document.getElementById('splitHint').textContent = (btn.dataset.clock && btn.dataset.clock !== '-' ? 'Clock: ' + btn.dataset.clock + '. ' : '') +
+                (btn.dataset.source === 'daily_report' ? 'Pre-filled from the daily reports; saving replaces them for this day.' :
+                 btn.dataset.source === 'manual' ? 'Typed split for this day.' : 'No hours from the daily reports for this day.');
+            body.innerHTML = '';
+            var rows = JSON.parse(btn.dataset.rows || '[]');
+            if (!rows.length) addRow();
+            rows.forEach(function (r) { addRow(r.project, parseFloat(r.regular) || '', parseFloat(r.overtime) || ''); });
+            total();
+            bootstrap.Modal.getOrCreateInstance(modalEl).show();
+        });
+    });
+})();
+</script>
+{% endif %}
 {% endblock %}

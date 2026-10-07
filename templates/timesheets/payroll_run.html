@@ -139,6 +139,18 @@
                         <td>
                             <span class="drag-handle me-2 text-muted" title="Drag to move this employee up or down" style="cursor:grab;"><i class="fas fa-grip-vertical"></i></span><a href="{% url 'timesheets:employee_detail' p.employee.pk %}" class="text-decoration-none">{{ p.employee.full_name }}</a>
                             <div class="text-muted small">{{ p.employee.position.title }}</div>
+                            {% if p.project_split %}
+                            <details class="small mt-1">
+                                <summary class="text-primary" style="cursor:pointer;"><i class="fas fa-code-branch me-1"></i>{{ p.project_split|length }} project{{ p.project_split|length|pluralize }} &middot; {{ p.project_split_totals.cost|floatformat:2 }}</summary>
+                                <table class="table table-sm table-bordered mb-1 mt-1" style="font-size:.78rem;">
+                                    <thead><tr><th>Project</th><th class="text-end">Hours</th><th class="text-end">OT</th><th class="text-end">Cost</th></tr></thead>
+                                    {% for b in p.project_split %}
+                                    <tr><td>{{ b.project.name|truncatechars:26 }}</td><td class="text-end">{{ b.regular_hours|floatformat:"-2" }}</td><td class="text-end">{{ b.overtime_hours|floatformat:"-2" }}</td><td class="text-end">{{ b.cost|floatformat:2 }}</td></tr>
+                                    {% endfor %}
+                                </table>
+                                {% if p.project_split_totals.overtime_hours != p.overtime_hours %}<div class="text-warning">Projects' overtime: {{ p.project_split_totals.overtime_hours|floatformat:"-2" }} h (this row: {{ p.overtime_hours|floatformat:"-2" }} h)</div>{% endif %}
+                            </details>
+                            {% endif %}
                         </td>
                         {% if p.status == 'posted' %}
                         <td class="text-center fw-bold">{{ p.actual_days|floatformat:"-2" }}{% if p.manual_actual_days is not None %} <span class="badge bg-info text-dark">manual</span>{% endif %}</td>

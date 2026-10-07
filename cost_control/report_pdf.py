@@ -75,6 +75,14 @@ def generate_cost_report_pdf(project):
         warn.setStyle(TableStyle([('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#fff3cd')), ('BOX', (0, 0), (-1, -1), 0.8, colors.HexColor('#ffc107')),
                                   ('TOPPADDING', (0, 0), (-1, -1), 5), ('BOTTOMPADDING', (0, 0), (-1, -1), 5)]))
         el += [Spacer(1, 4), warn]
+    labor = summary.get('staff_labor') or {}
+    if labor.get('cost'):
+        note = Table([[Paragraph(_t(
+            f'تكلفة ساعات الموظفين على هذا المشروع: {money(labor["cost"])} ({labor["regular_hours"].normalize():f} ساعة + '
+            f'{labor["overtime_hours"].normalize():f} ساعة إضافية بسعر الراتب) - تظهر بشكل منفصل وليست ضمن أرقام جدول الكميات.'), S['cell_r'])]], colWidths=[width])
+        note.setStyle(TableStyle([('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#e7f1ff')), ('BOX', (0, 0), (-1, -1), 0.8, colors.HexColor('#9ec5fe')),
+                                  ('TOPPADDING', (0, 0), (-1, -1), 5), ('BOTTOMPADDING', (0, 0), (-1, -1), 5)]))
+        el += [Spacer(1, 4), note]
     el.append(Spacer(1, 8))
 
     # ---- the table

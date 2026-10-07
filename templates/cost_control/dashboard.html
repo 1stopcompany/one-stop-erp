@@ -152,6 +152,20 @@
     </div>
     {% endif %}
 
+    {% if summary.staff_labor.cost %}
+    <div class="alert alert-info">
+        <i class="fas fa-users"></i>
+        <strong>Employees' labor on this project:</strong> {{ summary.staff_labor.cost|floatformat:"2g" }}
+        &mdash; {{ summary.staff_labor.regular_hours|floatformat:"-2" }} h + {{ summary.staff_labor.overtime_hours|floatformat:"-2" }} h overtime
+        (salary rate, overtime x1.5), from the hours split in the Daily Time Record / daily reports. Shown separately: it is not part of the BOQ figures below.
+        <details class="mt-1"><summary>By employee</summary>
+            <table class="table table-sm table-borderless mb-0 w-auto">
+                {% for e in summary.staff_labor.employees %}<tr><td class="pe-4">{{ e.employee.full_name }}</td><td class="text-end pe-3">{{ e.hours|floatformat:"-2" }} h</td><td class="text-end pe-3">{{ e.overtime_hours|floatformat:"-2" }} OT</td><td class="text-end">{{ e.cost|floatformat:"2g" }}</td></tr>{% endfor %}
+            </table>
+        </details>
+    </div>
+    {% endif %}
+
     <!-- Key Metrics -->
     <div class="row">
         <div class="col-md-3">

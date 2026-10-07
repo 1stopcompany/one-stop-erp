@@ -500,6 +500,32 @@ class DailyAttendanceRecord(models.Model):
         return f'{self.employee.full_name} - {self.date} ({self.get_status_display()})'
 
 
+class EmployeeProjectHours(models.Model):
+    """
+    How one employee's day is split across projects ("sub" of the day in the Daily Time Record): for a salaried employee who
+    works on several projects the same day, the hours (and overtime hours) each project gets. Typed by HR in the DTR; when a
+    day has no rows here the hours come from the daily reports' worker attendance instead (see services/project_hours.py).
+    The monthly salary does not change: this only spreads its cost over the projects (hourly rate = salary / monthly hours,
+    overtime at the structure's multiplier) -- it feeds the Payroll Run breakdown and Cost Control.
+    """
+    employee = models.ForeignKey(Employee, on_delete=models.CASCADE, related_name='project_hours')
+    project = models.ForeignKey('projects.Project', on_delete=models.CASCADE, related_name='employee_hours')
+    date = models.DateField()
+    regular_hours = models.DecimalField(max_digits=5, decimal_places=2, default=0)
+    overtime_hours = models.DecimalField(max_digits=5, decimal_places=2, default=0)
+    notes = models.CharField(max_length=255, blank=True)
+    updated_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='+')
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        unique_together = [('employee', 'date', 'project')]
+        ordering = ['date', 'project__name']
+        indexes = [models.Index(fields=['employee', 'date']), models.Index(fields=['project', 'date'])]
+
+    def __str__(self):
+        return f'{self.employee.full_name} - {self.date} - {self.project} ({self.regular_hours}h + {self.overtime_hours}h OT)'
+
+
 class LeaveRequest(models.Model):
     """An employee's request for vacation/sick/personal leave, submitted from the mobile app."""
 

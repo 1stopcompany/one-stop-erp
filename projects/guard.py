@@ -29,6 +29,8 @@ EXEMPT = {
     # A GPS clock-in / clock-out is never blocked: what matters is that the employee gets in; which project it belongs to
     # (and whether that project is ready) is sorted out afterwards, so a project still in set-up cannot stop anyone's attendance.
     "timesheets.CheckInLocation",
+    # HR cost distribution of an employee's salary over projects (typed in the DTR); not a site record.
+    "timesheets.EmployeeProjectHours",
 }
 
 # model -> path to its project
