@@ -15,7 +15,7 @@ from reportlab.lib.enums import TA_CENTER, TA_RIGHT
 from reportlab.lib.pagesizes import A4, landscape
 from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
 from reportlab.lib.units import inch
-from reportlab.platypus import Image, KeepTogether, Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
+from reportlab.platypus import CondPageBreak, Image, KeepTogether, Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
 
 from reports.utils import MR_FONT_BOLD_NAME as BOLD, MR_FONT_NAME as FONT, _ARABIC_RE, _t, rtl_paragraph
 
@@ -109,9 +109,8 @@ def generate_wages_sheet_pdf(sheet, generated_by=None):
 
     for section in sheet['sections']:
         name = section['project'].name if section['project'] else '—'
-        title_bar = Table([[Paragraph(_t(f'كشف اجور عمال ({name})'), bar)]], colWidths=[page_width])
-        title_bar.setStyle(TableStyle([('BACKGROUND', (0, 0), (-1, -1), NAVY_C), ('TOPPADDING', (0, 0), (-1, -1), 3), ('BOTTOMPADDING', (0, 0), (-1, -1), 3)]))
-        rows = [rtl([Paragraph('<br/>'.join(_t(line) for line in lines), head) for lines in HEADER_LINES])]
+        rows = [[Paragraph(_t(f'كشف اجور عمال ({name})'), bar)] + [''] * (ncols - 1),
+                rtl([Paragraph('<br/>'.join(_t(line) for line in lines), head) for lines in HEADER_LINES])]
         sub_title_rows, sub_total_rows = [], []
 
         def total_line(label_text, due, net):
@@ -146,8 +145,9 @@ def generate_wages_sheet_pdf(sheet, generated_by=None):
             ('FONTNAME', (0, 0), (-1, -1), FONT), ('FONTSIZE', (0, 0), (-1, -1), 8.2), ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
             ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'), ('GRID', (0, 0), (-1, -1), 0.4, GRID_C),
             ('TOPPADDING', (0, 0), (-1, -1), 2.6), ('BOTTOMPADDING', (0, 0), (-1, -1), 2.6),
-            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#' + TOTAL_FILL)),
-            ('BACKGROUND', (net_col, 1), (net_col, last - 1), colors.HexColor('#' + NET_FILL)),
+            ('SPAN', (0, 0), (-1, 0)), ('BACKGROUND', (0, 0), (-1, 0), NAVY_C),
+            ('BACKGROUND', (0, 1), (-1, 1), colors.HexColor('#' + TOTAL_FILL)),
+            ('BACKGROUND', (net_col, 2), (net_col, last - 1), colors.HexColor('#' + NET_FILL)),
             ('BACKGROUND', (0, last), (-1, last), colors.HexColor('#' + TOTAL_FILL)),
             ('LINEABOVE', (0, last), (-1, last), 1.2, NAVY_C), ('LINEBELOW', (0, last), (-1, last), 1.6, NAVY_C),
         ]
@@ -158,14 +158,11 @@ def generate_wages_sheet_pdf(sheet, generated_by=None):
             style += [('SPAN', (0, r), (-1, r)), ('BACKGROUND', (0, r), (-1, r), SUB_C)]
         for r in sub_total_rows:
             style += [('BACKGROUND', (0, r), (-1, r), SUB_C)]
-        table = Table(rows, colWidths=rtl(widths), repeatRows=1)
+        table = Table(rows, colWidths=rtl(widths), repeatRows=2)
         table.setStyle(TableStyle(style))
-        # a title never sits alone at the foot of a page
-        if len(rows) < 30:
-            story.append(KeepTogether([title_bar, table]))
-        else:
-            story += [title_bar, table]
-        story.append(Spacer(1, 10))
+        # the table fills the page and carries on to the next one (title and headings repeat); only a start with no room for
+        # a few lines is moved to the next page
+        story += [CondPageBreak(1.2 * inch), table, Spacer(1, 10)]
 
     if sheet['adjustments']:
         adj_title = Table([[Paragraph(_t('تسويات على مستوى العامل (بدلات / خصومات / سلف)'), bar)]], colWidths=[page_width])
