@@ -1271,9 +1271,6 @@ def payroll_run(request):
         payslips.append(payslip)
 
     payslips.sort(key=lambda p: _payroll_sort_key(p.employee))
-    from .services import payroll_sheet
-    sheet_rows = payroll_sheet.sheet_rows(payslips)   # the columns of the company's salary sheet, row by row
-    sheet_totals = payroll_sheet.totals(sheet_rows)
     is_posted = bool(payslips) and all(p.status == 'posted' for p in payslips)
 
     context = {
@@ -1283,8 +1280,11 @@ def payroll_run(request):
         "month_param": period_start.strftime("%Y-%m"),
         "is_posted": is_posted,
         "total_net": sum((p.net_pay for p in payslips), Decimal('0')),
-        "lines": list(zip(payslips, sheet_rows)),
-        "totals": {**sheet_totals, "ot_hours": sum((p.overtime_hours for p in payslips), Decimal('0'))},
+        "totals": {
+            key: sum((getattr(p, key) for p in payslips), Decimal('0'))
+            for key in ('base_pay', 'overtime_hours', 'overtime_pay', 'other_allowances', 'gross_pay', 'other_deductions',
+                        'unpaid_leave_deduction', 'advances', 'tax', 'net_pay')
+        },
         "excluded": list(
             Payslip.objects.filter(period_start=period_start, period_end=period_end, status='excluded')
             .select_related('employee').order_by('employee__first_name', 'employee__last_name')
