@@ -47,7 +47,25 @@ def _plain(value):
     return f'{value:f}'.rstrip('0').rstrip('.')
 
 
+# Spacing levels: the roomy layout first; when the sheet (with its signatures and notes) does not fit one page, tighter ones.
+LEVELS = [
+    {'pad': 3.2, 'size': 8.3, 'logo': 0.7, 'gap': 16, 'sign': (16, 34)},
+    {'pad': 2.3, 'size': 8.0, 'logo': 0.55, 'gap': 9, 'sign': (14, 26)},
+    {'pad': 1.6, 'size': 7.6, 'logo': 0.45, 'gap': 5, 'sign': (12, 20)},
+]
+
+
 def generate_payroll_sheet_pdf(payslips, period_start, notes, period_end=None):
+    """One page whenever it can be: tries the spacing levels in turn and keeps the first that fits a single page."""
+    result = None
+    for level in LEVELS:
+        result, pages = _build(payslips, period_start, notes, period_end, level)
+        if pages == 1:
+            break
+    return result
+
+
+def _build(payslips, period_start, notes, period_end, level):
     rows = sheet_data.sheet_rows(payslips)
     total = sheet_data.totals(rows)
     period_end = period_end or period_start
@@ -56,12 +74,13 @@ def generate_payroll_sheet_pdf(payslips, period_start, notes, period_end=None):
     page_width = page[0] - 2 * margin
     buffer = BytesIO()
     title = f'جدول رواتب الموظفين - شهر {month_label(period_start)}'
-    doc = SimpleDocTemplate(buffer, pagesize=page, topMargin=margin, bottomMargin=0.5 * inch, leftMargin=margin, rightMargin=margin,
+    doc = SimpleDocTemplate(buffer, pagesize=page, topMargin=margin, bottomMargin=0.48 * inch, leftMargin=margin, rightMargin=margin,
                             title=sheet_data.title(period_start))
     base = getSampleStyleSheet()['Normal']
-    cell = ParagraphStyle('PSCell', parent=base, fontName=FONT, fontSize=8.3, leading=10, alignment=TA_CENTER)
+    size = level['size']
+    cell = ParagraphStyle('PSCell', parent=base, fontName=FONT, fontSize=size, leading=size + 1.8, alignment=TA_CENTER)
     cell_r = ParagraphStyle('PSCellR', parent=cell, alignment=TA_RIGHT)
-    head = ParagraphStyle('PSHead', parent=cell, fontName=BOLD, fontSize=8, leading=9.6, textColor=colors.white)
+    head = ParagraphStyle('PSHead', parent=cell, fontName=BOLD, fontSize=size - 0.3, leading=size + 1.3, textColor=colors.white)
     company = ParagraphStyle('PSCompany', parent=cell, fontName=BOLD, fontSize=16, leading=19, textColor=NAVY_C)
     company_en = ParagraphStyle('PSCompanyEn', parent=cell, fontSize=9.5, leading=12, textColor=colors.HexColor('#595959'))
     title_style = ParagraphStyle('PSTitle', parent=cell, fontName=BOLD, fontSize=13, leading=17)
@@ -95,7 +114,7 @@ def generate_payroll_sheet_pdf(payslips, period_start, notes, period_end=None):
         from PIL import Image as PILImage
         with PILImage.open(logo_path) as logo_file:
             ratio = logo_file.width / logo_file.height
-        logo = Image(logo_path, width=0.7 * inch * ratio, height=0.7 * inch)
+        logo = Image(logo_path, width=level['logo'] * inch * ratio, height=level['logo'] * inch)
         cells.append(logo)
         cols.append(page_width * 0.38)
     banner = Table([cells], colWidths=cols)
@@ -125,9 +144,9 @@ def generate_payroll_sheet_pdf(payslips, period_start, notes, period_end=None):
     table = Table(table_rows, colWidths=rtl(widths), repeatRows=1)
     net_col = 0   # the net is the last logical column, i.e. the first physical one after mirroring
     style = [
-        ('FONTNAME', (0, 0), (-1, -1), FONT), ('FONTSIZE', (0, 0), (-1, -1), 8.3),
+        ('FONTNAME', (0, 0), (-1, -1), FONT), ('FONTSIZE', (0, 0), (-1, -1), size),
         ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'), ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-        ('GRID', (0, 0), (-1, -1), 0.4, GRID_C), ('TOPPADDING', (0, 0), (-1, -1), 3.2), ('BOTTOMPADDING', (0, 0), (-1, -1), 3.2),
+        ('GRID', (0, 0), (-1, -1), 0.4, GRID_C), ('TOPPADDING', (0, 0), (-1, -1), level['pad']), ('BOTTOMPADDING', (0, 0), (-1, -1), level['pad']),
         ('BACKGROUND', (0, 0), (-1, 0), NAVY_C), ('LINEBELOW', (0, 0), (-1, 0), 0.8, NAVY_C),
         ('ROWBACKGROUNDS', (0, 1), (-1, last_row - 1), [colors.white, colors.HexColor('#' + BAND)]),
         ('BACKGROUND', (net_col, 1), (net_col, last_row - 1), colors.HexColor('#' + NET_FILL)),
@@ -142,13 +161,13 @@ def generate_payroll_sheet_pdf(payslips, period_start, notes, period_end=None):
     sign = Table(
         [[Paragraph(_t('اعتماد'), label), Paragraph(_t('تدقيق'), label), Paragraph(_t('إعداد - شؤون الموظفين'), label)],
          [text(approved_by(), cell, sign_w) or ' ', text(reviewed_by(), cell, sign_w) or ' ', text(prepared_by(), cell, sign_w) or ' ']],
-        colWidths=[sign_w] * 3, rowHeights=[16, 34])
+        colWidths=[sign_w] * 3, rowHeights=list(level['sign']))
     sign.setStyle(TableStyle([('LINEBELOW', (0, 1), (-1, 1), 0.7, colors.HexColor('#7F7F7F')), ('VALIGN', (0, 0), (-1, -1), 'BOTTOM'),
                               ('LEFTPADDING', (0, 0), (-1, -1), 14), ('RIGHTPADDING', (0, 0), (-1, -1), 14)]))
-    story = [banner, Spacer(1, 7), table, Spacer(1, 16)]
+    story = [banner, Spacer(1, 6), table, Spacer(1, level['gap'])]
     closing = [sign]
     if notes:
-        closing += [Spacer(1, 12), Paragraph(_t('ملاحظات'), note_head)]
+        closing += [Spacer(1, level['gap'] * 0.7), Paragraph(_t('ملاحظات'), note_head)]
         closing += [rtl_paragraph(line, note, page_width - 12) for line in notes]
     story.append(KeepTogether(closing))
 
@@ -165,4 +184,4 @@ def generate_payroll_sheet_pdf(payslips, period_start, notes, period_end=None):
 
     doc.build(story, onFirstPage=footer, onLaterPages=footer)
     buffer.seek(0)
-    return buffer.getvalue()
+    return buffer.getvalue(), doc.page
