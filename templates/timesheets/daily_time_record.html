@@ -96,7 +96,7 @@
                 </thead>
                 <tbody>
                     {% for r in records %}
-                    <tr class="{% if r.status == 'unpaid_leave' %}table-warning{% elif r.status == 'absent' %}table-danger{% endif %}">
+                    <tr id="day-{{ r.date|date:'Y-m-d' }}" class="{% if r.status == 'unpaid_leave' %}table-warning{% elif r.status == 'absent' %}table-danger{% endif %}">
                         <td>{{ r.date|date:"D, M j" }}</td>
                         <form id="dtr-{{ r.pk }}" method="post" action="{% url 'timesheets:daily_time_record_update_row' r.pk %}"></form>
                         <td>
@@ -180,6 +180,7 @@
 </div>
 {% endif %}
 
+<style>tr:target > td { animation: dayFlash 2.2s ease-out; } @keyframes dayFlash { from { background-color: #fff3a8; } to { background-color: transparent; } }</style>
 {% if can_split %}
 <div class="modal fade" id="splitModal" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog modal-lg">
@@ -203,6 +204,7 @@
         <button type="submit" name="action" value="reset" class="btn btn-outline-secondary" formnovalidate
                 onclick="return confirm('Remove what was typed for this day and use the daily reports again?');">Use daily reports</button>
         <div><button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
+        <button type="submit" name="action" value="save_stay" class="btn btn-outline-primary" title="Save, then open this day's split again to keep editing">Save &amp; keep open</button>
         <button type="submit" name="action" value="save" class="btn btn-primary">Save split</button></div>
       </div>
     </form>
@@ -245,7 +247,9 @@
         body.appendChild(tr);
     }
     document.getElementById('splitAdd').onclick = function () { addRow(); };
+    var reopen = new URLSearchParams(location.search).get('split');
     document.querySelectorAll('.split-btn').forEach(function (btn) {
+        if (reopen && btn.dataset.date === reopen) { window.addEventListener('load', function () { btn.click(); }); }
         btn.addEventListener('click', function () {
             document.getElementById('splitDate').value = btn.dataset.date;
             document.getElementById('splitLabel').textContent = btn.dataset.label;

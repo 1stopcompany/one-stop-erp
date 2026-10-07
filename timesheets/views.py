@@ -1052,7 +1052,9 @@ def dtr_project_hours_save(request, employee_id):
     except ValueError:
         messages.error(request, "Bad date.")
         return redirect("timesheets:daily_time_record", employee_id=employee.pk)
-    back = f"{reverse('timesheets:daily_time_record', args=[employee.pk])}?month={day.strftime('%Y-%m')}"
+    stay_open = request.POST.get("action") == "save_stay"
+    back = (f"{reverse('timesheets:daily_time_record', args=[employee.pk])}?month={day.strftime('%Y-%m')}"
+            f"{'&split=' + day.isoformat() if stay_open else ''}#day-{day.isoformat()}")
 
     if request.POST.get("action") == "reset":
         EmployeeProjectHours.objects.filter(employee=employee, date=day).delete()
