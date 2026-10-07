@@ -69,6 +69,7 @@ urlpatterns = [
     path("employees/<int:employee_id>/dtr/save-all/", views.daily_time_record_save_all, name="daily_time_record_save_all"),
     path("employees/<int:employee_id>/dtr/project-hours/", views.dtr_project_hours_save, name="dtr_project_hours_save"),
     path("employees/<int:employee_id>/dtr/fill-defaults/", views.dtr_fill_defaults, name="dtr_fill_defaults"),
+    path("employees/<int:employee_id>/dtr/recalc-undertime/", views.dtr_recalc_undertime, name="dtr_recalc_undertime"),
     path("map/", views.EmployeeMapView.as_view(), name="attendance_map"),
     path("payroll/run/", views.payroll_run, name="payroll_run"),
     path("payroll/run/<int:pk>/update/", views.payroll_run_update_row, name="payroll_run_update_row"),

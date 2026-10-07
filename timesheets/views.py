@@ -1018,6 +1018,19 @@ def dtr_fill_defaults(request, employee_id):
 
 @hr_manager_required
 @require_http_methods(["POST"])
+def dtr_recalc_undertime(request, employee_id):
+    """Every present day of the month: Undertime = the minutes short of an 8-hour day (overwrites typed Undertime figures)."""
+    from .services.attendance_service import recalculate_undertime
+
+    employee = get_object_or_404(Employee, pk=employee_id)
+    period_start, period_end = _resolve_month_period(request.POST.get("month"))
+    changed = recalculate_undertime(employee, period_start, period_end)
+    messages.success(request, f"Undertime recalculated: {changed} day(s) updated." if changed else "Undertime already matches the hours.")
+    return redirect(f"{reverse('timesheets:daily_time_record', args=[employee.pk])}?month={period_start.strftime('%Y-%m')}")
+
+
+@hr_manager_required
+@require_http_methods(["POST"])
 def dtr_project_hours_save(request, employee_id):
     """Split (or reset) one day of an employee's DTR over projects: rows of project + regular hours + overtime hours."""
     from projects.models import Project
@@ -1200,8 +1213,14 @@ def _apply_dtr_fields(record, get):
 
     record.clock_in = _time('clock_in')
     record.clock_out = _time('clock_out')
+    if get('break_hours') is not None:
+        record.break_hours = min(_decimal('break_hours'), Decimal('12'))
     record.late_minutes = _int('late_minutes')
     record.undertime_minutes = _int('undertime_minutes')
+    if record.status == 'present' and record.clock_in and record.clock_out and not _text('undertime_manual'):
+        # the shortfall of a present day is its Undertime, worked out from the times and the break (unless HR typed another figure)
+        from .services.attendance_service import day_undertime_minutes
+        record.undertime_minutes = day_undertime_minutes(record.clock_in, record.clock_out, record.break_hours or Decimal('0'))
     record.overtime_hours = _decimal('overtime_hours')
     if get('break_hours') is not None:
         record.break_hours = min(_decimal('break_hours'), Decimal('12'))

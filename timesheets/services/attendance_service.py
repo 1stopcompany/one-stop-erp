@@ -69,6 +69,31 @@ def day_overtime(clock_in, clock_out, break_hours=DEFAULT_BREAK_HOURS):
     return max(worked - STANDARD_DAY_HOURS, Decimal('0')).quantize(Decimal('0.01'))
 
 
+def day_undertime_minutes(clock_in, clock_out, break_hours=DEFAULT_BREAK_HOURS):
+    """Minutes the day falls short of the standard 8 hours (clock out - clock in - break); 0 when a time is missing."""
+    if not (clock_in and clock_out):
+        return 0
+    minutes = (clock_out.hour * 60 + clock_out.minute) - (clock_in.hour * 60 + clock_in.minute)
+    if minutes <= 0:
+        return 0
+    worked = Decimal(minutes) - Decimal(break_hours) * 60
+    return int(max(Decimal(STANDARD_DAY_HOURS) * 60 - worked, Decimal('0')))
+
+
+def recalculate_undertime(employee, period_start, period_end):
+    """The shortfall of every present day of the month becomes its Undertime minutes (what the annual-leave balance is charged for)."""
+    changed = 0
+    for record in generate_daily_attendance(employee, period_start, period_end):
+        if record.status != 'present' or not (record.clock_in and record.clock_out):
+            continue
+        minutes = day_undertime_minutes(record.clock_in, record.clock_out, record.break_hours)
+        if record.undertime_minutes != minutes:
+            record.undertime_minutes = minutes
+            record.save()
+            changed += 1
+    return changed
+
+
 def fill_default_hours(employee, period_start, period_end, today=None):
     """
     The standard day (08:00-17:00, one hour of lunch) for every day HR left empty: a working day (not Friday, holiday or leave -- those have their own
@@ -246,7 +271,8 @@ def generate_daily_attendance(employee, period_start, period_end):
             defaults = {'status': 'rest_day'}
         elif day in checkins:
             clock_in, clock_out = checkins[day]
-            defaults = {'status': 'present', 'clock_in': clock_in, 'clock_out': clock_out, 'overtime_hours': day_overtime(clock_in, clock_out)}
+            defaults = {'status': 'present', 'clock_in': clock_in, 'clock_out': clock_out, 'overtime_hours': day_overtime(clock_in, clock_out),
+                        'undertime_minutes': day_undertime_minutes(clock_in, clock_out)}
         else:
             defaults = {'status': 'absent'}
 
