@@ -116,7 +116,7 @@
                         <td><input type="text" name="notes" form="dtr-{{ r.pk }}" value="{{ r.notes }}" class="form-control form-control-sm" placeholder="—"></td>
                         <td>
                             {% for row in r.alloc.rows %}
-                            <div class="small text-nowrap"><strong>{{ row.project.name|truncatechars:22 }}</strong>{% if row.sub %} <span class="text-muted">/ {{ row.sub|truncatechars:20 }}</span>{% endif %}: {{ row.regular|floatformat:"-2" }}h{% if row.overtime %} <span class="text-danger">+{{ row.overtime|floatformat:"-2" }} OT</span>{% endif %}</div>
+                            <div class="small"><strong>{{ row.project.name|truncatechars:22 }}</strong>{% if row.sub %} <span class="text-muted">/ {{ row.sub }}</span>{% endif %}: {{ row.regular|floatformat:"-2" }}h{% if row.overtime %} <span class="text-danger">+{{ row.overtime|floatformat:"-2" }} OT</span>{% endif %}</div>
                             {% endfor %}
                             {% if r.alloc.source == 'daily_report' %}<span class="badge bg-light text-dark border" title="Taken from the daily reports' worker attendance">from daily report</span>
                             {% elif r.alloc.source == 'manual' %}<span class="badge bg-info text-dark" title="Typed here; replaces the daily reports for this day">manual</span>{% endif %}

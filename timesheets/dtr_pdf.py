@@ -20,7 +20,7 @@ from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
 from reportlab.lib.units import inch
 from reportlab.platypus import Image, KeepTogether, Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
 
-from reports.utils import MR_FONT_BOLD_NAME as BOLD, MR_FONT_NAME as FONT, _ARABIC_RE, _t, rtl_paragraph
+from reports.utils import MR_FONT_BOLD_NAME as BOLD, MR_FONT_NAME as FONT, _ARABIC_RE, _rtl_wrap_lines, _t, rtl_paragraph
 
 from .payroll_sheet_excel import BAND, COMPANY_AR, COMPANY_EN, NAVY, TOTAL_FILL, month_label
 
@@ -156,7 +156,8 @@ def _build(employee, records, period_start, generated_by, allocations, breakdown
                     part += f" + {_num(row['overtime'], False)} OT"
                 lines.append(part)
                 if row['sub']:   # the sub (متفرقة) under its project, shaped for Arabic
-                    lines.append(_t('- ' + row['sub'][:22]))
+                    # the whole name, wrapped inside the cell (never cut)
+                    lines.extend(_rtl_wrap_lines('- ' + row['sub'], FONT, small_c.fontSize, widths[10] - 6))
             project_cell = Paragraph('<br/>'.join(lines), small_c)   # project symbols and numbers only: plain left-to-right text
         else:
             project_cell = ''
