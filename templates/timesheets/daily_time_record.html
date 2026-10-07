@@ -17,6 +17,9 @@
                     <button type="submit" class="btn btn-sm btn-outline-primary">Load</button>
                 </form>
                 {% if can_split %}
+                <button type="button" class="btn btn-sm btn-primary save-all-btn" disabled title="Save every day you changed on this page">
+                    <i class="fas fa-save me-1"></i>Save all <span class="badge bg-light text-dark save-all-count">0</span>
+                </button>
                 <form method="post" action="{% url 'timesheets:dtr_fill_defaults' employee.pk %}" class="d-inline"
                       onsubmit="return confirm('Set every empty working day of this month (no check-in, not Friday / holiday / leave / a future day) to Present 08:00-17:00 (8 working hours + 1 hour break)? Days with real check-ins or your own corrections are not touched; you can still edit any day afterwards.');">
                     {% csrf_token %}<input type="hidden" name="month" value="{{ month_param }}">
@@ -133,6 +136,9 @@
                     {% endfor %}
                 </tbody>
                 <tfoot>
+                    {% if can_split %}<tr><td colspan="12" class="text-end bg-white border-0 pt-3">
+                        <button type="button" class="btn btn-primary save-all-btn" disabled><i class="fas fa-save me-1"></i>Save all <span class="badge bg-light text-dark save-all-count">0</span></button>
+                    </td></tr>{% endif %}
                     <tr class="table-light fw-bold">
                         <td colspan="5" class="text-end">Total hours worked this month</td>
                         <td></td>
@@ -144,6 +150,11 @@
         </div>
     </div>
 </div>
+{% if can_split %}
+<form method="post" id="saveAllForm" action="{% url 'timesheets:daily_time_record_save_all' employee.pk %}" class="d-none">
+    {% csrf_token %}<input type="hidden" name="month" value="{{ month_param }}"><input type="hidden" name="ids" id="saveAllIds">
+</form>
+{% endif %}
 {% if breakdown %}
 <div class="card mt-4">
     <div class="card-header"><strong>Hours and cost per project</strong> <span class="text-muted small">&middot; {{ period_start|date:"F Y" }} &middot; the monthly salary is unchanged, this only shows what each project is charged</span></div>
@@ -287,6 +298,44 @@
         s.addEventListener('change', function () { recalc(s.getAttribute('form'), true); });
     });
     recalc((document.querySelector('td.total-hours') || {dataset: {}}).dataset.form);
+
+    // Save all: every row changed on the page is sent together (name-<record id>); an untouched row is left alone
+    var dirty = {};
+    function markDirty(formId) {
+        dirty[formId] = true;
+        var n = Object.keys(dirty).length;
+        document.querySelectorAll('.save-all-count').forEach(function (b) { b.textContent = n; });
+        document.querySelectorAll('.save-all-btn').forEach(function (b) { b.disabled = false; });
+    }
+    document.querySelectorAll('[form^="dtr-"]').forEach(function (el) {
+        if (el.type === 'hidden' || el.tagName === 'BUTTON') return;
+        ['input', 'change'].forEach(function (ev) { el.addEventListener(ev, function () { markDirty(el.getAttribute('form')); }); });
+    });
+    document.querySelectorAll('.save-all-btn').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            var form = document.getElementById('saveAllForm');
+            form.querySelectorAll('[data-generated]').forEach(function (n) { n.remove(); });
+            var ids = [];
+            Object.keys(dirty).forEach(function (formId) {
+                var pk = formId.replace('dtr-', '');
+                ids.push(pk);
+                document.querySelectorAll('[form="' + formId + '"]').forEach(function (el) {
+                    if (!el.name || el.name === 'csrfmiddlewaretoken' || el.tagName === 'BUTTON') return;
+                    var hidden = document.createElement('input');
+                    hidden.type = 'hidden'; hidden.name = el.name + '-' + pk; hidden.value = el.value; hidden.setAttribute('data-generated', '1');
+                    form.appendChild(hidden);
+                });
+            });
+            document.getElementById('saveAllIds').value = ids.join(',');
+            window.__dtrSubmitting = true;
+            form.submit();
+        });
+    });
+    // leaving the page with unsaved changes asks first
+    window.addEventListener('beforeunload', function (e) {
+        if (Object.keys(dirty).length && !window.__dtrSubmitting) { e.preventDefault(); e.returnValue = ''; }
+    });
+    document.addEventListener('submit', function () { window.__dtrSubmitting = true; }, true);
 
     // choosing Present in a row's status list fills 08:00 / 17:00 when the times are empty (still editable before saving)
     document.querySelectorAll('select[name="status"][form^="dtr-"]').forEach(function (select) {

@@ -1163,18 +1163,17 @@ def export_dtr_pdf(request, employee_id):
     return response
 
 
-@hr_manager_required
-@require_http_methods(["POST"])
-def daily_time_record_update_row(request, pk):
-    """Correct one day's status/clock times/late/undertime/overtime on an employee's DTR."""
-    record = get_object_or_404(DailyAttendanceRecord, pk=pk)
-
-    status = request.POST.get('status')
+def _apply_dtr_fields(record, get):
+    """Copy one DTR row's typed fields (`get(name)` -> the raw text, or None when the field was not sent) onto the record and save it."""
+    status = get('status')
     if status in dict(DailyAttendanceRecord.STATUS_CHOICES):
         record.status = status
 
+    def _text(field):
+        return (get(field) or '').strip()
+
     def _time(field):
-        raw = request.POST.get(field, '').strip()
+        raw = _text(field)
         if not raw:
             return None
         try:
@@ -1183,11 +1182,11 @@ def daily_time_record_update_row(request, pk):
             return None
 
     def _int(field):
-        raw = request.POST.get(field, '').strip()
+        raw = _text(field)
         return int(raw) if raw.isdigit() else 0
 
     def _decimal(field):
-        raw = request.POST.get(field, '').strip()
+        raw = _text(field)
         try:
             return Decimal(raw) if raw else Decimal('0')
         except InvalidOperation:
@@ -1198,15 +1197,40 @@ def daily_time_record_update_row(request, pk):
     record.late_minutes = _int('late_minutes')
     record.undertime_minutes = _int('undertime_minutes')
     record.overtime_hours = _decimal('overtime_hours')
-    if 'break_hours' in request.POST:
+    if get('break_hours') is not None:
         record.break_hours = min(_decimal('break_hours'), Decimal('12'))
-    record.notes = request.POST.get('notes', '')[:255]
+    record.notes = (get('notes') or '')[:255]
     record.save()
+
+
+@hr_manager_required
+@require_http_methods(["POST"])
+def daily_time_record_update_row(request, pk):
+    """Correct one day's status/clock times/late/undertime/overtime on an employee's DTR."""
+    record = get_object_or_404(DailyAttendanceRecord, pk=pk)
+    _apply_dtr_fields(record, request.POST.get)
 
     messages.success(request, f'Updated {record.date} for {record.employee.full_name}.')
     return redirect(
         f"{reverse('timesheets:daily_time_record', args=[record.employee_id])}?month={record.date.strftime('%Y-%m')}"
     )
+
+
+@hr_manager_required
+@require_http_methods(["POST"])
+def daily_time_record_save_all(request, employee_id):
+    """Save every row the page marked as changed in one go (fields are sent as `<name>-<record id>`, the ids as `ids`)."""
+    employee = get_object_or_404(Employee, pk=employee_id)
+    month = request.POST.get("month") or ""
+    ids = [int(x) for x in (request.POST.get("ids") or "").split(",") if x.strip().isdigit()]
+    records = DailyAttendanceRecord.objects.filter(employee=employee, pk__in=ids)
+    saved = 0
+    with transaction.atomic():
+        for record in records:
+            _apply_dtr_fields(record, lambda name, pk=record.pk: request.POST.get(f"{name}-{pk}"))
+            saved += 1
+    messages.success(request, f"Saved {saved} day(s) for {employee.full_name}." if saved else "Nothing to save.")
+    return redirect(f"{reverse('timesheets:daily_time_record', args=[employee.pk])}?month={month}")
 
 
 class EmployeeAttendanceSummaryView(LoginRequiredMixin, DetailView):
