@@ -1,9 +1,11 @@
 """
-Excel export of the employee payroll in the layout of the company's salary sheet (08.2026.xlsx): right-to-left, A4 landscape on one
-page, a title row with the company logo, the 16 columns, a totals line, the prepared/reviewed line and the notes. The overtime
-value, the total and the net are live formulas exactly as in that sheet, so the file can still be adjusted by hand.
+Excel export of the employee payroll: the company's salary-sheet columns (08.2026.xlsx) on a clean, formal page -- Times New Roman,
+right-to-left, A4 landscape, the company banner with the logo, a navy header row, banded lines, money with thousands separators,
+a totals line, signature boxes (prepared / reviewed / approved), the notes written for the month and a footer with page numbers.
+The overtime value, the total and the net are live formulas, so the file can still be adjusted by hand.
 """
 import os
+from datetime import date
 
 from django.conf import settings
 from django.contrib.staticfiles import finders
@@ -11,13 +13,24 @@ from openpyxl import Workbook
 from openpyxl.drawing.image import Image as XLImage
 from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 from openpyxl.utils import get_column_letter as L
+from openpyxl.worksheet.pagebreak import Break
 
 from .services import payroll_sheet as sheet_data
 
-WIDTHS = [2.9, 25.7, 16.3, 12.3, 12.7, 5.0, 11.4, 6.9, 6.3, 6.1, 5.9, 9.6, 8.9, 11.4, 10.4, 11.4]
-THIN = Side(style='thin', color='000000')
-BORDER = Border(left=THIN, right=THIN, top=THIN, bottom=THIN)
-HEADER_FILL = PatternFill('solid', fgColor='DDEBF7')
+FONT = 'Times New Roman'
+NAVY = '1F3864'
+BAND = 'F3F6FB'
+TOTAL_FILL = 'D9E2F3'
+NET_FILL = 'FFF6DD'
+WIDTHS = [4.5, 26, 16, 12.5, 13, 6.5, 12, 10, 10.5, 11, 10, 11, 10.5, 13, 10.5, 14]
+
+MONTHS_AR = ['كانون الثاني', 'شباط', 'آذار', 'نيسان', 'أيار', 'حزيران', 'تموز', 'آب', 'أيلول', 'تشرين الأول', 'تشرين الثاني', 'كانون الأول']
+COMPANY_AR = 'شركة ون ستوب للمقاولات'
+COMPANY_EN = 'One Stop For Contracting Co.'
+
+MONEY = '#,##0.00'
+HAIR = Side(style='thin', color='BFBFBF')
+GRID = Border(left=HAIR, right=HAIR, top=HAIR, bottom=HAIR)
 
 
 def prepared_by():
@@ -28,51 +41,82 @@ def reviewed_by():
     return getattr(settings, 'PAYROLL_REVIEWED_BY', '')
 
 
-def build_payroll_workbook(payslips, period_start, notes):
+def approved_by():
+    return getattr(settings, 'PAYROLL_APPROVED_BY', '')
+
+
+def month_label(period_start):
+    return f'{MONTHS_AR[period_start.month - 1]} {period_start.year}'
+
+
+def build_payroll_workbook(payslips, period_start, notes, period_end=None):
     """`payslips` in the order of the sheet; `notes` is the list of note texts written for the month."""
     rows = sheet_data.sheet_rows(payslips)
     wb = Workbook()
     ws = wb.active
     ws.title = f'{period_start:%m.%Y}'
     ws.sheet_view.rightToLeft = True
+    ws.sheet_view.showGridLines = False
     ws.page_setup.orientation = 'landscape'
     ws.page_setup.paperSize = ws.PAPERSIZE_A4
     ws.page_setup.fitToWidth = 1
     ws.page_setup.fitToHeight = 0
     ws.sheet_properties.pageSetUpPr.fitToPage = True
-    ws.page_margins.left = ws.page_margins.right = 0.25
-    ws.page_margins.top = ws.page_margins.bottom = 0.4
+    ws.page_margins.left = ws.page_margins.right = 0.3
+    ws.page_margins.top, ws.page_margins.bottom = 0.45, 0.6
     ws.print_options.horizontalCentered = True
+    ws.oddFooter.center.text = 'صفحة &P من &N'
+    ws.oddFooter.center.font = f'{FONT},Regular'
+    ws.oddFooter.right.text = 'One Stop ERP'
+    ws.oddFooter.left.text = f'{date.today():%d/%m/%Y}'
     for i, width in enumerate(WIDTHS, start=1):
         ws.column_dimensions[L(i)].width = width
-
     last_col = len(WIDTHS)
-    bold = Font(name='Calibri', size=11, bold=True)
-    plain = Font(name='Calibri', size=11)
-    center = Alignment(horizontal='center', vertical='center', wrap_text=True)
 
-    # row 1: the title (with the logo beside it)
-    ws.merge_cells(start_row=1, start_column=1, end_row=1, end_column=last_col)
-    cell = ws.cell(1, 1, sheet_data.title(period_start))
-    cell.font, cell.alignment = Font(name='Calibri', size=12, bold=True), center
-    ws.row_dimensions[1].height = 62
+    def font(size=11, bold=False, color='000000'):
+        return Font(name=FONT, size=size, bold=bold, color=color)
+
+    def merge(r, c1, c2, value, fnt, alignment, height=None):
+        ws.merge_cells(start_row=r, start_column=c1, end_row=r, end_column=c2)
+        cell = ws.cell(r, c1, value)
+        cell.font, cell.alignment = fnt, alignment
+        if height:
+            ws.row_dimensions[r].height = height
+        return cell
+
+    centre = Alignment(horizontal='center', vertical='center', wrap_text=True)
+    right = Alignment(horizontal='right', vertical='center', wrap_text=True)
+
+    # banner: logo, company name, title and period
+    merge(1, 1, last_col, COMPANY_AR, font(17, True, NAVY), centre, 28)
+    merge(2, 1, last_col, COMPANY_EN, font(11, False, '595959'), centre, 17)
+    merge(3, 1, last_col, f'جدول رواتب الموظفين - شهر {month_label(period_start)}', font(15, True), centre, 26)
+    period_end = period_end or period_start
+    merge(4, 1, last_col, f'{period_start:%d/%m/%Y}  -  {period_end:%d/%m/%Y}', font(10.5, False, '595959'), centre, 17)
     for c in range(1, last_col + 1):
-        ws.cell(1, c).border = BORDER
+        ws.cell(4, c).border = Border(bottom=Side(style='medium', color=NAVY))
     logo = finders.find('images/one_stop_logo.png')
     if logo and os.path.exists(logo):
         image = XLImage(logo)
         image.height, image.width = 62, 62 * image.width / image.height if image.height else 62
-        ws.add_image(image, 'I1')
+        ws.add_image(image, 'B1')
+    header_row = 6
+    ws.row_dimensions[5].height = 6
 
-    # row 2: the headers
+    # header
     for c, text in enumerate(sheet_data.HEADERS, start=1):
-        cell = ws.cell(2, c, text)
-        cell.font, cell.fill, cell.alignment, cell.border = Font(name='Calibri', size=10, bold=True), HEADER_FILL, center, BORDER
-    ws.row_dimensions[2].height = 45
+        cell = ws.cell(header_row, c, text)
+        cell.font, cell.alignment = font(10.5, True, 'FFFFFF'), centre
+        cell.fill = PatternFill('solid', fgColor=NAVY)
+        cell.border = Border(left=Side(style='thin', color='FFFFFF'), right=Side(style='thin', color='FFFFFF'))
+    ws.row_dimensions[header_row].height = 46
+    ws.freeze_panes = ws.cell(header_row + 1, 3)
+    ws.print_title_rows = f'{header_row}:{header_row}'
 
-    first = 3
+    first = header_row + 1
     r = first
-    for row in rows:
+    for index, row in enumerate(rows):
+        fill = PatternFill('solid', fgColor=BAND) if index % 2 else None
         values = {
             1: row['n'], 2: row['name'], 3: row['position'], 4: int(row['national_id']) if str(row['national_id']).isdigit() else row['national_id'],
             5: int(row['bank_account']) if str(row['bank_account']).isdigit() else row['bank_account'],
@@ -85,37 +129,49 @@ def build_payroll_workbook(payslips, period_start, notes):
         formulas = {10: f'=I{r}*H{r}', 14: f'=G{r}+M{r}+J{r}+K{r}-L{r}', 16: f'=N{r}-M{r}-O{r}'}
         for c in range(1, last_col + 1):
             cell = ws.cell(r, c, values.get(c, formulas.get(c)))
-            cell.font, cell.border = plain, BORDER
+            cell.font = font(11, bold=c in (14, 16))
+            cell.border = GRID
             cell.alignment = Alignment(horizontal='right' if c in (2, 3) else 'center', vertical='center', wrap_text=c in (2, 3))
+            if c in (7, 9, 10, 11, 12, 13, 14, 15, 16):
+                cell.number_format = MONEY
+            if c == 16:
+                cell.fill = PatternFill('solid', fgColor=NET_FILL)
+            elif fill:
+                cell.fill = fill
         r += 1
     last = r - 1
 
-    # the totals line, as in the sheet: base, deductions, tax, total, advances, net
+    # totals
     for c in range(1, last_col + 1):
         cell = ws.cell(r, c)
-        cell.font, cell.fill, cell.border, cell.alignment = bold, HEADER_FILL, BORDER, Alignment(horizontal='center', vertical='center')
-    for c in (7, 12, 13, 14, 15, 16):
-        ws.cell(r, c, f'=SUM({L(c)}{first}:{L(c)}{last})')
-    r += 1
+        cell.font, cell.fill = font(11.5, True), PatternFill('solid', fgColor=TOTAL_FILL)
+        cell.border = Border(top=Side(style='medium', color=NAVY), bottom=Side(style='double', color=NAVY), left=HAIR, right=HAIR)
+        cell.alignment = Alignment(horizontal='center', vertical='center')
+    ws.cell(r, 2, f'المجموع ({len(rows)})').alignment = Alignment(horizontal='right', vertical='center')
+    for c in (7, 10, 11, 12, 13, 14, 15, 16):
+        ws.cell(r, c, f'=SUM({L(c)}{first}:{L(c)}{last})').number_format = MONEY
+    ws.row_dimensions[r].height = 24
+    r += 2
 
-    # prepared by / reviewed by
-    ws.merge_cells(start_row=r, start_column=1, end_row=r, end_column=3)
-    ws.cell(r, 1, f'إعداد : شؤون الموظفين : {prepared_by()}          تدقيق:').font = bold
-    ws.cell(r, 4, reviewed_by()).font = bold
-    ws.merge_cells(start_row=r, start_column=5, end_row=r, end_column=last_col)
+    # signatures (a long table sends the signatures and the notes together to the next page)
+    if len(rows) > 15:
+        ws.row_breaks.append(Break(id=r - 1))
+    block = last_col // 3
+    spans = [(1, block, 'إعداد - شؤون الموظفين', prepared_by()), (block + 1, 2 * block, 'تدقيق', reviewed_by()),
+             (2 * block + 1, last_col, 'اعتماد', approved_by())]
+    for c1, c2, label, name in spans:
+        merge(r, c1, c2, label, font(11, True, NAVY), centre, 20)
+        merge(r + 1, c1, c2, name or ' ', font(11), centre, 30)
+        for c in range(c1, c2 + 1):
+            ws.cell(r + 1, c).border = Border(bottom=Side(style='thin', color='7F7F7F'))
+    r += 3
+
+    # notes
+    merge(r, 1, last_col, 'ملاحظات', font(11.5, True, NAVY), right, 20)
     for c in range(1, last_col + 1):
-        ws.cell(r, c).border = BORDER
-        ws.cell(r, c).alignment = Alignment(horizontal='right', vertical='center')
-    ws.row_dimensions[r].height = 22
+        ws.cell(r, c).border = Border(bottom=Side(style='thin', color=NAVY))
     r += 1
-
-    # notes: a heading row, then one row per note
-    for text in ['ملاحظات:'] + list(notes):
-        ws.merge_cells(start_row=r, start_column=1, end_row=r, end_column=last_col)
-        cell = ws.cell(r, 1, text)
-        cell.font, cell.alignment = bold, Alignment(horizontal='right', vertical='center', wrap_text=True)
-        for c in range(1, last_col + 1):
-            ws.cell(r, c).border = BORDER
-        ws.row_dimensions[r].height = 20 if len(text) < 140 else 34
+    for text in notes:
+        merge(r, 1, last_col, text, font(11), right, 20 if len(text) < 150 else 34)
         r += 1
     return wb

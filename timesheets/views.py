@@ -1271,6 +1271,9 @@ def payroll_run(request):
         payslips.append(payslip)
 
     payslips.sort(key=lambda p: _payroll_sort_key(p.employee))
+    from .services import payroll_sheet
+    sheet_rows = payroll_sheet.sheet_rows(payslips)   # the columns of the company's salary sheet, row by row
+    sheet_totals = payroll_sheet.totals(sheet_rows)
     is_posted = bool(payslips) and all(p.status == 'posted' for p in payslips)
 
     context = {
@@ -1280,11 +1283,8 @@ def payroll_run(request):
         "month_param": period_start.strftime("%Y-%m"),
         "is_posted": is_posted,
         "total_net": sum((p.net_pay for p in payslips), Decimal('0')),
-        "totals": {
-            key: sum((getattr(p, key) for p in payslips), Decimal('0'))
-            for key in ('base_pay', 'overtime_hours', 'overtime_pay', 'other_allowances', 'gross_pay', 'other_deductions',
-                        'unpaid_leave_deduction', 'advances', 'tax', 'net_pay')
-        },
+        "lines": list(zip(payslips, sheet_rows)),
+        "totals": {**sheet_totals, "ot_hours": sum((p.overtime_hours for p in payslips), Decimal('0'))},
         "excluded": list(
             Payslip.objects.filter(period_start=period_start, period_end=period_end, status='excluded')
             .select_related('employee').order_by('employee__first_name', 'employee__last_name')
@@ -1337,16 +1337,30 @@ def payroll_run_update_row(request, pk):
         return None if abs(value - auto_value) < Decimal('0.01') else value
 
     employee, start, end = payslip.employee, payslip.period_start, payslip.period_end
+    extra = {}
+    if 'deductions' in request.POST:
+        # مقتطعات as in the company's sheet: one number that already contains the unpaid-leave deduction. What is above that
+        # deduction is the typed "other deductions"; a smaller number replaces the unpaid-leave deduction itself.
+        total = _decimal('deductions')
+        unpaid = payslip.unpaid_leave_deduction
+        if total >= unpaid:
+            other_deductions = total - unpaid
+        else:
+            other_deductions = Decimal('0')
+            extra['manual_unpaid_leave_deduction'] = total
+    else:
+        other_deductions = _decimal('other_deductions')
+        extra['manual_unpaid_leave_deduction'] = _typed_or_auto('unpaid_leave_deduction', auto_unpaid_leave(employee, start, end)[1])
     compute_payslip_salaried(
         employee, start, end,
         overtime_hours=_decimal('overtime_hours'),
         other_allowances=_decimal('other_allowances'),
-        other_deductions=_decimal('other_deductions'),
+        other_deductions=other_deductions,
         advances=_decimal('advances'),
         tax=_decimal('tax'),
         generated_by=request.user,
         manual_base_pay=_typed_or_auto('base_pay', auto_base_pay(employee, start, end)),
-        manual_unpaid_leave_deduction=_typed_or_auto('unpaid_leave_deduction', auto_unpaid_leave(employee, start, end)[1]),
+        **extra,
     )
     messages.success(request, f'Updated {payslip.employee.full_name}.')
     return redirect(f"{reverse('timesheets:payroll_run')}?month={payslip.period_start.strftime('%Y-%m')}")
@@ -1561,7 +1575,7 @@ def export_payroll_excel(request):
     period_start, period_end = _resolve_month_period(request.GET.get("month"))
     slips = _payroll_slips_for_export(request, period_start, period_end)
     notes = list(PayrollNote.objects.filter(period_start=period_start).values_list('text', flat=True))
-    wb = build_payroll_workbook(slips, period_start, notes)
+    wb = build_payroll_workbook(slips, period_start, notes, period_end)
     response = HttpResponse(content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
     response["Content-Disposition"] = f"attachment; filename=payroll-{period_start.strftime('%Y-%m')}.xlsx"
     wb.save(response)
@@ -1577,7 +1591,7 @@ def export_payroll_pdf(request):
     period_start, period_end = _resolve_month_period(request.GET.get("month"))
     slips = _payroll_slips_for_export(request, period_start, period_end)
     notes = list(PayrollNote.objects.filter(period_start=period_start).values_list('text', flat=True))
-    response = HttpResponse(generate_payroll_sheet_pdf(slips, period_start, notes), content_type="application/pdf")
+    response = HttpResponse(generate_payroll_sheet_pdf(slips, period_start, notes, period_end), content_type="application/pdf")
     response["Content-Disposition"] = f"attachment; filename=payroll-{period_start.strftime('%Y-%m')}.pdf"
     return response
 

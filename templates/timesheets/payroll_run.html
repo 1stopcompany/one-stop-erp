@@ -22,7 +22,19 @@
   .pr-page .text-muted.small, .pr-page .small { font-size: 11.5px; }
   .pr-page details summary { cursor: pointer; font-size: 12px; color: #5b6b82; }
   /* the boxes sit flush right under their right-aligned headers, so each header is clearly above its own box */
-  .pr-page .table input[type=number] { display: block; margin-left: auto; width: 78px; min-width: 62px; padding-left: 4px; padding-right: 4px; text-align: right; }
+  .pr-page .table input[type=number] { display: block; margin: 0 auto; width: 76px; min-width: 62px; padding-left: 4px; padding-right: 4px; text-align: center; }
+  .pr-page .payroll-sheet { font-size: 11.5px; }
+  .pr-page .payroll-sheet > tbody td, .pr-page .payroll-sheet > thead th, .pr-page .payroll-sheet > tfoot td { padding-left: 3px; padding-right: 3px; }
+  .pr-page .payroll-sheet input[type=number] { width: 58px; min-width: 52px; font-size: 11.5px; padding: 2px 3px; }
+  .pr-page .payroll-sheet td:nth-child(3) { white-space: normal; min-width: 78px; max-width: 110px; line-height: 1.2; }
+  .pr-page .payroll-sheet td:nth-child(2) { white-space: nowrap; }
+  .pr-page .payroll-sheet .btn-sm { padding: 2px 6px; }
+  .pr-page .payroll-sheet .badge { font-size: 9px; padding: 2px 4px; }
+  .pr-page .payroll-sheet > thead th { text-align: center; vertical-align: middle; white-space: normal; line-height: 1.25; }
+  .pr-page .payroll-sheet > thead th:nth-child(2), .pr-page .payroll-sheet > thead th:nth-child(3) { text-align: right; }
+  .pr-page .payroll-sheet td:nth-child(2), .pr-page .payroll-sheet td:nth-child(3) { text-align: right; }
+  .pr-page .payroll-sheet .net-cell { background: #fff6dd; }
+  .pr-page .payroll-sheet tfoot tr.sheet-total td { background: #dbe7f5; border-top: 2px solid #98a8bf; }
   .pr-page .table > tbody td, .pr-page .table > thead th { padding-left: 5px; padding-right: 5px; }
   .pr-page .card { border-color: #d9e0ec; box-shadow: none; }
   .pr-page .drag-handle { padding: 4px 2px; user-select: none; }
@@ -115,41 +127,50 @@
 <div class="card">
     <div class="card-body p-0">
         <div class="table-responsive">
-            <table class="table table-hover mb-0 align-middle">
+            <table class="table table-hover mb-0 align-middle payroll-sheet" dir="rtl">
                 <thead>
                     <tr>
-                        <th>Employee</th>
-                        <th class="text-end">Base Pay</th>
-                        <th class="text-end" style="width:92px;">OT Hours</th>
-                        <th class="text-end">OT Pay</th>
-                        <th class="text-end" style="width:92px;">Allowances</th>
-                        <th class="text-end">Gross</th>
-                        <th class="text-end" style="width:92px;">Deductions</th>
-                        <th class="text-end" style="width:92px;" title="Unpaid-leave deduction (automatic from the Daily Time Record, or typed)">Unpaid leave</th>
-                        <th class="text-end" style="width:92px;">Advances</th>
-                        <th class="text-end" style="width:92px;">Tax (info)</th>
-                        <th class="text-end">Net Pay</th>
+                        <th class="text-center">#</th>
+                        <th>الأسم</th>
+                        <th>طبيعة العمل</th>
+                        <th class="text-center">رقم الهوية</th>
+                        <th class="text-center">رقم الحساب البنكي</th>
+                        <th class="text-center">عدد الايام</th>
+                        <th class="text-center">الراتب الأساسي</th>
+                        <th class="text-center">الساعات الأضافية</th>
+                        <th class="text-center">أجر الساعة الأضافية</th>
+                        <th class="text-center">بدل ساعات إضافي</th>
+                        <th class="text-center">بدلات أخرى</th>
+                        <th class="text-center" title="مقتطعات: includes the unpaid-leave deduction">مقتطعات</th>
+                        <th class="text-center">الضريبة</th>
+                        <th class="text-center">اجمالي الراتب</th>
+                        <th class="text-center">سلف</th>
+                        <th class="text-center">صافي الراتب بعد الضريبة</th>
                         <th></th>
                     </tr>
                 </thead>
                 <tbody id="payrollBody" data-month="{{ month_param }}">
-                    {% for p in payslips %}
+                    {% for p, r in lines %}
                     <tr id="emp-{{ p.employee_id }}">
-                        <td>
-                            <span class="drag-handle me-2 text-muted" title="Drag to move this employee up or down" style="cursor:grab;"><i class="fas fa-grip-vertical"></i></span><a href="{% url 'timesheets:employee_detail' p.employee.pk %}" class="text-decoration-none">{{ p.employee.full_name }}</a>
-                            <div class="text-muted small">{{ p.employee.position.title }}</div>
+                        <td class="text-center text-muted">{{ r.n }}</td>
+                        <td class="text-nowrap">
+                            <span class="drag-handle ms-1 text-muted" title="Drag to move this employee up or down" style="cursor:grab;"><i class="fas fa-grip-vertical"></i></span><a href="{% url 'timesheets:employee_detail' p.employee.pk %}" class="text-decoration-none">{{ p.employee.full_name }}</a>
                         </td>
+                        <td>{{ r.position }}</td>
+                        <td class="text-center">{{ r.national_id }}</td>
+                        <td class="text-center">{{ r.bank_account }}</td>
+                        <td class="text-center">{{ r.days|default:"-" }}</td>
                         {% if p.status == 'posted' %}
-                            <td class="text-end">₪{{ p.base_pay }}</td>
-                            <td class="text-end">{{ p.overtime_hours }}</td>
-                            <td class="text-end">₪{{ p.overtime_pay }}</td>
-                            <td class="text-end">₪{{ p.other_allowances }}</td>
-                            <td class="text-end fw-bold">₪{{ p.gross_pay }}</td>
-                            <td class="text-end">₪{{ p.other_deductions }}</td>
-                            <td class="text-end">₪{{ p.unpaid_leave_deduction }}</td>
-                            <td class="text-end">₪{{ p.advances }}</td>
-                            <td class="text-end">₪{{ p.tax }}</td>
-                            <td class="text-end fw-bold">₪{{ p.net_pay }}</td>
+                            <td class="text-center">{{ p.base_pay|floatformat:"-2" }}</td>
+                            <td class="text-center">{{ p.overtime_hours|floatformat:"-2" }}</td>
+                            <td class="text-center">{{ r.ot_rate|floatformat:2 }}</td>
+                            <td class="text-center">{{ r.ot_value|floatformat:"-2" }}</td>
+                            <td class="text-center">{{ p.other_allowances|floatformat:"-2" }}</td>
+                            <td class="text-center">{{ r.deductions|floatformat:"-2" }}</td>
+                            <td class="text-center">{{ p.tax|floatformat:"-2" }}</td>
+                            <td class="text-center">{{ r.total|floatformat:"-2" }}</td>
+                            <td class="text-center">{{ p.advances|floatformat:"-2" }}</td>
+                            <td class="text-center fw-bold net-cell">{{ p.net_pay|floatformat:"-2" }}</td>
                             <td class="text-nowrap">
                                 {% if is_admin_user %}
                                 <form method="post" action="{% url 'timesheets:payroll_run_reopen' %}" class="d-inline"
@@ -165,44 +186,26 @@
                             </td>
                         {% else %}
                             <form id="row-{{ p.pk }}" method="post" action="{% url 'timesheets:payroll_run_update_row' p.pk %}"></form>
-                            <td class="text-end">
-                                <input type="number" step="0.01" name="base_pay" form="row-{{ p.pk }}"
-                                       value="{{ p.base_pay }}" class="form-control form-control-sm text-end" style="min-width:76px;">
+                            <td class="text-center">
+                                <input type="number" step="0.01" name="base_pay" form="row-{{ p.pk }}" value="{{ p.base_pay|floatformat:'2u' }}" class="form-control form-control-sm">
                                 {% if p.manual_base_pay is not None %}<span class="badge bg-info text-dark">manual</span>{% endif %}
                             </td>
-                            <td class="text-end">
-                                <input type="number" step="0.01" name="overtime_hours" form="row-{{ p.pk }}"
-                                       value="{{ p.overtime_hours }}" class="form-control form-control-sm text-end">
+                            <td class="text-center"><input type="number" step="0.01" name="overtime_hours" form="row-{{ p.pk }}" value="{{ p.overtime_hours|floatformat:'2u' }}" class="form-control form-control-sm"></td>
+                            <td class="text-center">{{ r.ot_rate|floatformat:2 }}</td>
+                            <td class="text-center">{{ r.ot_value|floatformat:"-2" }}</td>
+                            <td class="text-center"><input type="number" step="0.01" name="other_allowances" form="row-{{ p.pk }}" value="{{ p.other_allowances|floatformat:'2u' }}" class="form-control form-control-sm"></td>
+                            <td class="text-center">
+                                <input type="number" step="0.01" name="deductions" form="row-{{ p.pk }}" value="{{ r.deductions|floatformat:'2u' }}" class="form-control form-control-sm"
+                                       title="مقتطعات{% if p.unpaid_leave_deduction %} (includes the unpaid-leave deduction {{ p.unpaid_leave_deduction }}){% endif %}">
+                                {% if p.unpaid_leave_deduction %}<span class="badge bg-light text-dark border" title="Unpaid leave deduction included in this number">إجازة {{ p.unpaid_leave_deduction|floatformat:"-2" }}</span>{% endif %}
                             </td>
-                            <td class="text-end">₪{{ p.overtime_pay }}</td>
-                            <td class="text-end">
-                                <input type="number" step="0.01" name="other_allowances" form="row-{{ p.pk }}"
-                                       value="{{ p.other_allowances }}" class="form-control form-control-sm text-end">
-                            </td>
-                            <td class="text-end fw-bold">₪{{ p.gross_pay }}</td>
-                            <td class="text-end">
-                                <input type="number" step="0.01" name="other_deductions" form="row-{{ p.pk }}"
-                                       value="{{ p.other_deductions }}" class="form-control form-control-sm text-end">
-                            </td>
-                            <td class="text-end">
-                                <input type="number" step="0.01" name="unpaid_leave_deduction" form="row-{{ p.pk }}"
-                                       value="{{ p.unpaid_leave_deduction }}" class="form-control form-control-sm text-end">
-                                {% if p.manual_unpaid_leave_deduction is not None %}<span class="badge bg-info text-dark">manual</span>{% endif %}
-                            </td>
-                            <td class="text-end">
-                                <input type="number" step="0.01" name="advances" form="row-{{ p.pk }}"
-                                       value="{{ p.advances }}" class="form-control form-control-sm text-end">
-                            </td>
-                            <td class="text-end">
-                                <input type="number" step="0.01" name="tax" form="row-{{ p.pk }}"
-                                       value="{{ p.tax }}" class="form-control form-control-sm text-end">
-                            </td>
-                            <td class="text-end fw-bold">₪{{ p.net_pay }}</td>
+                            <td class="text-center"><input type="number" step="0.01" name="tax" form="row-{{ p.pk }}" value="{{ p.tax|floatformat:'2u' }}" class="form-control form-control-sm"></td>
+                            <td class="text-center">{{ r.total|floatformat:"-2" }}</td>
+                            <td class="text-center"><input type="number" step="0.01" name="advances" form="row-{{ p.pk }}" value="{{ p.advances|floatformat:'2u' }}" class="form-control form-control-sm"></td>
+                            <td class="text-center fw-bold net-cell">{{ p.net_pay|floatformat:"-2" }}</td>
                             <td class="text-nowrap">
                                 <input type="hidden" name="csrfmiddlewaretoken" value="{{ csrf_token }}" form="row-{{ p.pk }}">
-                                <button type="submit" form="row-{{ p.pk }}" class="btn btn-sm btn-outline-primary" title="Save">
-                                    <i class="fas fa-save"></i>
-                                </button>
+                                <button type="submit" form="row-{{ p.pk }}" class="btn btn-sm btn-outline-primary" title="Save"><i class="fas fa-save"></i></button>
                                 <form method="post" action="{% url 'timesheets:payroll_run_exclude' p.pk %}" class="d-inline"
                                       onsubmit="return confirm('Take {{ p.employee.full_name|escapejs }} out of the {{ period_start|date:"F Y" }} payroll? They can be restored from the list below.');">
                                     {% csrf_token %}<button type="submit" class="btn btn-sm btn-outline-secondary" title="Take out of this month"><i class="fas fa-user-minus"></i></button>
@@ -212,7 +215,7 @@
                     </tr>
                     {% empty %}
                     <tr>
-                        <td colspan="12" class="text-center py-5">
+                        <td colspan="17" class="text-center py-5">
                             <div class="text-muted">
                                 <i class="fas fa-users-slash fa-3x mb-3 opacity-50"></i>
                                 <p class="mb-0">No active employees to run payroll for.</p>
@@ -221,20 +224,22 @@
                     </tr>
                     {% endfor %}
                 </tbody>
-                {% if payslips %}
+                {% if lines %}
                 <tfoot>
-                    <tr class="fw-bold" style="background:#dbe7f5;border-top:2px solid #98a8bf;">
-                        <td>Total · المجموع <span class="text-muted fw-normal small">({{ payslips|length }})</span></td>
-                        <td class="text-end">₪{{ totals.base_pay }}</td>
-                        <td class="text-end">{{ totals.overtime_hours }}</td>
-                        <td class="text-end">₪{{ totals.overtime_pay }}</td>
-                        <td class="text-end">₪{{ totals.other_allowances }}</td>
-                        <td class="text-end">₪{{ totals.gross_pay }}</td>
-                        <td class="text-end">₪{{ totals.other_deductions }}</td>
-                        <td class="text-end">₪{{ totals.unpaid_leave_deduction }}</td>
-                        <td class="text-end">₪{{ totals.advances }}</td>
-                        <td class="text-end">₪{{ totals.tax }}</td>
-                        <td class="text-end">₪{{ totals.net_pay }}</td>
+                    <tr class="fw-bold sheet-total">
+                        <td></td>
+                        <td>المجموع ({{ lines|length }})</td>
+                        <td></td><td></td><td></td><td></td>
+                        <td class="text-center">{{ totals.base|floatformat:"-2" }}</td>
+                        <td class="text-center">{{ totals.ot_hours|floatformat:"-2" }}</td>
+                        <td></td>
+                        <td class="text-center">{{ totals.ot_value|floatformat:"-2" }}</td>
+                        <td class="text-center">{{ totals.allowances|floatformat:"-2" }}</td>
+                        <td class="text-center">{{ totals.deductions|floatformat:"-2" }}</td>
+                        <td class="text-center">{{ totals.tax|floatformat:"-2" }}</td>
+                        <td class="text-center">{{ totals.total|floatformat:"-2" }}</td>
+                        <td class="text-center">{{ totals.advances|floatformat:"-2" }}</td>
+                        <td class="text-center net-cell">{{ totals.net|floatformat:"-2" }}</td>
                         <td></td>
                     </tr>
                 </tfoot>

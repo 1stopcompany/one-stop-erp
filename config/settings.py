@@ -285,6 +285,7 @@ WAGES_PREPARED_BY = os.getenv('WAGES_PREPARED_BY', '')
 # Names on the employee payroll sheet ("إعداد : شؤون الموظفين / تدقيق"), as on the company's salary sheet.
 PAYROLL_PREPARED_BY = os.getenv('PAYROLL_PREPARED_BY', 'بلقيس عواوده')
 PAYROLL_REVIEWED_BY = os.getenv('PAYROLL_REVIEWED_BY', 'أمل دودين')
+PAYROLL_APPROVED_BY = os.getenv('PAYROLL_APPROVED_BY', '')
 WAGES_REVIEWED_BY = os.getenv('WAGES_REVIEWED_BY', '')
 
 # -------------------------

@@ -80,11 +80,20 @@ MR_FONT_NAME = FONT_NAME
 MR_FONT_BOLD_NAME = FONT_BOLD_NAME
 MR_FONT_ITALIC_NAME = FONT_NAME
 MR_FONT_BOLD_ITALIC_NAME = FONT_BOLD_NAME
+# Times New Roman is looked for in static/fonts first (copy times.ttf, timesbd.ttf, timesi.ttf, timesbi.ttf there on a server that
+# has no Windows fonts), then in the Windows fonts folder.
+_times_dir = _WINDOWS_FONTS_DIR
 try:
-    pdfmetrics.registerFont(TTFont('TimesNewRoman', os.path.join(_WINDOWS_FONTS_DIR, 'times.ttf')))
-    pdfmetrics.registerFont(TTFont('TimesNewRoman-Bold', os.path.join(_WINDOWS_FONTS_DIR, 'timesbd.ttf')))
-    pdfmetrics.registerFont(TTFont('TimesNewRoman-Italic', os.path.join(_WINDOWS_FONTS_DIR, 'timesi.ttf')))
-    pdfmetrics.registerFont(TTFont('TimesNewRoman-BoldItalic', os.path.join(_WINDOWS_FONTS_DIR, 'timesbi.ttf')))
+    _bundled_times = os.path.join(_django_settings.BASE_DIR, 'static', 'fonts')
+    if os.path.exists(os.path.join(_bundled_times, 'times.ttf')):
+        _times_dir = _bundled_times
+except Exception:
+    pass
+try:
+    pdfmetrics.registerFont(TTFont('TimesNewRoman', os.path.join(_times_dir, 'times.ttf')))
+    pdfmetrics.registerFont(TTFont('TimesNewRoman-Bold', os.path.join(_times_dir, 'timesbd.ttf')))
+    pdfmetrics.registerFont(TTFont('TimesNewRoman-Italic', os.path.join(_times_dir, 'timesi.ttf')))
+    pdfmetrics.registerFont(TTFont('TimesNewRoman-BoldItalic', os.path.join(_times_dir, 'timesbi.ttf')))
     MR_FONT_NAME = 'TimesNewRoman'
     MR_FONT_BOLD_NAME = 'TimesNewRoman-Bold'
     MR_FONT_ITALIC_NAME = 'TimesNewRoman-Italic'

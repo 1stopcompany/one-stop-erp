@@ -21,6 +21,14 @@ HEADERS = [
 ]
 
 
+# the same headers with the line breaks chosen by hand, for the PDF (narrow columns)
+HEADER_LINES = [
+    ['#'], ['الأسم'], ['طبيعة العمل'], ['رقم الهوية'], ['رقم الحساب', 'البنكي'], ['عدد', 'الايام'], ['الراتب', 'الأساسي'],
+    ['الساعات', 'الأضافية'], ['أجر الساعة', 'الأضافية'], ['بدل ساعات', 'إضافي'], ['بدلات', 'أخرى'], ['مقتطعات'], ['الضريبة'],
+    ['اجمالي', 'الراتب'], ['سلف'], ['صافي الراتب', 'بعد الضريبة', '- شيكل'],
+]
+
+
 def working_days(payslip):
     """Paid days of the month: the days of the period the employee was employed, Fridays and unpaid leave left out."""
     employee = payslip.employee
