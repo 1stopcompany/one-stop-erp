@@ -84,7 +84,7 @@ def fill_default_hours(employee, period_start, period_end, today=None):
             continue
         record.status = 'present'
         record.clock_in, record.clock_out = DEFAULT_CLOCK_IN, DEFAULT_CLOCK_OUT
-        record.notes = 'Default 08:00-17:00 (no clock-in)'
+        record.notes = 'Default hours'
         record.save()
         filled += 1
     return filled

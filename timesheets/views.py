@@ -1148,16 +1148,21 @@ def export_dtr_excel(request, employee_id):
 
 @hr_required
 def export_dtr_pdf(request, employee_id):
-    """PDF twin of export_dtr_excel (see timesheets/pdf.py)."""
+    """PDF twin of export_dtr_excel: the formal payroll-style page with each day's split over projects (see timesheets/dtr_pdf.py)."""
     from .services.attendance_service import generate_daily_attendance
-    from .pdf import generate_dtr_pdf
+    from .services.project_hours import day_allocations, month_breakdown
+    from .dtr_pdf import generate_dtr_pdf
 
     employee = get_object_or_404(Employee, pk=employee_id)
     period_start, period_end = _resolve_month_period(request.GET.get("month"))
     records = generate_daily_attendance(employee, period_start, period_end)
     generated_by = request.user.get_full_name() or request.user.username
 
-    pdf_bytes = generate_dtr_pdf(employee, records, period_start, generated_by=generated_by)
+    pdf_bytes = generate_dtr_pdf(
+        employee, records, period_start, generated_by=generated_by,
+        allocations=day_allocations(employee, period_start, period_end),
+        breakdown=month_breakdown(employee, period_start, period_end)[0],
+    )
     response = HttpResponse(pdf_bytes, content_type="application/pdf")
     response["Content-Disposition"] = f"attachment; filename=dtr-{employee.employee_id}-{period_start.strftime('%Y-%m')}.pdf"
     return response
