@@ -255,6 +255,11 @@ class Employee(models.Model):
         blank=True,
         related_name='employee_profile'
     )
+    payroll_order = models.PositiveIntegerField(
+        default=0,
+        help_text='Position of the employee in the payroll sheet and its exports (1 = first), set with the up/down arrows on '
+                  'the Payroll Run page; 0 = not placed yet (listed after the placed ones, alphabetically)',
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     created_by = models.ForeignKey(

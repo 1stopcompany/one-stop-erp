@@ -119,7 +119,7 @@
                 </thead>
                 <tbody>
                     {% for p in payslips %}
-                    <tr>
+                    <tr id="emp-{{ p.employee_id }}">
                         <td>
                             <a href="{% url 'timesheets:employee_detail' p.employee.pk %}" class="text-decoration-none">{{ p.employee.full_name }}</a>
                             <div class="text-muted small">{{ p.employee.position.title }}</div>
@@ -142,6 +142,11 @@
                             <td class="text-end">₪{{ p.tax }}</td>
                             <td class="text-end fw-bold">₪{{ p.net_pay }}</td>
                             <td class="text-nowrap">
+                                <form method="post" action="{% url 'timesheets:payroll_run_move' p.pk %}" class="d-inline-flex flex-column me-1 align-middle">
+                                    {% csrf_token %}
+                                    <button type="submit" name="direction" value="up" class="btn btn-sm btn-outline-secondary py-0 px-1" style="line-height:1.1;" title="Move up" {% if forloop.first %}disabled{% endif %}><i class="fas fa-chevron-up" style="font-size:10px;"></i></button>
+                                    <button type="submit" name="direction" value="down" class="btn btn-sm btn-outline-secondary py-0 px-1 mt-1" style="line-height:1.1;" title="Move down" {% if forloop.last %}disabled{% endif %}><i class="fas fa-chevron-down" style="font-size:10px;"></i></button>
+                                </form>
                                 {% if is_admin_user %}
                                 <form method="post" action="{% url 'timesheets:payroll_run_exclude' p.pk %}" class="d-inline"
                                       onsubmit="return confirm('Take {{ p.employee.full_name|escapejs }} out of the {{ period_start|date:"F Y" }} payroll? This row is already POSTED.');">
@@ -184,8 +189,13 @@
                                        value="{{ p.tax }}" class="form-control form-control-sm text-end">
                             </td>
                             <td class="text-end fw-bold">₪{{ p.net_pay }}</td>
-                            <td>
+                            <td class="text-nowrap">
                                 <input type="hidden" name="csrfmiddlewaretoken" value="{{ csrf_token }}" form="row-{{ p.pk }}">
+                                <form method="post" action="{% url 'timesheets:payroll_run_move' p.pk %}" class="d-inline-flex flex-column me-1 align-middle">
+                                    {% csrf_token %}
+                                    <button type="submit" name="direction" value="up" class="btn btn-sm btn-outline-secondary py-0 px-1" style="line-height:1.1;" title="Move up" {% if forloop.first %}disabled{% endif %}><i class="fas fa-chevron-up" style="font-size:10px;"></i></button>
+                                    <button type="submit" name="direction" value="down" class="btn btn-sm btn-outline-secondary py-0 px-1 mt-1" style="line-height:1.1;" title="Move down" {% if forloop.last %}disabled{% endif %}><i class="fas fa-chevron-down" style="font-size:10px;"></i></button>
+                                </form>
                                 <button type="submit" form="row-{{ p.pk }}" class="btn btn-sm btn-outline-primary" title="Save">
                                     <i class="fas fa-save"></i>
                                 </button>

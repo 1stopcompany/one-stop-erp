@@ -1224,10 +1224,17 @@ def _payroll_employees(period_start, period_end):
     held = Payslip.objects.filter(period_start=period_start, period_end=period_end)
     excluded = set(held.filter(status='excluded').values_list('employee_id', flat=True))
     added = set(held.exclude(status='excluded').values_list('employee_id', flat=True))
-    return list(
+    employees = list(
         Employee.objects.filter(Q(employment_status='active') | Q(pk__in=added)).exclude(pk__in=excluded)
-        .select_related('department', 'position').order_by('last_name', 'first_name')
+        .select_related('department', 'position')
     )
+    employees.sort(key=_payroll_sort_key)
+    return employees
+
+
+def _payroll_sort_key(employee):
+    """The order of the payroll sheet: the placed employees by their position, then the not yet placed ones by name."""
+    return (employee.payroll_order == 0, employee.payroll_order, employee.full_name)
 
 
 @hr_manager_required
@@ -1263,7 +1270,7 @@ def payroll_run(request):
         )
         payslips.append(payslip)
 
-    payslips.sort(key=lambda p: p.employee.full_name)
+    payslips.sort(key=lambda p: _payroll_sort_key(p.employee))
     is_posted = bool(payslips) and all(p.status == 'posted' for p in payslips)
 
     context = {
@@ -1337,6 +1344,34 @@ def payroll_run_update_row(request, pk):
     )
     messages.success(request, f'Updated {payslip.employee.full_name}.')
     return redirect(f"{reverse('timesheets:payroll_run')}?month={payslip.period_start.strftime('%Y-%m')}")
+
+
+@hr_manager_required
+@require_http_methods(["POST"])
+def payroll_run_move(request, pk):
+    """
+    Move one employee up or down in the payroll sheet (Payroll Run, its Excel and its PDF). The order belongs to the
+    employee, so it carries over to the next months; it changes nothing about money, so it works on a posted month too.
+    The first move numbers everybody currently in the month 1..n in the order shown, then swaps the two neighbours.
+    """
+    from django.db import transaction
+    from .models import Payslip
+
+    payslip = get_object_or_404(Payslip, pk=pk)
+    back = f"{reverse('timesheets:payroll_run')}?month={payslip.period_start.strftime('%Y-%m')}#emp-{payslip.employee_id}"
+    employees = _payroll_employees(payslip.period_start, payslip.period_end)
+    ids = [e.pk for e in employees]
+    if payslip.employee_id not in ids:
+        return redirect(back)
+    index = ids.index(payslip.employee_id)
+    target = index - 1 if request.POST.get('direction') == 'up' else index + 1
+    if 0 <= target < len(employees):
+        employees[index], employees[target] = employees[target], employees[index]
+    with transaction.atomic():
+        for position, employee in enumerate(employees, start=1):
+            if employee.payroll_order != position:
+                Employee.objects.filter(pk=employee.pk).update(payroll_order=position)
+    return redirect(back)
 
 
 @hr_manager_required
