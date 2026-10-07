@@ -145,7 +145,7 @@
                                 <table class="table table-sm table-bordered mb-1 mt-1" style="font-size:.78rem;">
                                     <thead><tr><th>Project</th><th class="text-end">Hours</th><th class="text-end">OT</th><th class="text-end">Cost</th></tr></thead>
                                     {% for b in p.project_split %}
-                                    <tr><td>{{ b.project.name|truncatechars:26 }}</td><td class="text-end">{{ b.regular_hours|floatformat:"-2" }}</td><td class="text-end">{{ b.overtime_hours|floatformat:"-2" }}</td><td class="text-end">{{ b.cost|floatformat:2 }}</td></tr>
+                                    <tr><td>{{ b.project.name|truncatechars:26 }}{% if b.sub %} <span class="text-muted">/ {{ b.sub|truncatechars:18 }}</span>{% endif %}</td><td class="text-end">{{ b.regular_hours|floatformat:"-2" }}</td><td class="text-end">{{ b.overtime_hours|floatformat:"-2" }}</td><td class="text-end">{{ b.cost|floatformat:2 }}</td></tr>
                                     {% endfor %}
                                 </table>
                                 {% if p.project_split_totals.overtime_hours != p.overtime_hours %}<div class="text-warning">Projects' overtime: {{ p.project_split_totals.overtime_hours|floatformat:"-2" }} h (this row: {{ p.overtime_hours|floatformat:"-2" }} h)</div>{% endif %}

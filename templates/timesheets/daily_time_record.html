@@ -116,7 +116,7 @@
                         <td><input type="text" name="notes" form="dtr-{{ r.pk }}" value="{{ r.notes }}" class="form-control form-control-sm" placeholder="—"></td>
                         <td>
                             {% for row in r.alloc.rows %}
-                            <div class="small text-nowrap"><strong>{{ row.project.name|truncatechars:22 }}</strong>: {{ row.regular|floatformat:"-2" }}h{% if row.overtime %} <span class="text-danger">+{{ row.overtime|floatformat:"-2" }} OT</span>{% endif %}</div>
+                            <div class="small text-nowrap"><strong>{{ row.project.name|truncatechars:22 }}</strong>{% if row.sub %} <span class="text-muted">/ {{ row.sub|truncatechars:20 }}</span>{% endif %}: {{ row.regular|floatformat:"-2" }}h{% if row.overtime %} <span class="text-danger">+{{ row.overtime|floatformat:"-2" }} OT</span>{% endif %}</div>
                             {% endfor %}
                             {% if r.alloc.source == 'daily_report' %}<span class="badge bg-light text-dark border" title="Taken from the daily reports' worker attendance">from daily report</span>
                             {% elif r.alloc.source == 'manual' %}<span class="badge bg-info text-dark" title="Typed here; replaces the daily reports for this day">manual</span>{% endif %}
@@ -171,7 +171,7 @@
             <thead><tr><th>Project</th><th class="text-end">Days</th><th class="text-end">Hours</th><th class="text-end" title="This project's share of the Fridays, paid holidays / leave and any shortfall in hours, which are counted as present">Fri / leave / short (h)</th><th class="text-end">Cost</th><th class="text-end">OT hours</th><th class="text-end">OT cost (x{{ ot_multiplier|floatformat:"-2" }})</th><th class="text-end">Total</th></tr></thead>
             <tbody>
                 {% for b in breakdown %}
-                <tr><td>{{ b.project.name }}</td><td class="text-end">{{ b.days }}</td><td class="text-end">{{ b.regular_hours|floatformat:"-2" }}</td><td class="text-end">{{ b.extra_hours|floatformat:"-2" }}</td><td class="text-end">{{ b.regular_cost|floatformat:2 }}</td><td class="text-end">{{ b.overtime_hours|floatformat:"-2" }}</td><td class="text-end">{{ b.overtime_cost|floatformat:2 }}</td><td class="text-end fw-bold">{{ b.cost|floatformat:2 }}</td></tr>
+                <tr><td>{{ b.project.name }}{% if b.sub %} <span class="text-muted">/ {{ b.sub }}</span>{% endif %}</td><td class="text-end">{{ b.days }}</td><td class="text-end">{{ b.regular_hours|floatformat:"-2" }}</td><td class="text-end">{{ b.extra_hours|floatformat:"-2" }}</td><td class="text-end">{{ b.regular_cost|floatformat:2 }}</td><td class="text-end">{{ b.overtime_hours|floatformat:"-2" }}</td><td class="text-end">{{ b.overtime_cost|floatformat:2 }}</td><td class="text-end fw-bold">{{ b.cost|floatformat:2 }}</td></tr>
                 {% endfor %}
             </tbody>
             <tfoot><tr class="table-light fw-bold"><td colspan="2">Total</td><td class="text-end">{{ breakdown_totals.regular_hours|floatformat:"-2" }}</td><td class="text-end">{{ breakdown_totals.extra_hours|floatformat:"-2" }}</td><td class="text-end">{{ breakdown_totals.regular_cost|floatformat:2 }}</td><td class="text-end">{{ breakdown_totals.overtime_hours|floatformat:"-2" }}</td><td class="text-end">{{ breakdown_totals.overtime_cost|floatformat:2 }}</td><td class="text-end">{{ breakdown_totals.cost|floatformat:2 }}</td></tr></tfoot>
@@ -193,7 +193,7 @@
       <div class="modal-body">
         <p class="small text-muted mb-2" id="splitHint"></p>
         <table class="table table-sm align-middle mb-2">
-          <thead><tr><th>Project</th><th style="width:130px;">Hours</th><th style="width:130px;">Overtime hours</th><th style="width:40px;"></th></tr></thead>
+          <thead><tr><th>Project</th><th style="width:190px;">Sub (متفرقة)</th><th style="width:110px;">Hours</th><th style="width:110px;">Overtime hours</th><th style="width:40px;"></th></tr></thead>
           <tbody id="splitRows"></tbody>
         </table>
         <button type="button" class="btn btn-sm btn-outline-primary" id="splitAdd"><i class="fas fa-plus me-1"></i>Add project</button>
@@ -208,6 +208,7 @@
     </form>
   </div>
 </div>
+{{ project_subs|json_script:"projectSubsData" }}
 <template id="splitProjects">{% for p in projects %}<option value="{{ p.pk }}">{{ p.name }}</option>{% endfor %}</template>
 <script>
 (function () {
@@ -220,13 +221,25 @@
         body.querySelectorAll('input[type=number]').forEach(function (i) { sum += parseFloat(i.value) || 0; });
         document.getElementById('splitTotal').textContent = (Math.round(sum * 100) / 100);
     }
-    function addRow(project, regular, overtime) {
+    var subsData = JSON.parse(document.getElementById('projectSubsData').textContent || '{}');
+    var listCounter = 0;
+    function addRow(project, sub, regular, overtime) {
         var tr = document.createElement('tr');
+        var listId = 'subList' + (listCounter++);
         tr.innerHTML = '<td><select name="project" class="form-select form-select-sm"><option value="">Choose project...</option>' + options + '</select></td>' +
+            '<td><input type="text" name="sub" class="form-control form-control-sm" list="' + listId + '" maxlength="120" placeholder="project itself" autocomplete="off" value="">' +
+            '<datalist id="' + listId + '"></datalist></td>' +
             '<td><input type="number" name="regular" min="0" max="24" step="0.25" class="form-control form-control-sm" value="' + (regular || '') + '"></td>' +
             '<td><input type="number" name="overtime" min="0" max="24" step="0.25" class="form-control form-control-sm" value="' + (overtime || '') + '"></td>' +
             '<td><button type="button" class="btn btn-sm btn-outline-danger py-0" title="Remove"><i class="fas fa-times"></i></button></td>';
-        if (project) tr.querySelector('select').value = project;
+        var select = tr.querySelector('select'), subInput = tr.querySelector('input[name=sub]'), list = tr.querySelector('datalist');
+        function fillSubs() {
+            list.innerHTML = '';
+            (subsData[select.value] || []).forEach(function (name) { var o = document.createElement('option'); o.value = name; list.appendChild(o); });
+        }
+        select.addEventListener('change', function () { subInput.value = ''; fillSubs(); });
+        if (project) { select.value = project; fillSubs(); }
+        subInput.value = sub || '';
         tr.querySelector('button').onclick = function () { tr.remove(); total(); };
         tr.addEventListener('input', total);
         body.appendChild(tr);
@@ -244,10 +257,10 @@
             var total = parseFloat(btn.dataset.total), overtime = parseFloat(btn.dataset.ot) || 0;
             if (!rows.length) {
                 // nothing from the daily reports: start from the day's clock hours (regular = total - overtime), still editable
-                if (total > 0) addRow('', Math.round(Math.max(total - overtime, 0) * 100) / 100 || '', overtime || '');
+                if (total > 0) addRow('', '', Math.round(Math.max(total - overtime, 0) * 100) / 100 || '', overtime || '');
                 else addRow();
             }
-            rows.forEach(function (r) { addRow(r.project, parseFloat(r.regular) || '', parseFloat(r.overtime) || ''); });
+            rows.forEach(function (r) { addRow(r.project, r.sub, parseFloat(r.regular) || '', parseFloat(r.overtime) || ''); });
             total();
             bootstrap.Modal.getOrCreateInstance(modalEl).show();
         });

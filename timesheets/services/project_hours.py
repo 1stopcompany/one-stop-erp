@@ -33,7 +33,7 @@ def pay_rates(employee):
 
 
 def _auto_rows(employee, start, end):
-    """{date: {project_id: [project, regular, overtime]}} from the daily reports' worker attendance."""
+    """{date: {(project_id, sub): [project, sub, regular, overtime]}} from the daily reports' worker attendance."""
     from reports.daily_detail_models import DailyReportWorkerAttendance
     rows = (
         DailyReportWorkerAttendance.objects
@@ -44,10 +44,11 @@ def _auto_rows(employee, start, end):
     days = {}
     for row in rows:
         project = row.report.project
-        bucket = days.setdefault(row.report.report_date, {}).setdefault(project.pk, [project, ZERO, ZERO])
+        sub = (row.sub_name or '').strip()
+        bucket = days.setdefault(row.report.report_date, {}).setdefault((project.pk, sub), [project, sub, ZERO, ZERO])
         overtime = row.overtime_hours or ZERO
-        bucket[1] += max(row.total_hours - overtime, ZERO)
-        bucket[2] += overtime
+        bucket[2] += max(row.total_hours - overtime, ZERO)
+        bucket[3] += overtime
     return days
 
 
@@ -55,13 +56,13 @@ def _manual_rows(employee, start, end):
     from timesheets.models import EmployeeProjectHours
     days = {}
     for row in EmployeeProjectHours.objects.filter(employee=employee, date__gte=start, date__lte=end).select_related('project'):
-        days.setdefault(row.date, {})[row.project_id] = [row.project, row.regular_hours, row.overtime_hours]
+        days.setdefault(row.date, {})[(row.project_id, row.sub_name)] = [row.project, row.sub_name, row.regular_hours, row.overtime_hours]
     return days
 
 
 def day_allocations(employee, start, end):
     """
-    {date: {'source': 'manual' | 'daily_report', 'rows': [{'project', 'regular', 'overtime'}]}} for every day that has hours.
+    {date: {'source': 'manual' | 'daily_report', 'rows': [{'project', 'sub', 'regular', 'overtime'}]}} for every day that has hours.
     """
     manual = _manual_rows(employee, start, end)
     auto = _auto_rows(employee, start, end)
@@ -70,7 +71,7 @@ def day_allocations(employee, start, end):
         source, rows = ('manual', manual[day]) if day in manual else ('daily_report', auto[day])
         result[day] = {
             'source': source,
-            'rows': [{'project': p, 'regular': reg, 'overtime': ot} for p, reg, ot in rows.values()],
+            'rows': [{'project': p, 'sub': sub, 'regular': reg, 'overtime': ot} for p, sub, reg, ot in rows.values()],
         }
     return result
 
@@ -128,7 +129,8 @@ def _rest_and_shortfall(employee, start, end, extra_hours, worked_days=()):
 def month_breakdown(employee, start, end):
     """
     The month's hours per project with what each project is charged:
-        [{'project', 'regular_hours', 'extra_hours', 'overtime_hours', 'regular_cost', 'overtime_cost', 'cost', 'days'}], totals
+        [{'project', 'sub', 'regular_hours', 'extra_hours', 'overtime_hours', 'regular_cost', 'overtime_cost', 'cost', 'days'}], totals
+    (one row per project and sub -- متفرقة -- the hours went to; `sub` is '' for the project itself)
     `regular_hours` are the hours recorded on the project; `extra_hours` its share of the paid hours nobody recorded (Fridays, paid
     holidays / leave, shortfall). The regular costs add up to the month's regular pay exactly. `totals` also carries `recorded_hours`,
     `paid_hours` and the split of the unrecorded hours (`fridays`, `friday_hours`, `leave_days`, `leave_hours`, `shortfall_hours` = the
@@ -140,13 +142,13 @@ def month_breakdown(employee, start, end):
     allocations = day_allocations(employee, start, end)
     for day, info in allocations.items():
         for row in info['rows']:
-            item = per_project.setdefault(row['project'].pk, {
-                'project': row['project'], 'regular_hours': ZERO, 'overtime_hours': ZERO, 'days': 0,
+            item = per_project.setdefault((row['project'].pk, row['sub']), {
+                'project': row['project'], 'sub': row['sub'], 'regular_hours': ZERO, 'overtime_hours': ZERO, 'days': 0,
             })
             item['regular_hours'] += row['regular']
             item['overtime_hours'] += row['overtime']
             item['days'] += 1
-    rows = sorted(per_project.values(), key=lambda i: i['project'].name)
+    rows = sorted(per_project.values(), key=lambda i: (i['project'].name, i['sub']))
     recorded = sum((r['regular_hours'] for r in rows), ZERO)
     paid_hours = (base / rate) if rate else ZERO
     extra = max(paid_hours - recorded, ZERO) if recorded else ZERO

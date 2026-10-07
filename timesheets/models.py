@@ -526,6 +526,10 @@ class EmployeeProjectHours(models.Model):
     employee = models.ForeignKey(Employee, on_delete=models.CASCADE, related_name='project_hours')
     project = models.ForeignKey('projects.Project', on_delete=models.CASCADE, related_name='employee_hours')
     date = models.DateField()
+    sub_name = models.CharField(
+        max_length=120, blank=True,
+        help_text='متفرقة -- which sub-group (odd job) of the project these hours went to; blank = the project itself',
+    )
     regular_hours = models.DecimalField(max_digits=5, decimal_places=2, default=0)
     overtime_hours = models.DecimalField(max_digits=5, decimal_places=2, default=0)
     notes = models.CharField(max_length=255, blank=True)
@@ -533,12 +537,12 @@ class EmployeeProjectHours(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        unique_together = [('employee', 'date', 'project')]
-        ordering = ['date', 'project__name']
+        unique_together = [('employee', 'date', 'project', 'sub_name')]
+        ordering = ['date', 'project__name', 'sub_name']
         indexes = [models.Index(fields=['employee', 'date']), models.Index(fields=['project', 'date'])]
 
     def __str__(self):
-        return f'{self.employee.full_name} - {self.date} - {self.project} ({self.regular_hours}h + {self.overtime_hours}h OT)'
+        return f'{self.employee.full_name} - {self.date} - {self.project}{" / " + self.sub_name if self.sub_name else ""} ({self.regular_hours}h + {self.overtime_hours}h OT)'
 
 
 class LeaveRequest(models.Model):

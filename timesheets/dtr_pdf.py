@@ -155,6 +155,8 @@ def _build(employee, records, period_start, generated_by, allocations, breakdown
                 if row['overtime']:
                     part += f" + {_num(row['overtime'], False)} OT"
                 lines.append(part)
+                if row['sub']:   # the sub (متفرقة) under its project, shaped for Arabic
+                    lines.append(_t('- ' + row['sub'][:22]))
             project_cell = Paragraph('<br/>'.join(lines), small_c)   # project symbols and numbers only: plain left-to-right text
         else:
             project_cell = ''
@@ -205,7 +207,7 @@ def _build(employee, records, period_start, generated_by, allocations, breakdown
     if breakdown:
         project_rows = [rtl([Paragraph(_t(h), head) for h in ['الرمز', 'المشروع', 'عدد الأيام', 'الساعات', 'جمع وعطل ونقص (س)', 'الساعات الإضافية']])]
         for item in breakdown:
-            project_rows.append(rtl([Paragraph(item['project'].project_symbol, bold), text(item['project'].name, cell_r, page_width * 0.5),
+            project_rows.append(rtl([Paragraph(item['project'].project_symbol, bold), text(item['project'].name + (f" / {item['sub']}" if item['sub'] else ''), cell_r, page_width * 0.5),
                                      str(item['days']), _num(item['regular_hours'], False), _num(item['extra_hours'], False),
                                      _num(item['overtime_hours'], False)]))
         pw = [page_width * 0.11, page_width * 0.37, page_width * 0.1, page_width * 0.13, page_width * 0.15, page_width * 0.14]

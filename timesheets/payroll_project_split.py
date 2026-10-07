@@ -119,7 +119,8 @@ def add_split_sheet(wb, people, projects, period_start, period_end):
         first = r
         for index, row in enumerate(person['rows']):
             values = {
-                1: number if index == 0 else None, 2: person['employee'].full_name if index == 0 else None, 3: row['project'].name,
+                1: number if index == 0 else None, 2: person['employee'].full_name if index == 0 else None,
+                3: row['project'].name + (f" / {row['sub']}" if row['sub'] else ''),
                 4: row['days'], 5: float(row['regular_hours']), 6: float(row['extra_hours']), 7: float(row['regular_cost']),
                 8: float(row['overtime_hours']), 9: float(row['overtime_cost']), 10: f'=G{r}+I{r}',
             }
@@ -224,7 +225,7 @@ def generate_split_pdf(people, projects, period_start, period_end):
         for index, row in enumerate(person['rows']):
             rows.append(rtl([
                 str(number) if index == 0 else '', text(person['employee'].full_name, cell_r, widths[1]) if index == 0 else '',
-                text(row['project'].name, cell_r, widths[2]), str(row['days']), _plain(row['regular_hours']), _plain(row['extra_hours']),
+                text(row['project'].name + (f" / {row['sub']}" if row['sub'] else ''), cell_r, widths[2]), str(row['days']), _plain(row['regular_hours']), _plain(row['extra_hours']),
                 _money(row['regular_cost']), _plain(row['overtime_hours']), _money(row['overtime_cost']), _money(row['cost']),
             ]))
         totals = person['totals']

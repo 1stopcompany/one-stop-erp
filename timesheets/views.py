@@ -954,6 +954,15 @@ class EmployeeTimesheetView(LoginRequiredMixin, DetailView):
         return context
 
 
+def _project_subs_by_project():
+    """{project id: [active sub (متفرقة) names]} -- what the Split window offers after a project is chosen."""
+    from reports.daily_detail_models import ProjectSub
+    subs = {}
+    for project_id, name in ProjectSub.objects.filter(is_active=True).order_by("order", "name").values_list("project_id", "name"):
+        subs.setdefault(project_id, []).append(name)
+    return subs
+
+
 @hr_required
 def daily_time_record(request, employee_id):
     """
@@ -979,7 +988,7 @@ def daily_time_record(request, employee_id):
         info = allocations.get(r.date)
         r.alloc = info
         r.alloc_json = json.dumps([
-            {"project": row["project"].pk, "regular": str(row["regular"]), "overtime": str(row["overtime"])} for row in info["rows"]
+            {"project": row["project"].pk, "sub": row["sub"], "regular": str(row["regular"]), "overtime": str(row["overtime"])} for row in info["rows"]
         ]) if info else "[]"
     breakdown, breakdown_totals = month_breakdown(employee, period_start, period_end)
 
@@ -989,6 +998,7 @@ def daily_time_record(request, employee_id):
         "breakdown": breakdown,
         "breakdown_totals": breakdown_totals,
         "projects": Project.objects.exclude(status="archived").order_by("name"),
+        "project_subs": _project_subs_by_project(),
         "can_split": is_hr_manager(request.user),
         "month_total_hours": sum((r.total_hours or Decimal("0") for r in records), Decimal("0")),
         "ot_multiplier": pay_rates(employee)[1],
@@ -1057,31 +1067,36 @@ def dtr_project_hours_save(request, employee_id):
         return value if Decimal("0") <= value <= Decimal("24") else None
 
     merged = {}
-    for project_id, regular, overtime in zip(
+    subs = request.POST.getlist("sub")
+    for index, (project_id, regular, overtime) in enumerate(zip(
         request.POST.getlist("project"), request.POST.getlist("regular"), request.POST.getlist("overtime")
-    ):
+    )):
         if not project_id:
             continue
+        sub = " ".join((subs[index] if index < len(subs) else "").split())[:120]
         regular_h, overtime_h = _hours(regular), _hours(overtime)
         if regular_h is None or overtime_h is None:
             messages.error(request, "Hours must be numbers between 0 and 24.")
             return redirect(back)
         if regular_h == 0 and overtime_h == 0:
             continue
-        item = merged.setdefault(int(project_id), [Decimal("0"), Decimal("0")])
+        item = merged.setdefault((int(project_id), sub), [Decimal("0"), Decimal("0")])
         item[0] += regular_h
         item[1] += overtime_h
     if any(r + o > 24 for r, o in merged.values()) or sum(r + o for r, o in merged.values()) > 24:
         messages.error(request, "A day cannot have more than 24 hours in total.")
         return redirect(back)
-    projects = {p.pk: p for p in Project.objects.filter(pk__in=merged)}
+    projects = {p.pk: p for p in Project.objects.filter(pk__in={key[0] for key in merged})}
 
+    from reports.daily_detail_models import ProjectSub
     with transaction.atomic():
         EmployeeProjectHours.objects.filter(employee=employee, date=day).delete()
-        for project_id, (regular_h, overtime_h) in merged.items():
+        for (project_id, sub), (regular_h, overtime_h) in merged.items():
             if project_id in projects:
+                if sub:   # a new name typed here is offered from now on (the same list the site engineer picks from)
+                    ProjectSub.objects.get_or_create(project=projects[project_id], name=sub)
                 EmployeeProjectHours.objects.create(
-                    employee=employee, project=projects[project_id], date=day, regular_hours=regular_h,
+                    employee=employee, project=projects[project_id], sub_name=sub, date=day, regular_hours=regular_h,
                     overtime_hours=overtime_h, updated_by=request.user,
                 )
     messages.success(request, f"{day}: hours split over {len(merged)} project(s).")
