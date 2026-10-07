@@ -221,6 +221,24 @@
                     </tr>
                     {% endfor %}
                 </tbody>
+                {% if payslips %}
+                <tfoot>
+                    <tr class="fw-bold" style="background:#dbe7f5;border-top:2px solid #98a8bf;">
+                        <td>Total · المجموع <span class="text-muted fw-normal small">({{ payslips|length }})</span></td>
+                        <td class="text-end">₪{{ totals.base_pay }}</td>
+                        <td class="text-end">{{ totals.overtime_hours }}</td>
+                        <td class="text-end">₪{{ totals.overtime_pay }}</td>
+                        <td class="text-end">₪{{ totals.other_allowances }}</td>
+                        <td class="text-end">₪{{ totals.gross_pay }}</td>
+                        <td class="text-end">₪{{ totals.other_deductions }}</td>
+                        <td class="text-end">₪{{ totals.unpaid_leave_deduction }}</td>
+                        <td class="text-end">₪{{ totals.advances }}</td>
+                        <td class="text-end">₪{{ totals.tax }}</td>
+                        <td class="text-end">₪{{ totals.net_pay }}</td>
+                        <td></td>
+                    </tr>
+                </tfoot>
+                {% endif %}
             </table>
         </div>
     </div>
