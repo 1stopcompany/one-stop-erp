@@ -1492,65 +1492,84 @@ def generate_owner_financial_report_pdf(report):
     page_size = A4
     doc = SimpleDocTemplate(
         buffer, pagesize=page_size,
-        topMargin=1.0 * inch, bottomMargin=1.0 * inch,
-        leftMargin=1.0 * inch, rightMargin=1.0 * inch,
+        topMargin=0.8 * inch, bottomMargin=0.85 * inch,
+        leftMargin=0.8 * inch, rightMargin=0.8 * inch,
+        title='التقرير الفني والمالي الشهري',
     )
-    page_width = page_size[0] - 2.0 * inch
+    page_width = page_size[0] - 1.6 * inch
+    GRID_C = colors.HexColor('#BFBFBF')
+    BAND_C = colors.HexColor('#F3F6FB')
+    TOTAL_C = colors.HexColor('#D9E2F3')
+    NAVY_C = colors.HexColor('#1F3864')
+
+    def _footer(canvas, document):
+        canvas.saveState()
+        canvas.setFont(MR_FONT_NAME, 8)
+        canvas.setFillColor(colors.HexColor('#595959'))
+        canvas.drawCentredString(page_size[0] / 2, 0.42 * inch, str(document.page))
+        canvas.drawString(0.8 * inch, 0.42 * inch, report.reporting_period_to.strftime('%d/%m/%Y'))
+        canvas.drawRightString(page_size[0] - 0.8 * inch, 0.42 * inch, 'One Stop ERP')
+        canvas.setStrokeColor(GRID_C)
+        canvas.line(0.8 * inch, 0.58 * inch, page_size[0] - 0.8 * inch, 0.58 * inch)
+        canvas.restoreState()
 
     elements = []
     styles = getSampleStyleSheet()
 
     title_style = ParagraphStyle(
         'OFRTitle', parent=styles['Heading1'], fontSize=15,
-        textColor=colors.HexColor('#1f4788'), alignment=TA_CENTER,
-        fontName=FONT_BOLD_NAME, spaceAfter=4,
+        textColor=colors.HexColor('#1F3864'), alignment=TA_CENTER,
+        fontName=MR_FONT_BOLD_NAME, spaceAfter=4,
     )
     company_style = ParagraphStyle(
         'OFRCompany', parent=styles['Normal'], fontSize=12,
-        textColor=colors.HexColor('#1f4788'), alignment=TA_RIGHT,
-        fontName=FONT_BOLD_NAME,
+        textColor=colors.HexColor('#1F3864'), alignment=TA_RIGHT,
+        fontName=MR_FONT_BOLD_NAME,
     )
     heading_style = ParagraphStyle(
-        'OFRHeading', parent=styles['Heading2'], fontSize=12,
-        textColor=colors.white, backColor=colors.HexColor('#1f4788'),
-        fontName=FONT_BOLD_NAME, spaceBefore=10, spaceAfter=6,
-        alignment=TA_RIGHT, borderPadding=(4, 6, 4, 6),
+        'OFRHeading', parent=styles['Heading2'], fontSize=13,
+        textColor=colors.white, backColor=colors.HexColor('#1F3864'),
+        fontName=MR_FONT_BOLD_NAME, spaceBefore=12, spaceAfter=8,
+        alignment=TA_RIGHT, borderPadding=(5, 8, 5, 8), leading=16,
     )
     normal_style = ParagraphStyle(
-        'OFRNormal', parent=styles['Normal'], fontSize=10,
-        alignment=TA_RIGHT, fontName=FONT_NAME, leading=14,
+        'OFRNormal', parent=styles['Normal'], fontSize=10.5,
+        alignment=TA_RIGHT, fontName=MR_FONT_NAME, leading=15.5,
     )
     small_style = ParagraphStyle(
-        'OFRSmall', parent=styles['Normal'], fontSize=8,
-        alignment=TA_RIGHT, fontName=FONT_NAME, leading=11,
+        'OFRSmall', parent=styles['Normal'], fontSize=9,
+        alignment=TA_RIGHT, fontName=MR_FONT_NAME, leading=12,
     )
     cell_style = ParagraphStyle(
-        'OFRCell', parent=styles['Normal'], fontSize=7.5,
-        alignment=TA_CENTER, fontName=FONT_NAME, leading=9,
+        'OFRCell', parent=styles['Normal'], fontSize=9,
+        alignment=TA_CENTER, fontName=MR_FONT_NAME, leading=11.5,
+    )
+    cell_text_style = ParagraphStyle(
+        'OFRCellText', parent=cell_style, alignment=TA_RIGHT, fontSize=9.5, leading=11.8,
     )
     schedule_cell_style = ParagraphStyle(
-        'OFRScheduleCell', parent=styles['Normal'], fontSize=6.5,
-        alignment=TA_CENTER, fontName=FONT_NAME, leading=8,
+        'OFRScheduleCell', parent=styles['Normal'], fontSize=7.8,
+        alignment=TA_CENTER, fontName=MR_FONT_NAME, leading=9.6,
     )
     caption_style = ParagraphStyle(
         'OFRCaption', parent=styles['Normal'], fontSize=9,
-        alignment=TA_CENTER, fontName=FONT_NAME, leading=12,
+        alignment=TA_CENTER, fontName=MR_FONT_NAME, leading=12,
     )
 
-    def hdr_table(rows, col_widths, header_bg='#1f4788', font_size=9):
+    def hdr_table(rows, col_widths, header_bg='#1F3864', font_size=10):
         t = Table(rows, colWidths=col_widths, repeatRows=1)
         t.setStyle(TableStyle([
             ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor(header_bg)),
             ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
-            ('FONTNAME', (0, 0), (-1, 0), FONT_BOLD_NAME),
-            ('FONTNAME', (0, 1), (-1, -1), FONT_NAME),
+            ('FONTNAME', (0, 0), (-1, 0), MR_FONT_BOLD_NAME),
+            ('FONTNAME', (0, 1), (-1, -1), MR_FONT_NAME),
             ('FONTSIZE', (0, 0), (-1, -1), font_size),
             ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
             ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-            ('GRID', (0, 0), (-1, -1), 0.75, colors.grey),
-            ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
-            ('TOPPADDING', (0, 0), (-1, -1), 4),
-            ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#f4f6fb')]),
+            ('GRID', (0, 0), (-1, -1), 0.4, GRID_C),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 5),
+            ('TOPPADDING', (0, 0), (-1, -1), 5),
+            ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, BAND_C]),
         ]))
         return t
 
@@ -1577,13 +1596,13 @@ def generate_owner_financial_report_pdf(report):
 
     cover_title_style = ParagraphStyle(
         'OFRCoverTitle', parent=styles['Heading1'], fontSize=20,
-        textColor=colors.HexColor('#1f4788'), alignment=TA_CENTER,
-        fontName=FONT_BOLD_NAME, spaceAfter=10,
+        textColor=colors.HexColor('#1F3864'), alignment=TA_CENTER,
+        fontName=MR_FONT_BOLD_NAME, spaceAfter=10,
     )
     cover_sub_style = ParagraphStyle(
         'OFRCoverSub', parent=styles['Normal'], fontSize=13,
         textColor=colors.HexColor('#333333'), alignment=TA_CENTER,
-        fontName=FONT_NAME, spaceAfter=4,
+        fontName=MR_FONT_NAME, spaceAfter=4,
     )
     elements.append(Paragraph(_t('التقرير الفني والمالي الشهري'), cover_title_style))
     elements.append(Paragraph(_t(f'شهر {period_label}'), cover_sub_style))
@@ -1607,15 +1626,15 @@ def generate_owner_financial_report_pdf(report):
     ]
     cover_table = Table(cover_rows, colWidths=[page_width * 0.62, page_width * 0.38])
     cover_table.setStyle(TableStyle([
-        ('BACKGROUND', (1, 0), (1, -1), colors.HexColor('#deeaf6')),
-        ('FONTNAME', (0, 0), (0, -1), FONT_NAME),
-        ('FONTNAME', (1, 0), (1, -1), FONT_BOLD_NAME),
-        ('FONTSIZE', (0, 0), (-1, -1), 11),
+        ('BACKGROUND', (1, 0), (1, -1), colors.HexColor('#D9E2F3')),
+        ('FONTNAME', (0, 0), (0, -1), MR_FONT_NAME),
+        ('FONTNAME', (1, 0), (1, -1), MR_FONT_BOLD_NAME),
+        ('FONTSIZE', (0, 0), (-1, -1), 12),
         ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
         ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-        ('GRID', (0, 0), (-1, -1), 0.75, colors.grey),
-        ('TOPPADDING', (0, 0), (-1, -1), 9),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 9),
+        ('GRID', (0, 0), (-1, -1), 0.4, GRID_C),
+        ('TOPPADDING', (0, 0), (-1, -1), 10),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 10),
     ]))
     elements.append(cover_table)
     elements.append(PageBreak())
@@ -1645,14 +1664,18 @@ def generate_owner_financial_report_pdf(report):
     elements.append(Paragraph(_t('المؤشرات التنفيذية :-'), heading_style))
     ind_table = Table(indicators, colWidths=[page_width * 0.35, page_width * 0.65])
     ind_table.setStyle(TableStyle([
-        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#deeaf6')),
-        ('FONTNAME', (0, 0), (-1, 0), FONT_BOLD_NAME),
-        ('FONTNAME', (0, 1), (-1, -1), FONT_NAME),
-        ('FONTSIZE', (0, 0), (-1, -1), 10),
+        ('BACKGROUND', (0, 0), (-1, 0), NAVY_C),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+        ('FONTNAME', (0, 0), (-1, 0), MR_FONT_BOLD_NAME),
+        ('FONTNAME', (0, 1), (-1, -1), MR_FONT_NAME),
+        ('FONTNAME', (1, 1), (1, -1), MR_FONT_BOLD_NAME),
+        ('BACKGROUND', (1, 1), (1, -1), BAND_C),
+        ('FONTSIZE', (0, 0), (-1, -1), 11),
         ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-        ('GRID', (0, 0), (-1, -1), 0.75, colors.grey),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 5),
-        ('TOPPADDING', (0, 0), (-1, -1), 5),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('GRID', (0, 0), (-1, -1), 0.4, GRID_C),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+        ('TOPPADDING', (0, 0), (-1, -1), 4),
         ('TEXTCOLOR', (0, 2), (0, 2), colors.HexColor('#c00000')),
         ('TEXTCOLOR', (0, 4), (0, 5), colors.HexColor('#c00000')),
     ]))
@@ -1680,32 +1703,32 @@ def generate_owner_financial_report_pdf(report):
         status_colors = {
             'done': colors.HexColor('#d9ead3'),
             'in_progress': colors.HexColor('#fff2cc'),
-            'pending': colors.HexColor('#f4f6fb'),
+            'pending': colors.HexColor('#F3F6FB'),
         }
         rows = [[_t('الأعمال المنفذة'), _t('الحالة'), _t('المرحلة')]]
         status_cmds = []
         for i, u in enumerate(phase_updates, start=1):
             phase_label = f"{u.phase.code}. {u.phase.name_ar}" if u.phase.code else u.phase.name_ar
             rows.append([
-                rtl_paragraph(u.work_performed, cell_style, page_width * 0.55 - 10),
+                rtl_paragraph(u.work_performed, cell_text_style, page_width * 0.55 - 14, justify=True),
                 _t(u.get_status_display()),
-                rtl_paragraph(phase_label, cell_style, page_width * 0.30 - 10),
+                rtl_paragraph(phase_label, cell_text_style, page_width * 0.30 - 14),
             ])
             status_cmds.append(('BACKGROUND', (1, i), (1, i), status_colors.get(u.status, colors.white)))
         summary_table = Table(rows, colWidths=[page_width * 0.55, page_width * 0.15, page_width * 0.30], repeatRows=1)
         summary_table.setStyle(TableStyle([
-            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1f4788')),
+            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1F3864')),
             ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
-            ('FONTNAME', (0, 0), (-1, 0), FONT_BOLD_NAME),
-            ('FONTNAME', (0, 1), (-1, -1), FONT_NAME),
-            ('FONTNAME', (1, 1), (1, -1), FONT_BOLD_NAME),
-            ('FONTSIZE', (0, 0), (-1, -1), 9),
+            ('FONTNAME', (0, 0), (-1, 0), MR_FONT_BOLD_NAME),
+            ('FONTNAME', (0, 1), (-1, -1), MR_FONT_NAME),
+            ('FONTNAME', (1, 1), (1, -1), MR_FONT_BOLD_NAME),
+            ('FONTSIZE', (0, 0), (-1, -1), 10),
             ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
             ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-            ('GRID', (0, 0), (-1, -1), 0.75, colors.grey),
-            ('BOTTOMPADDING', (0, 0), (-1, -1), 5),
-            ('TOPPADDING', (0, 0), (-1, -1), 5),
-            ('ROWBACKGROUNDS', (0, 1), (0, -1), [colors.white, colors.HexColor('#f4f6fb')]),
+            ('GRID', (0, 0), (-1, -1), 0.4, GRID_C),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+            ('TOPPADDING', (0, 0), (-1, -1), 4),
+            ('ROWBACKGROUNDS', (0, 1), (0, -1), [colors.white, BAND_C]),
         ] + status_cmds))
         elements.append(summary_table)
     elements.append(Spacer(1, 0.15 * inch))
@@ -1713,9 +1736,9 @@ def generate_owner_financial_report_pdf(report):
     # ---------------- Full BOQ Schedule Table ("الجدول الزمني المنجز") ----------------
     elements.append(PageBreak())
     elements.append(Paragraph(_t('نسبة الإنجاز الحالية :'), heading_style))
-    elements.append(Paragraph(
-        _t(f"يشير الجدول التالي إلى نسب الإنجاز حتى تاريخ {report.reporting_period_to.strftime('%d/%m/%Y')} استنادا إلى النسب الواردة في العقد:"),
-        normal_style
+    elements.append(rtl_paragraph(
+        f"يشير الجدول التالي إلى نسب الإنجاز حتى تاريخ {report.reporting_period_to.strftime('%d/%m/%Y')} استنادا إلى النسب الواردة في العقد:",
+        normal_style, page_width, justify=True,
     ))
     elements.append(Spacer(1, 0.08 * inch))
 
@@ -1775,19 +1798,21 @@ def generate_owner_financial_report_pdf(report):
 
     schedule_table = Table(schedule_rows, colWidths=col_widths, repeatRows=1)
     schedule_table.setStyle(TableStyle([
-        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1f4788')),
+        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1F3864')),
         ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
-        ('FONTNAME', (0, 0), (-1, 0), FONT_BOLD_NAME),
-        ('FONTNAME', (0, 1), (-1, -1), FONT_NAME),
-        ('FONTNAME', (0, total_row_idx), (-1, total_row_idx), FONT_BOLD_NAME),
-        ('BACKGROUND', (0, total_row_idx), (-1, total_row_idx), colors.HexColor('#deeaf6')),
-        ('FONTSIZE', (0, 0), (-1, -1), 6.5),
+        ('FONTNAME', (0, 0), (-1, 0), MR_FONT_BOLD_NAME),
+        ('FONTNAME', (0, 1), (-1, -1), MR_FONT_NAME),
+        ('FONTNAME', (0, total_row_idx), (-1, total_row_idx), MR_FONT_BOLD_NAME),
+        ('BACKGROUND', (0, total_row_idx), (-1, total_row_idx), colors.HexColor('#D9E2F3')),
+        ('FONTSIZE', (0, 0), (-1, -1), 7.8),
         ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
         ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-        ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 2),
-        ('TOPPADDING', (0, 0), (-1, -1), 2),
-        ('ROWBACKGROUNDS', (0, 1), (-1, total_row_idx - 1), [colors.white, colors.HexColor('#f4f6fb')]),
+        ('GRID', (0, 0), (-1, -1), 0.4, GRID_C),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 2.6),
+        ('TOPPADDING', (0, 0), (-1, -1), 2.6),
+        ('LINEABOVE', (0, total_row_idx), (-1, total_row_idx), 1.2, NAVY_C),
+        ('LINEBELOW', (0, total_row_idx), (-1, total_row_idx), 1.6, NAVY_C),
+        ('ROWBACKGROUNDS', (0, 1), (-1, total_row_idx - 1), [colors.white, BAND_C]),
     ] + span_cmds))
     elements.append(schedule_table)
     elements.append(Spacer(1, 0.15 * inch))
@@ -1803,34 +1828,42 @@ def generate_owner_financial_report_pdf(report):
     ]
     payment_table = Table(payment_rows, colWidths=[page_width * 0.75, page_width * 0.25])
     payment_table.setStyle(TableStyle([
-        ('FONTNAME', (0, 0), (-1, -1), FONT_NAME),
-        ('FONTSIZE', (0, 0), (-1, -1), 9),
+        ('FONTNAME', (0, 0), (-1, -1), MR_FONT_NAME),
+        ('FONTNAME', (1, 0), (1, -1), MR_FONT_BOLD_NAME),
+        ('FONTSIZE', (0, 0), (-1, -1), 11),
         ('ALIGN', (0, 0), (0, -1), 'RIGHT'),
         ('ALIGN', (1, 0), (1, -1), 'CENTER'),
-        ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
-        ('TOPPADDING', (0, 0), (-1, -1), 4),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('GRID', (0, 0), (-1, -1), 0.4, GRID_C),
+        ('ROWBACKGROUNDS', (0, 0), (-1, -1), [colors.white, BAND_C]),
+        ('RIGHTPADDING', (0, 0), (0, -1), 10),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
+        ('TOPPADDING', (0, 0), (-1, -1), 6),
     ]))
     elements.append(payment_table)
     elements.append(Spacer(1, 0.08 * inch))
 
     formula_style = ParagraphStyle(
-        'OFRFormula', parent=styles['Normal'], fontSize=9.5,
-        alignment=TA_RIGHT, fontName=FONT_BOLD_NAME, leading=12,
+        'OFRFormula', parent=styles['Normal'], fontSize=11,
+        alignment=TA_RIGHT, fontName=MR_FONT_BOLD_NAME, leading=14,
     )
     formula_row = Table([
         [rtl_paragraph('قيمة الدفعة المطلوبة = (قيمة الأعمال المنجزة − نسبة الدفعة المقدمة − حسن التنفيذ − الدفعات السابقة)', formula_style, page_width * 0.75 - 12),
          _t(f'{report.amount_due():,.2f} شيكل')],
     ], colWidths=[page_width * 0.75, page_width * 0.25])
     formula_row.setStyle(TableStyle([
-        ('FONTNAME', (0, 0), (-1, -1), FONT_BOLD_NAME),
-        ('FONTSIZE', (0, 0), (-1, -1), 10),
-        ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#fff2cc')),
+        ('FONTNAME', (0, 0), (-1, -1), MR_FONT_BOLD_NAME),
+        ('FONTSIZE', (0, 0), (-1, -1), 12),
+        ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#FFF6DD')),
         ('ALIGN', (0, 0), (0, -1), 'RIGHT'),
         ('ALIGN', (1, 0), (1, -1), 'CENTER'),
-        ('GRID', (0, 0), (-1, -1), 0.75, colors.grey),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
-        ('TOPPADDING', (0, 0), (-1, -1), 6),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('LINEABOVE', (0, 0), (-1, 0), 1.2, NAVY_C),
+        ('LINEBELOW', (0, 0), (-1, 0), 1.6, NAVY_C),
+        ('GRID', (0, 0), (-1, -1), 0.4, GRID_C),
+        ('RIGHTPADDING', (0, 0), (0, -1), 10),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
+        ('TOPPADDING', (0, 0), (-1, -1), 8),
     ]))
     elements.append(formula_row)
     elements.append(Spacer(1, 0.2 * inch))
@@ -1858,6 +1891,12 @@ def generate_owner_financial_report_pdf(report):
             price_rows.append(['', '', '', '', '', '', _t('المجموع')])
             price_rows[-1][0] = f'{total_diff:,.2f}'
             price_table = hdr_table(price_rows, [page_width * w for w in (0.13, 0.13, 0.13, 0.10, 0.12, 0.24, 0.15)])
+            price_table.setStyle(TableStyle([
+                ('BACKGROUND', (0, len(price_rows) - 1), (-1, len(price_rows) - 1), TOTAL_C),
+                ('FONTNAME', (0, len(price_rows) - 1), (-1, len(price_rows) - 1), MR_FONT_BOLD_NAME),
+                ('LINEABOVE', (0, len(price_rows) - 1), (-1, len(price_rows) - 1), 1.2, NAVY_C),
+                ('LINEBELOW', (0, len(price_rows) - 1), (-1, len(price_rows) - 1), 1.6, NAVY_C),
+            ]))
             elements.append(price_table)
             elements.append(Spacer(1, 0.1 * inch))
 
@@ -1869,7 +1908,7 @@ def generate_owner_financial_report_pdf(report):
                 if within else
                 'تنبيه: هذا الفرق تجاوز نسبة 1.5% من القيمة الإجمالية للعقد، ويستوجب مطالبة مالية منفصلة حسب العقد.'
             )
-            elements.append(rtl_paragraph(threshold_note, small_style, page_width))
+            elements.append(rtl_paragraph(threshold_note, small_style, page_width, justify=True))
         elements.append(Spacer(1, 0.15 * inch))
 
     # ---------------- Closing Note ----------------
@@ -1952,7 +1991,7 @@ def generate_owner_financial_report_pdf(report):
                     elements.append(photo_table)
             elements.append(Spacer(1, 0.1 * inch))
 
-    doc.build(elements)
+    doc.build(elements, onFirstPage=_footer, onLaterPages=_footer)
     buffer.seek(0)
     return buffer.getvalue()
 
