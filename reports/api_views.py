@@ -336,6 +336,31 @@ def add_labor_classification(request):
 
 @login_required
 @require_http_methods(["POST"])
+def add_equipment_master(request):
+    """
+    Add a piece of equipment to the shared equipment list from inside a Daily Report ("+ Add New Equipment" on the Add Equipment
+    window), so the engineer is never stuck when the machine is not listed yet. The list is company-wide; a name that is already there
+    (any capitals) is reused instead of duplicated, and an old inactive one is switched back on.
+    """
+    name = " ".join((request.POST.get('name') or '').split())
+    if not name:
+        return JsonResponse({'success': False, 'message': 'Equipment name is required.'}, status=400)
+    existing = EquipmentMaster.objects.filter(name__iexact=name).first()
+    if existing:
+        if not existing.is_active:
+            existing.is_active = True
+            existing.save(update_fields=['is_active'])
+        return JsonResponse({'success': True, 'created': False, 'id': existing.id, 'name': existing.name})
+    equipment = EquipmentMaster.objects.create(
+        name=name[:150], category=(request.POST.get('category') or '').strip()[:100],
+        manufacturer=(request.POST.get('manufacturer') or '').strip()[:100], model=(request.POST.get('model') or '').strip()[:100],
+        is_active=True,
+    )
+    return JsonResponse({'success': True, 'created': True, 'id': equipment.id, 'name': equipment.name})
+
+
+@login_required
+@require_http_methods(["POST"])
 def add_daily_worker(request):
     """
     Add a new day laborer to the shared roster (timesheets.DailyWorker) from inside the Daily

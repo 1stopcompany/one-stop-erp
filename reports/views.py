@@ -378,6 +378,7 @@ class DailyReportDetailView(LoginRequiredMixin, DetailView):
         # activities (DailyReportActivityProgress, the BOQ-linked "Daily Works / Progress"
         # entries), and to a real equipment master record instead of a free-text name.
         context['equipment_master_list'] = EquipmentMaster.objects.filter(is_active=True).order_by('name')
+        context['equipment_categories'] = sorted({c for c in EquipmentMaster.objects.exclude(category='').values_list('category', flat=True)})
         context['activity_progress_entries'] = report.activity_progress_entries.all()
         # ReportAttachment isn't a direct FK on DailyReport (it supports
         # both report types via report_type/report_id), so it needs an
@@ -398,10 +399,23 @@ class DailyReportDetailView(LoginRequiredMixin, DetailView):
         # their own presence -- the site engineer filling out the report, the project manager --
         # could be missing from the list entirely.
         relevant_user_ids = [uid for uid in [report.project.manager_id, report.project.site_engineer_id] if uid]
-        context['project_employees'] = Employee.objects.filter(
-            Q(project=report.project) | Q(user_id__in=relevant_user_ids),
-            employment_status='active'
-        ).select_related('position__default_labor_classification').distinct().order_by('first_name', 'last_name')
+        # ...and since an engineer must be able to put ANY employee who worked with them on the sheet (a driver from the office, a
+        # technician lent from another project), the picker offers every active employee: this project's people first, the rest after.
+        own_ids = set(Employee.objects.filter(
+            Q(project=report.project) | Q(user_id__in=relevant_user_ids), employment_status='active'
+        ).values_list('pk', flat=True))
+        everyone = list(Employee.objects.filter(employment_status='active')
+                        .select_related('position__default_labor_classification').order_by('first_name', 'last_name'))
+        for emp in everyone:
+            emp.on_this_project = emp.pk in own_ids
+        everyone.sort(key=lambda e: (not e.on_this_project, e.first_name, e.last_name))
+        context['project_employees'] = everyone
+        # the attendance rows split in two tables: HR employees, and the day-labor workers
+        attendance = list(report.worker_attendance.select_related('employee', 'crew', 'labor_classification').order_by('worker_name'))
+        context['attendance_employees'] = [a for a in attendance if a.employee_id]
+        context['attendance_workers'] = [a for a in attendance if not a.employee_id]
+        context['attendance_employees_hours'] = sum((a.total_hours or 0 for a in context['attendance_employees']), 0)
+        context['attendance_workers_hours'] = sum((a.total_hours or 0 for a in context['attendance_workers']), 0)
         # Day laborers (no HR record) are picked from this shared, reusable roster instead of
         # typing a fresh name on every report -- see DailyReportWorkerAttendance.daily_worker
         # and api_views.add_daily_worker for adding one that isn't on it yet.

@@ -1,0 +1,69 @@
+{% if items %}
+<div class="table-responsive">
+    <table class="table table-sm mb-0">
+        <thead class="table-light">
+            <tr>
+                <th>{{ name_header }}</th>
+                <th>Trade</th>
+                <th>Crew</th>
+                <th>Contractor</th>
+                <th>Activity/Location</th>
+                <th>In</th>
+                <th>Out</th>
+                <th>Break</th>
+                <th>OT</th>
+                <th>Total Hours</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for item in items %}
+            <tr id="worker-attendance-{{ item.id }}">
+                <td>
+                    <strong>{{ item.worker_name }}</strong>
+                    {% if item.employee_id %}
+                        {% if item.has_gps_record %}
+                        <span class="badge bg-success" title="Confirmed via GPS check-in/out"><i class="fas fa-satellite-dish"></i> GPS</span>
+                        {% else %}
+                        <span class="badge bg-secondary" title="Linked HR employee, no GPS record yet for this date"><i class="fas fa-link"></i> HR</span>
+                        {% endif %}
+                    {% endif %}
+                </td>
+                <td>{{ item.labor_classification|default:"—" }}</td>
+                <td>{{ item.crew.name|default:"—" }}</td>
+                <td>{{ item.contractor_name }}</td>
+                <td>{{ item.activity_location }}</td>
+                <td>{{ item.time_in|time:"H:i"|default:"—" }}</td>
+                <td>{{ item.time_out|time:"H:i"|default:"—" }}</td>
+                <td>{{ item.break_hours }}</td>
+                <td>{{ item.overtime_hours }}</td>
+                <td>{{ item.total_hours }}</td>
+                <td>
+                    {% if report.status == 'draft' and request.user == report.site_engineer or report.status == 'draft' and request.user.is_admin %}
+                    {% if item.employee_id and item.has_gps_record %}
+                    <button class="btn btn-sm btn-outline-success" onclick="pullGpsWorkerAttendance({{ item.id }})" title="Pull hours from GPS check-in/out">
+                        <i class="fas fa-satellite-dish"></i>
+                    </button>
+                    {% endif %}
+                    <button class="btn btn-sm btn-outline-warning" onclick="openEditWorkerAttendance({{ item.id }}, '{{ item.employee_id|default_if_none:'' }}', '{{ item.worker_name|escapejs }}', '{{ item.labor_classification_id|default_if_none:'' }}', '{{ item.contractor_name|escapejs }}', '{{ item.activity_location|escapejs }}', '{{ item.time_in|time:'H:i'|default:'' }}', '{{ item.time_out|time:'H:i'|default:'' }}', '{{ item.break_hours }}', '{{ item.overtime_hours }}', '{{ item.notes|escapejs }}', '{{ item.daily_worker_id|default_if_none:'' }}')">
+                        <i class="fas fa-edit"></i>
+                    </button>
+                    <button class="btn btn-sm btn-danger" onclick="deleteWorkerAttendance({{ item.id }})">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+        <tfoot>
+            <tr class="table-light">
+                <td colspan="9" class="text-end"><strong>{{ total_label }}</strong></td>
+                <td colspan="2"><strong>{{ total_hours|floatformat:"-2" }} h &middot; {{ items|length }} {{ count_label }}</strong></td>
+            </tr>
+        </tfoot>
+    </table>
+</div>
+{% else %}
+<p class="text-muted text-center py-2 small">{{ empty_text }}</p>
+{% endif %}

@@ -47,6 +47,7 @@ urlpatterns = [
 
     # -- Worker attendance (named workers, Section 2) --
     path('api/daily-workers/', api_views.add_daily_worker, name='api_add_daily_worker'),
+    path('api/equipment-master/', api_views.add_equipment_master, name='api_add_equipment_master'),
     path('api/labor-classifications/', api_views.add_labor_classification, name='api_add_labor_classification'),
     path('api/daily/<int:report_id>/crew/', api_views.add_daily_crew, name='api_add_daily_crew'),
     path('api/daily/<int:report_id>/crew/<int:crew_id>/edit/', api_views.edit_daily_crew, name='api_edit_daily_crew'),
