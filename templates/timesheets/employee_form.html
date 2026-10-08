@@ -64,6 +64,7 @@
                                 Employee ID <span class="text-danger">*</span>
                             </label>
                             {{ form.employee_id }}
+                            {% if suggested_employee_id and not form.is_bound %}<div class="form-text">Suggested automatically: the last code + 1. You can change it.</div>{% endif %}
                             {% if form.employee_id.errors %}
                                 <div class="invalid-feedback d-block">
                                     {{ form.employee_id.errors.0 }}

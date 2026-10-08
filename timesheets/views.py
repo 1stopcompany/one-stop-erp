@@ -310,12 +310,14 @@ def employee_add(request):
             messages.success(request, f'Employee {employee.full_name} has been added successfully.')
             return redirect('timesheets:employee_detail', employee_id=employee.pk)
     else:
-        form = EmployeeForm()
-    
+        # the next free code (last one + 1) is suggested; HR can still type another
+        form = EmployeeForm(initial={'employee_id': Employee.next_employee_id()})
+
     context = {
         'form': form,
         'title': 'Add New Employee',
         'submit_text': 'Add Employee',
+        'suggested_employee_id': True,
     }
 
     return render(request, 'timesheets/employee_form.html', context)

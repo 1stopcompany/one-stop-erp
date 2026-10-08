@@ -279,6 +279,27 @@ class Employee(models.Model):
             models.Index(fields=['department', 'employment_status']),
         ]
 
+    @classmethod
+    def next_employee_id(cls):
+        """
+        The code to suggest for a new employee: the highest existing code with its number plus one, keeping its letters and its
+        zero padding (EMP020 -> EMP021, 1099 -> 1100). Never a code that is already taken; EMP001 when there are none yet.
+        """
+        import re
+        best = None   # (number, prefix, digits width)
+        for code in cls.objects.values_list('employee_id', flat=True):
+            match = re.match(r'^(.*?)(\d+)$', code or '')
+            if match and (best is None or int(match.group(2)) > best[0]):
+                best = (int(match.group(2)), match.group(1), len(match.group(2)))
+        if best is None:
+            return 'EMP001'
+        number, prefix, width = best
+        while True:
+            number += 1
+            candidate = f'{prefix}{str(number).zfill(width)}'
+            if not cls.objects.filter(employee_id=candidate).exists():
+                return candidate
+
     def __str__(self):
         return f'{self.first_name} {self.last_name} ({self.employee_id})'
 
