@@ -1,0 +1,393 @@
+{
+ "project": "TAB",
+ "contract_value": "8200000.00",
+ "items": [
+  {
+   "phase": "1",
+   "name": "عمل التصاميم",
+   "weight_percentage": "3.000",
+   "unit": "مقطوعية",
+   "quantity": "1.000",
+   "contract_unit_price": "246000.00",
+   "budget_unit_price": "213913.04"
+  },
+  {
+   "phase": "1",
+   "name": "تقديم التراخيص ودفع الرسوم",
+   "weight_percentage": "2.500",
+   "unit": "مقطوعية",
+   "quantity": "1.000",
+   "contract_unit_price": "205000.00",
+   "budget_unit_price": "178260.87"
+  },
+  {
+   "phase": "1",
+   "name": "الفحص والموافقة",
+   "weight_percentage": "0.500",
+   "unit": "مقطوعية",
+   "quantity": "1.000",
+   "contract_unit_price": "41000.00",
+   "budget_unit_price": "35652.17"
+  },
+  {
+   "phase": "2",
+   "name": "تسوية الموقع",
+   "weight_percentage": "0.500",
+   "unit": "مقطوعية",
+   "quantity": "1.000",
+   "contract_unit_price": "41000.00",
+   "budget_unit_price": "35652.17"
+  },
+  {
+   "phase": "2",
+   "name": "الحفريات",
+   "weight_percentage": "3.000",
+   "unit": "مقطوعية",
+   "quantity": "1.000",
+   "contract_unit_price": "246000.00",
+   "budget_unit_price": "213913.04"
+  },
+  {
+   "phase": "2",
+   "name": "الردميات",
+   "weight_percentage": "0.500",
+   "unit": "مقطوعية",
+   "quantity": "1.000",
+   "contract_unit_price": "41000.00",
+   "budget_unit_price": "35652.17"
+  },
+  {
+   "phase": "3",
+   "name": "البئر",
+   "weight_percentage": "6.000",
+   "unit": "مقطوعية",
+   "quantity": "1.000",
+   "contract_unit_price": "492000.00",
+   "budget_unit_price": "427826.09"
+  },
+  {
+   "phase": "3",
+   "name": "القواعد",
+   "weight_percentage": "3.000",
+   "unit": "مقطوعية",
+   "quantity": "1.000",
+   "contract_unit_price": "246000.00",
+   "budget_unit_price": "213913.04"
+  },
+  {
+   "phase": "3",
+   "name": "جسور الربط",
+   "weight_percentage": "1.000",
+   "unit": "مقطوعية",
+   "quantity": "1.000",
+   "contract_unit_price": "82000.00",
+   "budget_unit_price": "71304.35"
+  },
+  {
+   "phase": "4",
+   "name": "الحفرة الصماء",
+   "weight_percentage": "1.000",
+   "unit": "مقطوعية",
+   "quantity": "1.000",
+   "contract_unit_price": "82000.00",
+   "budget_unit_price": "71304.35"
+  },
+  {
+   "phase": "4",
+   "name": "جدران الموقف",
+   "weight_percentage": "1.000",
+   "unit": "مقطوعية",
+   "quantity": "1.000",
+   "contract_unit_price": "82000.00",
+   "budget_unit_price": "71304.35"
+  },
+  {
+   "phase": "4",
+   "name": "عقدة الموقف",
+   "weight_percentage": "2.000",
+   "unit": "مقطوعية",
+   "quantity": "1.000",
+   "contract_unit_price": "164000.00",
+   "budget_unit_price": "142608.70"
+  },
+  {
+   "phase": "4",
+   "name": "جدران المخازن",
+   "weight_percentage": "1.000",
+   "unit": "مقطوعية",
+   "quantity": "1.000",
+   "contract_unit_price": "82000.00",
+   "budget_unit_price": "71304.35"
+  },
+  {
+   "phase": "4",
+   "name": "عقدة المخازن",
+   "weight_percentage": "2.000",
+   "unit": "مقطوعية",
+   "quantity": "1.000",
+   "contract_unit_price": "164000.00",
+   "budget_unit_price": "142608.70"
+  },
+  {
+   "phase": "4",
+   "name": "جدران السدة",
+   "weight_percentage": "1.000",
+   "unit": "مقطوعية",
+   "quantity": "1.000",
+   "contract_unit_price": "82000.00",
+   "budget_unit_price": "71304.35"
+  },
+  {
+   "phase": "4",
+   "name": "عقدة السدة",
+   "weight_percentage": "2.000",
+   "unit": "مقطوعية",
+   "quantity": "1.000",
+   "contract_unit_price": "164000.00",
+   "budget_unit_price": "142608.70"
+  },
+  {
+   "phase": "5",
+   "name": "جدران الأول",
+   "weight_percentage": "2.000",
+   "unit": "مقطوعية",
+   "quantity": "1.000",
+   "contract_unit_price": "164000.00",
+   "budget_unit_price": "142608.70"
+  },
+  {
+   "phase": "5",
+   "name": "عقدة الأول",
+   "weight_percentage": "3.000",
+   "unit": "مقطوعية",
+   "quantity": "1.000",
+   "contract_unit_price": "246000.00",
+   "budget_unit_price": "213913.04"
+  },
+  {
+   "phase": "5",
+   "name": "جدران الثاني",
+   "weight_percentage": "1.000",
+   "unit": "مقطوعية",
+   "quantity": "1.000",
+   "contract_unit_price": "82000.00",
+   "budget_unit_price": "71304.35"
+  },
+  {
+   "phase": "5",
+   "name": "عقدة الثاني",
+   "weight_percentage": "3.000",
+   "unit": "مقطوعية",
+   "quantity": "1.000",
+   "contract_unit_price": "246000.00",
+   "budget_unit_price": "213913.04"
+  },
+  {
+   "phase": "5",
+   "name": "جدران الثالث",
+   "weight_percentage": "1.000",
+   "unit": "مقطوعية",
+   "quantity": "1.000",
+   "contract_unit_price": "82000.00",
+   "budget_unit_price": "71304.35"
+  },
+  {
+   "phase": "5",
+   "name": "عقدة الثالث",
+   "weight_percentage": "3.000",
+   "unit": "مقطوعية",
+   "quantity": "1.000",
+   "contract_unit_price": "246000.00",
+   "budget_unit_price": "213913.04"
+  },
+  {
+   "phase": "5",
+   "name": "جدران الرابع",
+   "weight_percentage": "1.000",
+   "unit": "مقطوعية",
+   "quantity": "1.000",
+   "contract_unit_price": "82000.00",
+   "budget_unit_price": "71304.35"
+  },
+  {
+   "phase": "5",
+   "name": "عقدة الرابع",
+   "weight_percentage": "3.000",
+   "unit": "مقطوعية",
+   "quantity": "1.000",
+   "contract_unit_price": "246000.00",
+   "budget_unit_price": "213913.04"
+  },
+  {
+   "phase": "6",
+   "name": "الروف الأول",
+   "weight_percentage": "2.000",
+   "unit": "مقطوعية",
+   "quantity": "1.000",
+   "contract_unit_price": "164000.00",
+   "budget_unit_price": "142608.70"
+  },
+  {
+   "phase": "6",
+   "name": "الروف الثاني",
+   "weight_percentage": "2.000",
+   "unit": "مقطوعية",
+   "quantity": "1.000",
+   "contract_unit_price": "164000.00",
+   "budget_unit_price": "142608.70"
+  },
+  {
+   "phase": "6",
+   "name": "غرف السطح",
+   "weight_percentage": "1.000",
+   "unit": "مقطوعية",
+   "quantity": "1.000",
+   "contract_unit_price": "82000.00",
+   "budget_unit_price": "71304.35"
+  },
+  {
+   "phase": "7",
+   "name": "تقسم الى 9 طوابق من القبو الى اخر روف",
+   "weight_percentage": "6.000",
+   "unit": "مقطوعية",
+   "quantity": "1.000",
+   "contract_unit_price": "492000.00",
+   "budget_unit_price": "427826.09"
+  },
+  {
+   "phase": "8",
+   "name": "تقسيم الحجر على 9 طوابق",
+   "weight_percentage": "6.000",
+   "unit": "مقطوعية",
+   "quantity": "1.000",
+   "contract_unit_price": "492000.00",
+   "budget_unit_price": "427826.09"
+  },
+  {
+   "phase": "8",
+   "name": "كحلة الحجر",
+   "weight_percentage": "1.000",
+   "unit": "مقطوعية",
+   "quantity": "1.000",
+   "contract_unit_price": "82000.00",
+   "budget_unit_price": "71304.35"
+  },
+  {
+   "phase": "8",
+   "name": "قصارة ودهان",
+   "weight_percentage": "2.000",
+   "unit": "مقطوعية",
+   "quantity": "1.000",
+   "contract_unit_price": "164000.00",
+   "budget_unit_price": "142608.70"
+  },
+  {
+   "phase": "9",
+   "name": "تقسيم على عشرة مراحل (الطوابق + السطح)",
+   "weight_percentage": "10.000",
+   "unit": "مقطوعية",
+   "quantity": "1.000",
+   "contract_unit_price": "820000.00",
+   "budget_unit_price": "713043.48"
+  },
+  {
+   "phase": "10",
+   "name": "القبو",
+   "weight_percentage": "0.500",
+   "unit": "مقطوعية",
+   "quantity": "1.000",
+   "contract_unit_price": "41000.00",
+   "budget_unit_price": "35652.17"
+  },
+  {
+   "phase": "10",
+   "name": "المخازن+ السدة",
+   "weight_percentage": "1.500",
+   "unit": "مقطوعية",
+   "quantity": "1.000",
+   "contract_unit_price": "123000.00",
+   "budget_unit_price": "106956.52"
+  },
+  {
+   "phase": "10",
+   "name": "الشقق خلف المخازن ×4",
+   "weight_percentage": "2.000",
+   "unit": "مقطوعية",
+   "quantity": "1.000",
+   "contract_unit_price": "164000.00",
+   "budget_unit_price": "142608.70"
+  },
+  {
+   "phase": "10",
+   "name": "الأربع طوابق مكرر",
+   "weight_percentage": "8.000",
+   "unit": "مقطوعية",
+   "quantity": "1.000",
+   "contract_unit_price": "656000.00",
+   "budget_unit_price": "570434.78"
+  },
+  {
+   "phase": "10",
+   "name": "الروف مكرر",
+   "weight_percentage": "4.000",
+   "unit": "مقطوعية",
+   "quantity": "1.000",
+   "contract_unit_price": "328000.00",
+   "budget_unit_price": "285217.39"
+  },
+  {
+   "phase": "11",
+   "name": "تأسيس المصعد والأنظمة",
+   "weight_percentage": "2.000",
+   "unit": "مقطوعية",
+   "quantity": "1.000",
+   "contract_unit_price": "164000.00",
+   "budget_unit_price": "142608.70"
+  },
+  {
+   "phase": "11",
+   "name": "تشغيل المصعد والأنظمة",
+   "weight_percentage": "1.000",
+   "unit": "مقطوعية",
+   "quantity": "1.000",
+   "contract_unit_price": "82000.00",
+   "budget_unit_price": "71304.35"
+  },
+  {
+   "phase": "12",
+   "name": "الاسوار الخارجية",
+   "weight_percentage": "1.000",
+   "unit": "مقطوعية",
+   "quantity": "1.000",
+   "contract_unit_price": "82000.00",
+   "budget_unit_price": "71304.35"
+  },
+  {
+   "phase": "12",
+   "name": "تأسيس الأنظمة",
+   "weight_percentage": "0.500",
+   "unit": "مقطوعية",
+   "quantity": "1.000",
+   "contract_unit_price": "41000.00",
+   "budget_unit_price": "35652.17"
+  },
+  {
+   "phase": "12",
+   "name": "البلاط والزراعة",
+   "weight_percentage": "0.500",
+   "unit": "مقطوعية",
+   "quantity": "1.000",
+   "contract_unit_price": "41000.00",
+   "budget_unit_price": "35652.17"
+  },
+  {
+   "phase": "13",
+   "name": "تقسم على اشهر المشروع 30 شهر",
+   "weight_percentage": "2.000",
+   "unit": "مقطوعية",
+   "quantity": "1.000",
+   "contract_unit_price": "164000.00",
+   "budget_unit_price": "142608.70"
+  }
+ ]
+}
