@@ -64,3 +64,14 @@ urlpatterns = [
 # this. Production still serves media via the web server/Nginx, not this.
 if settings.DEBUG:
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+elif settings.STORAGES['default']['BACKEND'] == 'django.core.files.storage.FileSystemStorage':
+    # Production with the files on this server's own disk (no Dropbox): shared hosting like cPanel does not serve /media/ by itself, so
+    # the uploaded photos / documents came back as broken images. Serve them through Django, but ONLY to logged-in users (the files
+    # include identity documents and contracts, so they must never be open to anyone who has the address).
+    from django.contrib.auth.decorators import login_required
+    from django.urls import re_path
+    from django.views.static import serve as _serve_media
+
+    urlpatterns += [
+        re_path(r'^%s(?P<path>.*)$' % settings.MEDIA_URL.lstrip('/'), login_required(_serve_media), {'document_root': settings.MEDIA_ROOT}),
+    ]
