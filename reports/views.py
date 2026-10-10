@@ -1613,6 +1613,40 @@ def request_delete_report(request, kind, pk):
 
 
 @login_required
+@require_http_methods(["POST"])
+def create_idle_day_reports_view(request):
+    """The button on the Daily Reports page: idle-day drafts for the last 14 days' Fridays / holidays, for the projects this user runs."""
+    from projects import readiness
+    from projects.models import Project
+    from .services.idle_days import create_idle_reports
+
+    user = request.user
+    projects = Project.objects.filter(site_engineer__isnull=False)
+    if user.is_admin():
+        pass
+    elif user.is_site_engineer():
+        projects = projects.filter(site_engineer=user)
+    elif user.is_project_manager():
+        projects = projects.filter(manager=user)
+    else:
+        projects = projects.none()
+    ready = set(readiness.ready_projects().values_list('pk', flat=True))
+    total, skipped = 0, 0
+    for project in projects:
+        if project.pk not in ready:
+            skipped += 1
+            continue
+        total += len(create_idle_reports(project))
+    if total:
+        messages.success(request, f'{total} idle-day draft report(s) created for the last 14 days: check them in the list and submit them.')
+    else:
+        messages.info(request, 'No Friday or holiday is missing a report in the last 14 days.')
+    if skipped:
+        messages.warning(request, f'{skipped} project(s) are not ready yet (insurance / BOQ), so no report was created for them.')
+    return redirect('reports:daily_report_list')
+
+
+@login_required
 def pending_deletions(request):
     """Admin only: the drafts engineers / managers deleted, waiting to be approved (deleted for good) or restored."""
     from django.http import HttpResponseForbidden

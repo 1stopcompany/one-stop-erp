@@ -16,6 +16,13 @@
             </h1>
         </div>
         <div class="col-md-4 text-end">
+            {% if request.user.is_site_engineer or request.user.is_project_manager or request.user.is_admin %}
+            <form method="post" action="{% url 'reports:create_idle_day_reports' %}" class="d-inline"
+                  onsubmit="return confirm('Create an idle-day draft report for every Friday and public holiday of the last 14 days that has no report yet?');">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-outline-secondary" title="Idle-day drafts for the Fridays and holidays of the last 14 days that have no report"><i class="fas fa-calendar-plus"></i> Create Friday / holiday reports</button>
+            </form>
+            {% endif %}
             {% if request.user.is_site_engineer %}
             <a href="{% url 'reports:daily_report_create' %}" class="btn btn-primary">
                 <i class="fas fa-plus"></i> New Daily Report

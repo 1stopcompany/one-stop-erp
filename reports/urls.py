@@ -26,6 +26,7 @@ urlpatterns = [
     path('daily/<int:pk>/review/', views.review_daily_report, name='review_daily_report'),
     path('daily/<int:pk>/approve/', views.approve_daily_report, name='approve_daily_report'),
     path('daily/<int:pk>/export-pdf/', views.export_daily_pdf, name='export_daily_pdf'),
+    path('daily/idle-days/create/', views.create_idle_day_reports_view, name='create_idle_day_reports'),
     path('deletions/', views.pending_deletions, name='pending_deletions'),
     path('<str:kind>/<int:pk>/delete/', views.delete_report, name='delete_report'),
     path('<str:kind>/<int:pk>/request-delete/', views.request_delete_report, name='request_delete_report'),
