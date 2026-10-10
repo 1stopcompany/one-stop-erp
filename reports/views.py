@@ -1267,9 +1267,11 @@ def copy_owner_financial_report(request, pk):
         for item in source.price_comparison_items.all():
             OwnerReportPriceComparisonItem.objects.create(
                 report=new_report, item_type=item.item_type, item_name=item.item_name, unit=item.unit,
-                # Carry forward the running cumulative quantity (not reset
-                # to 0) -- see the docstring above.
-                quantity=item.quantity, old_unit_price=item.new_unit_price, new_unit_price=item.new_unit_price,
+                # The table is cumulative from the start of the project: the quantity is carried forward as the running total
+                # (the PM adds the new period's usage with "Add Quantity") and the OLD price stays the contract price the
+                # difference is measured against. Only the NEW (current) price is carried as it stands; the PM changes it when
+                # the market price moves. (Resetting the old price to the new one would show a zero difference.)
+                quantity=item.quantity, old_unit_price=item.old_unit_price, new_unit_price=item.new_unit_price,
             )
 
     messages.success(
