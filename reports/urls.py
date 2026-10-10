@@ -26,6 +26,7 @@ urlpatterns = [
     path('daily/<int:pk>/review/', views.review_daily_report, name='review_daily_report'),
     path('daily/<int:pk>/approve/', views.approve_daily_report, name='approve_daily_report'),
     path('daily/<int:pk>/export-pdf/', views.export_daily_pdf, name='export_daily_pdf'),
+    path('<str:kind>/<int:pk>/delete/', views.delete_report, name='delete_report'),
     
     # ==================== DAILY REPORT API ENDPOINTS ====================
     # mobile app (token auth): the site engineer records the day-labor workers of a project's day

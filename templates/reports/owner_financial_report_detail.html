@@ -78,6 +78,7 @@
                     </button>
                 </form>
                 {% endif %}
+                {% if request.user.is_admin %}<a href="{% url 'reports:delete_report' kind='owner-financial' pk=report.pk %}" class="btn btn-outline-danger" title="Delete this report (admin only)"><i class="fas fa-trash"></i> Delete</a>{% endif %}
                 <a href="{% url 'reports:owner_financial_report_list' %}" class="btn btn-secondary">
                     <i class="fas fa-arrow-left"></i> Back to List
                 </a>

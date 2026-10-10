@@ -36,6 +36,7 @@
       <a href="{% url 'reports:export_monthly_pdf' report.id %}" class="btn btn-success">
         <i class="bi bi-file-pdf"></i> Export PDF (EDGE)
       </a>
+      {% if request.user.is_admin %}<a href="{% url 'reports:delete_report' kind='monthly' pk=report.pk %}" class="btn btn-outline-danger" title="Delete this report (admin only)"><i class="fas fa-trash"></i> Delete</a>{% endif %}
       <a href="{% url 'reports:monthly_report_list' %}" class="btn btn-outline-secondary">
         <i class="bi bi-arrow-left"></i> Back
       </a>

@@ -1,0 +1,41 @@
+{% extends 'base.html' %}
+{% block title %}Delete {{ label }} {{ report.report_number }}{% endblock %}
+{% block content %}
+<div class="container py-4" style="max-width: 760px;">
+  <div class="card border-danger">
+    <div class="card-header bg-danger text-white"><h1 class="h5 mb-0"><i class="fas fa-trash"></i> Delete {{ label }} permanently</h1></div>
+    <div class="card-body">
+      <table class="table table-sm mb-3">
+        <tr><th style="width:140px;">Report</th><td>{{ report.report_number }}</td></tr>
+        <tr><th>Project</th><td>{{ report.project.name }} <span class="badge bg-primary">{{ report.project.project_symbol }}</span></td></tr>
+        <tr><th>Status</th><td>{{ report.get_status_display }}</td></tr>
+        <tr><th>Created by</th><td>{{ report.site_engineer.get_full_name|default:report.site_engineer.username }}</td></tr>
+      </table>
+
+      <div class="alert alert-danger">
+        <strong>This cannot be undone.</strong> The report and everything entered inside it will be deleted:
+        <ul class="mb-0 mt-2">
+          {% for name, count in removed %}<li>{{ count }} &times; {{ name }}</li>{% empty %}<li>nothing else is attached to it</li>{% endfor %}
+        </ul>
+      </div>
+      {% if kept %}
+      <div class="alert alert-info">
+        These are <strong>kept</strong> and only lose their link to this report:
+        <ul class="mb-0 mt-2">{% for name, count in kept %}<li>{{ count }} &times; {{ name }}</li>{% endfor %}</ul>
+      </div>
+      {% endif %}
+      <p class="small text-muted">The deletion is recorded in the audit log. Files uploaded to the report stay on the disk.</p>
+
+      <form method="post">
+        {% csrf_token %}
+        <div class="form-check mb-3">
+          <input class="form-check-input" type="checkbox" name="confirm" value="yes" id="confirmDelete" required>
+          <label class="form-check-label" for="confirmDelete">I understand: delete this report permanently.</label>
+        </div>
+        <button type="submit" class="btn btn-danger"><i class="fas fa-trash"></i> Delete report</button>
+        <a href="{{ back_url }}" class="btn btn-secondary">Cancel</a>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}

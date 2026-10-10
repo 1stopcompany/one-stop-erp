@@ -1500,6 +1500,68 @@ def project_schedule(request, project_id):
     })
 
 
+REPORT_KINDS = {
+    # url kind: (model, label, list url name, detail url name)
+    'daily': ('DailyReport', 'Daily report', 'reports:daily_report_list', 'reports:daily_report_detail'),
+    'monthly': ('MonthlyReport', 'Monthly report', 'reports:monthly_report_list', 'reports:monthly_report_detail'),
+    'owner-financial': ('OwnerFinancialReport', 'Owner financial report', 'reports:owner_financial_report_list',
+                        'reports:owner_financial_report_detail'),
+}
+
+
+@login_required
+@require_http_methods(["GET", "POST"])
+def delete_report(request, kind, pk):
+    """
+    Permanently delete one report (daily, monthly or owner financial) -- ADMIN ONLY, whatever its status. GET shows what goes with
+    it and asks for confirmation; POST deletes it and records the deletion in the audit log. Progress entries, phase photos and
+    site events that point at a daily / monthly report are kept (they just lose the link to it). Uploaded files stay on disk.
+    """
+    from django.contrib.admin.utils import NestedObjects
+    from django.db import transaction
+    from django.db.models import SET_NULL
+    from django.http import Http404, HttpResponseForbidden
+    from django.urls import reverse
+    from accounts.models import UserAuditLog
+
+    if kind not in REPORT_KINDS:
+        raise Http404
+    if not request.user.is_admin():
+        return HttpResponseForbidden('Only an administrator can delete a report.')
+    model_name, label, list_url, detail_url = REPORT_KINDS[kind]
+    model = {'DailyReport': DailyReport, 'MonthlyReport': MonthlyReport, 'OwnerFinancialReport': OwnerFinancialReport}[model_name]
+    report = get_object_or_404(model, pk=pk)
+
+    if request.method == 'POST':
+        if request.POST.get('confirm') != 'yes':
+            messages.error(request, 'Tick the confirmation box to delete the report.')
+            return redirect(request.path)
+        description = (f'{label} {report.report_number} ({report.project.project_symbol}, status {report.status}, '
+                       f'{getattr(report, "report_date", "")}) deleted')
+        ip = (request.META.get('HTTP_X_FORWARDED_FOR', '').split(',')[0].strip() or request.META.get('REMOTE_ADDR') or None)
+        with transaction.atomic():
+            number = report.report_number
+            report.delete()
+            UserAuditLog.objects.create(user=request.user, action='delete', content_type=f'reports.{model_name}', object_id=pk,
+                                        description=description, ip_address=ip, user_agent=request.META.get('HTTP_USER_AGENT', '')[:500])
+        messages.success(request, f'{label} {number} was deleted.')
+        return redirect(list_url)
+
+    collector = NestedObjects(using='default')
+    collector.collect([report])
+    removed = sorted(((m._meta.verbose_name_plural, len(objs)) for m, objs in collector.model_objs.items() if m is not model),
+                     key=lambda row: -row[1])
+    kept = []
+    for relation in model._meta.related_objects:
+        if getattr(relation.field.remote_field, 'on_delete', None) is SET_NULL:
+            count = relation.related_model.objects.filter(**{relation.field.name: report}).count()
+            if count:
+                kept.append((relation.related_model._meta.verbose_name_plural, count))
+    return render(request, 'reports/report_confirm_delete.html', {
+        'report': report, 'label': label, 'removed': removed, 'kept': kept, 'back_url': reverse(detail_url, args=[pk]),
+    })
+
+
 @login_required
 def plan_vs_actual_page(request, project_id):
     """The MS Project plan against the actual BOQ progress, phase by phase, as of a chosen date (default today)."""
