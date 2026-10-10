@@ -17,7 +17,7 @@
             </p>
         </div>
         <div class="col-md-4 text-end">
-            {% if report.status == 'draft' %}<span class="badge bg-secondary fs-6">Draft</span>
+            {% if report.is_editable %}<span class="badge bg-secondary fs-6">Draft</span>
             {% elif report.status == 'submitted' %}<span class="badge bg-warning fs-6">Submitted</span>
             {% elif report.status == 'engineering_approved' %}<span class="badge bg-info fs-6">Approved by Engineering Manager</span>
             {% elif report.status == 'approved' %}<span class="badge bg-success fs-6">Approved</span>
@@ -36,13 +36,23 @@
     <!-- Action Buttons -->
     <div class="row mb-4">
         <div class="col-12">
+            {% if report.is_frozen %}
+            <div class="alert alert-success d-flex justify-content-between align-items-center mb-3">
+                <span><i class="fas fa-lock"></i> <strong>Final.</strong> Frozen on {{ report.frozen_at|date:"d/m/Y H:i" }}: its figures no longer change when the progress or the BOQ is edited.</span>
+                {% if request.user.is_admin %}<form method="post" action="{% url 'reports:freeze_owner_report' report.pk %}" class="d-inline" onsubmit="return confirm('Unfreeze this report? Its figures will follow the live progress again.');">{% csrf_token %}<input type="hidden" name="action" value="unfreeze"><button type="submit" class="btn btn-sm btn-outline-secondary">Unfreeze</button></form>{% endif %}
+            </div>
+            {% elif request.user.is_admin %}
+            <form method="post" action="{% url 'reports:freeze_owner_report' report.pk %}" class="mb-3" onsubmit="return confirm('Freeze this report as FINAL? Its figures (progress, amounts) are fixed as they are now and no longer change; the report becomes read-only.');">{% csrf_token %}
+                <button type="submit" class="btn btn-outline-success btn-sm"><i class="fas fa-lock"></i> Mark as final (freeze the figures)</button>
+            </form>
+            {% endif %}
             <div class="btn-group" role="group">
-                {% if report.status == 'draft' and request.user == report.site_engineer or report.status == 'draft' and request.user.is_admin %}
+                {% if report.is_editable and request.user == report.site_engineer or report.is_editable and request.user.is_admin %}
                 <a href="{% url 'reports:owner_financial_report_update' report.pk %}" class="btn btn-warning">
                     <i class="fas fa-edit"></i> Edit
                 </a>
                 {% endif %}
-                {% if report.status == 'draft' %}
+                {% if report.is_editable %}
                     {% if request.user == report.site_engineer or request.user.is_admin %}
                     <form method="post" action="{% url 'reports:submit_owner_financial_report' report.pk %}" class="d-inline">
                         {% csrf_token %}
@@ -78,7 +88,7 @@
                     </button>
                 </form>
                 {% endif %}
-                {% if request.user.is_admin %}<a href="{% url 'reports:delete_report' kind='owner-financial' pk=report.pk %}" class="btn btn-outline-danger" title="Delete this report (admin only)"><i class="fas fa-trash"></i> Delete</a>{% elif report.status == 'draft' and request.user == report.site_engineer or report.status == 'draft' and request.user == report.project.manager or report.status == 'draft' and request.user == report.project.site_engineer %}<a href="{% url 'reports:request_delete_report' kind='owner-financial' pk=report.pk %}" class="btn btn-outline-danger" title="Delete this draft"><i class="fas fa-trash"></i> Delete</a>{% endif %}
+                {% if request.user.is_admin %}<a href="{% url 'reports:delete_report' kind='owner-financial' pk=report.pk %}" class="btn btn-outline-danger" title="Delete this report (admin only)"><i class="fas fa-trash"></i> Delete</a>{% elif report.is_editable and request.user == report.site_engineer or report.is_editable and request.user == report.project.manager or report.is_editable and request.user == report.project.site_engineer %}<a href="{% url 'reports:request_delete_report' kind='owner-financial' pk=report.pk %}" class="btn btn-outline-danger" title="Delete this draft"><i class="fas fa-trash"></i> Delete</a>{% endif %}
                 <a href="{% url 'reports:owner_financial_report_list' %}" class="btn btn-secondary">
                     <i class="fas fa-arrow-left"></i> Back to List
                 </a>
@@ -184,7 +194,7 @@
             <div class="card h-100">
                 <div class="card-header bg-light d-flex justify-content-between align-items-center">
                     <h5 class="mb-0"><i class="fas fa-align-left"></i> Progress Summary</h5>
-                    {% if report.status == 'draft' and request.user == report.site_engineer or report.status == 'draft' and request.user.is_admin %}
+                    {% if report.is_editable and request.user == report.site_engineer or report.is_editable and request.user.is_admin %}
                     <button type="button" class="btn btn-sm btn-outline-warning" onclick="openEditNarrative('progress_summary', '{{ report.progress_summary|escapejs }}')">
                         <i class="fas fa-edit"></i> Edit
                     </button>
@@ -197,7 +207,7 @@
             <div class="card h-100">
                 <div class="card-header bg-light d-flex justify-content-between align-items-center">
                     <h5 class="mb-0"><i class="fas fa-forward"></i> Next Month Expected Works</h5>
-                    {% if report.status == 'draft' and request.user == report.site_engineer or report.status == 'draft' and request.user.is_admin %}
+                    {% if report.is_editable and request.user == report.site_engineer or report.is_editable and request.user.is_admin %}
                     <button type="button" class="btn btn-sm btn-outline-warning" onclick="openEditNarrative('next_month_expected_works', '{{ report.next_month_expected_works|escapejs }}', {{ report.next_month_expected_completion_pct|default_if_none:'null' }})">
                         <i class="fas fa-edit"></i> Edit
                     </button>
@@ -219,7 +229,7 @@
             <div class="card">
                 <div class="card-header bg-light d-flex justify-content-between align-items-center">
                     <h5 class="mb-0"><i class="fas fa-tasks"></i> Phase Status Updates</h5>
-                    {% if report.status == 'draft' and request.user == report.site_engineer or report.status == 'draft' and request.user.is_admin %}
+                    {% if report.is_editable and request.user == report.site_engineer or report.is_editable and request.user.is_admin %}
                     <button type="button" class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#addPhaseUpdateModal">
                         <i class="fas fa-plus"></i> Add
                     </button>
@@ -241,7 +251,7 @@
                             <div id="phaseUpdateCollapse{{ u.id }}" class="accordion-collapse collapse" data-bs-parent="#phaseUpdatesAccordion">
                                 <div class="accordion-body">
                                     <p class="mb-2" style="white-space: pre-line;">{{ u.work_performed }}</p>
-                                    {% if report.status == 'draft' and request.user == report.site_engineer or report.status == 'draft' and request.user.is_admin %}
+                                    {% if report.is_editable and request.user == report.site_engineer or report.is_editable and request.user.is_admin %}
                                     <div class="d-flex gap-2">
                                         <button class="btn btn-sm btn-outline-secondary" onclick="movePhaseUpdate({{ u.id }}, 'up')" title="Move up">
                                             <i class="fas fa-arrow-up"></i>
@@ -275,7 +285,7 @@
             <div class="card">
                 <div class="card-header bg-light d-flex justify-content-between align-items-center">
                     <h5 class="mb-0"><i class="fas fa-chart-line"></i> Material / Equipment Price Comparison</h5>
-                    {% if report.status == 'draft' and request.user == report.site_engineer or report.status == 'draft' and request.user.is_admin %}
+                    {% if report.is_editable and request.user == report.site_engineer or report.is_editable and request.user.is_admin %}
                     <button type="button" class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#addPriceItemModal">
                         <i class="fas fa-plus"></i> Add
                     </button>
@@ -310,7 +320,7 @@
                                     <td>{{ item.new_unit_price }}</td>
                                     <td>{{ item.price_difference }}</td>
                                     <td>
-                                        {% if report.status == 'draft' and request.user == report.site_engineer or report.status == 'draft' and request.user.is_admin %}
+                                        {% if report.is_editable and request.user == report.site_engineer or report.is_editable and request.user.is_admin %}
                                         <button class="btn btn-sm btn-outline-success" onclick="openAddQuantity({{ item.id }}, '{{ item.item_name|escapejs }}', '{{ item.quantity }}')">
                                             <i class="fas fa-plus"></i> Qty
                                         </button>
@@ -337,7 +347,7 @@
             <div class="card">
                 <div class="card-header bg-light d-flex justify-content-between align-items-center">
                     <h5 class="mb-0"><i class="fas fa-images"></i> Photos</h5>
-                    {% if report.status == 'draft' and request.user == report.site_engineer or report.status == 'draft' and request.user.is_admin %}
+                    {% if report.is_editable and request.user == report.site_engineer or report.is_editable and request.user.is_admin %}
                     <button type="button" class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#addPhotoModal">
                         <i class="fas fa-plus"></i> Add Photo
                     </button>
@@ -355,7 +365,7 @@
                                     <img src="{{ photo.photo.url }}" class="card-img-top" style="height: 150px; object-fit: cover;" alt="{{ photo.caption }}">
                                     <div class="card-body p-2">
                                         <p class="small mb-2">{{ photo.caption|default:"—"|truncatewords:10 }}</p>
-                                        {% if report.status == 'draft' and request.user == report.site_engineer or report.status == 'draft' and request.user.is_admin %}
+                                        {% if report.is_editable and request.user == report.site_engineer or report.is_editable and request.user.is_admin %}
                                         <div class="d-flex gap-1">
                                             <button class="btn btn-sm btn-outline-warning" onclick="openEditPhoto({{ photo.id }}, {{ photo.phase_id }}, '{{ photo.caption|escapejs }}', '{{ photo.taken_date|date:'Y-m-d' }}')">
                                                 <i class="fas fa-edit"></i>
