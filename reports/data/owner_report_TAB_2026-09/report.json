@@ -1,0 +1,229 @@
+{
+ "version": 1,
+ "project": "TAB",
+ "report": {
+  "report_number": "OFR-TAB-20260908103526-E6F62282",
+  "report_date": "2026-09-08",
+  "reporting_period_from": "2026-09-01",
+  "reporting_period_to": "2026-09-30",
+  "contract_value_snapshot": "8200000.00",
+  "advance_payment_value_snapshot": "1500000.00",
+  "performance_retention_rate_snapshot": "10.00",
+  "previous_payments_total": "810000.00",
+  "progress_summary": "منذ المباشرة بأعمال المشروع حسب العقد الموقّع، تم تنفيذ الأعمال وفق برنامج عمل منظم يهدف إلى ضمان الانطلاق السليم وتحقيق متطلبات الجودة والسلامة الهندسية. وفيما يلي المراحل المنجزة حتى تاريخ 30/09/2026:",
+  "next_month_expected_works": "استكمال الأعمال الجارية حسب البرنامج الزمني المعتمد.",
+  "next_month_expected_completion_pct": "40.41",
+  "material_price_note": "حتى تاريخ 30/09/2026، الارتفاع على أسعار المواد الأساسية بقي كما كان الشهر السابق.",
+  "closing_note": "حرصًا على الحفاظ على وتيرة التنفيذ الحالية وضمان السير وفق البرنامج الزمني المعتمد، فإن انتظام التدفقات المالية بما يتوافق مع نسب الإنجاز الفعلية يسهم في دعم استمرارية توريد المواد، واستقرار الترتيبات التشغيلية، وتنفيذ الأعمال وفق مستويات الجودة المخططة.\r\n\r\nكما أن مواءمة الجوانب المالية مع القيم التراكمية للأعمال المنجزة تدعم تقدم المشروع بسلاسة، وتساعد في تجنب أي تأثير محتمل على الجدول الزمني أو مراحل التنفيذ القادمة.\r\n\r\nنثمّن تعاونكم الدائم، ونتطلع إلى استمرار العمل بروح التنسيق القائمة بما يحقق أهداف المشروع ضمن الإطار الزمني ومستويات الجودة المعتمدة."
+ },
+ "price_items": [
+  {
+   "item_type": "concrete_grade",
+   "item_name": "B200",
+   "unit": "كوب",
+   "quantity": "49.50",
+   "old_unit_price": "320.00",
+   "new_unit_price": "370.00"
+  },
+  {
+   "item_type": "concrete_grade",
+   "item_name": "B250",
+   "unit": "كوب",
+   "quantity": "3.00",
+   "old_unit_price": "330.00",
+   "new_unit_price": "380.00"
+  },
+  {
+   "item_type": "concrete_grade",
+   "item_name": "B300",
+   "unit": "كوب",
+   "quantity": "2.50",
+   "old_unit_price": "340.00",
+   "new_unit_price": "390.00"
+  },
+  {
+   "item_type": "concrete_grade",
+   "item_name": "B350",
+   "unit": "كوب",
+   "quantity": "333.00",
+   "old_unit_price": "340.00",
+   "new_unit_price": "390.00"
+  },
+  {
+   "item_type": "concrete_grade",
+   "item_name": "B450",
+   "unit": "كوب",
+   "quantity": "372.00",
+   "old_unit_price": "390.00",
+   "new_unit_price": "440.00"
+  },
+  {
+   "item_type": "equipment",
+   "item_name": "JCB",
+   "unit": "ساعة",
+   "quantity": "31.50",
+   "old_unit_price": "130.00",
+   "new_unit_price": "140.00"
+  },
+  {
+   "item_type": "equipment",
+   "item_name": "بوب كات (Bobcat)",
+   "unit": "ساعة",
+   "quantity": "44.60",
+   "old_unit_price": "120.00",
+   "new_unit_price": "140.00"
+  },
+  {
+   "item_type": "equipment",
+   "item_name": "مدحلة",
+   "unit": "طلعة",
+   "quantity": "1.00",
+   "old_unit_price": "500.00",
+   "new_unit_price": "700.00"
+  },
+  {
+   "item_type": "equipment",
+   "item_name": "نقل طمم",
+   "unit": "يوم",
+   "quantity": "1.00",
+   "old_unit_price": "500.00",
+   "new_unit_price": "700.00"
+  }
+ ],
+ "phase_updates": [
+  {
+   "phase": "1",
+   "status": "done",
+   "work_performed": "تم تنفيذ التجهيزات الأولية للموقع بشكل كامل، شملت توفير اشتراك كهرباء مؤقت (1 فاز ثم 3 فاز)، وإنشاء سياج محيط بالمشروع، وتركيب اللوحات التعريفية، وتهيئة الموقع للأعمال التنفيذية، بالإضافة إلى إجراء فحص التربة واستكمال كافة إجراءات الترخيص (موافقات البلدية، الدفاع المدني، أذونات الصب)، وتسديد جميع الرسوم المتعلقة بالتصميم والترخيص وأذونات الصب لكامل مراحل المشروع.",
+   "order": 1
+  },
+  {
+   "phase": "2",
+   "status": "done",
+   "work_performed": "تم تنفيذ أعمال الحفريات وتسوية الأرض بشكل كامل، شملت إزالة التربة غير الصالحة للوصول إلى المنسوب التصميمي المعتمد، ونقل ناتج الحفر خارج الموقع وفق الإجراءات النظامية.",
+   "order": 2
+  },
+  {
+   "phase": "3",
+   "status": "done",
+   "work_performed": "تم إنجاز أعمال القواعد والجسور الأرضية بما في ذلك عقدة الحفرة الصماء (120 كوب) ضمن منسوب طابق التسوية، كما تم تنفيذ بئر كامل بمساحة تقارب 150م² وحجم حفر 300م. تنفيذ جدران الموقف وتنفيذ عقدة طابق المواقف (الباركينج) بشكل كامل. عقدة طابق السدة شاملاً الواجهات بشكل كامل. تنفيذ أعمدة وجدران وعقدة طابق الميزانين مع الواجهات الخارجية الخاصة به.",
+   "order": 3
+  },
+  {
+   "phase": "5",
+   "status": "in_progress",
+   "work_performed": "تنفيذ أعمدة وجدران الطابق الأول (المتكرر).",
+   "order": 4
+  }
+ ],
+ "photos": [
+  {
+   "phase": "5",
+   "sub_item": "",
+   "file": "001_WhatsApp_Image_2026-09-01_at_11.51.29_AM.jpeg",
+   "stored_name": "phase_photos/2026/10/WhatsApp_Image_2026-09-01_at_11.51.29_AM.jpeg",
+   "caption": "استكمال اعمال الحجر للطابق الاول",
+   "taken_date": "2026-09-01",
+   "order": 0
+  },
+  {
+   "phase": "5",
+   "sub_item": "",
+   "file": "002_WhatsApp_Image_2026-09-03_at_8.39.31_AM.jpeg",
+   "stored_name": "phase_photos/2026/10/WhatsApp_Image_2026-09-03_at_8.39.31_AM.jpeg",
+   "caption": "تجهيز ارضية الطابق الاول - سقية العقدة",
+   "taken_date": "2026-09-02",
+   "order": 0
+  },
+  {
+   "phase": "5",
+   "sub_item": "",
+   "file": "003_WhatsApp_Image_2026-09-05_at_4.28.26_PM_1.jpeg",
+   "stored_name": "phase_photos/2026/10/WhatsApp_Image_2026-09-05_at_4.28.26_PM_1.jpeg",
+   "caption": "اعمدة الطابق الاول",
+   "taken_date": "2026-09-05",
+   "order": 0
+  },
+  {
+   "phase": "5",
+   "sub_item": "",
+   "file": "004_WhatsApp_Image_2026-09-06_at_8.03.41_AM.jpeg",
+   "stored_name": "phase_photos/2026/10/WhatsApp_Image_2026-09-06_at_8.03.41_AM.jpeg",
+   "caption": "فك عقدة ارضية الطابق الاول",
+   "taken_date": "2026-09-06",
+   "order": 0
+  },
+  {
+   "phase": "5",
+   "sub_item": "",
+   "file": "005_WhatsApp_Image_2026-09-06_at_9.09.05_AM_1.jpeg",
+   "stored_name": "phase_photos/2026/10/WhatsApp_Image_2026-09-06_at_9.09.05_AM_1.jpeg",
+   "caption": "تجهيز ارضية الطابق الاول",
+   "taken_date": "2026-09-06",
+   "order": 0
+  },
+  {
+   "phase": "5",
+   "sub_item": "",
+   "file": "006_WhatsApp_Image_2026-09-07_at_11.22.30_AM.jpeg",
+   "stored_name": "phase_photos/2026/10/WhatsApp_Image_2026-09-07_at_11.22.30_AM.jpeg",
+   "caption": "اعمدة وجدران الطابق الاول",
+   "taken_date": "2026-09-07",
+   "order": 0
+  },
+  {
+   "phase": "5",
+   "sub_item": "",
+   "file": "007_WhatsApp_Image_2026-09-08_at_10.29.39_AM.jpeg",
+   "stored_name": "phase_photos/2026/10/WhatsApp_Image_2026-09-08_at_10.29.39_AM.jpeg",
+   "caption": "",
+   "taken_date": "2026-09-08",
+   "order": 0
+  },
+  {
+   "phase": "5",
+   "sub_item": "",
+   "file": "008_WhatsApp_Image_2026-09-09_at_2.32.09_PM_2.jpeg",
+   "stored_name": "phase_photos/2026/10/WhatsApp_Image_2026-09-09_at_2.32.09_PM_2.jpeg",
+   "caption": "اعمال حجر الطابق الاول",
+   "taken_date": "2026-09-09",
+   "order": 0
+  },
+  {
+   "phase": "5",
+   "sub_item": "",
+   "file": "009_WhatsApp_Image_2026-09-16_at_2.16.44_PM.jpeg",
+   "stored_name": "phase_photos/2026/10/WhatsApp_Image_2026-09-16_at_2.16.44_PM.jpeg",
+   "caption": "اعمدة وجدران الطابق الاول",
+   "taken_date": "2026-09-16",
+   "order": 0
+  },
+  {
+   "phase": "5",
+   "sub_item": "",
+   "file": "010_WhatsApp_Image_2026-09-30_at_11.18.53_AM.jpeg",
+   "stored_name": "phase_photos/2026/10/WhatsApp_Image_2026-09-30_at_11.18.53_AM.jpeg",
+   "caption": "اعمدة وجدران الطابق الاول",
+   "taken_date": "2026-09-03",
+   "order": 0
+  },
+  {
+   "phase": "5",
+   "sub_item": "",
+   "file": "011_WhatsApp_Image_2026-09-29_at_12.26.13_PM.jpeg",
+   "stored_name": "phase_photos/2026/10/WhatsApp_Image_2026-09-29_at_12.26.13_PM.jpeg",
+   "caption": "اعمدة وجدران الطابق الاول",
+   "taken_date": "2026-09-26",
+   "order": 0
+  },
+  {
+   "phase": "5",
+   "sub_item": "",
+   "file": "012_WhatsApp_Image_2026-09-27_at_9.31.01_PM.jpeg",
+   "stored_name": "phase_photos/2026/10/WhatsApp_Image_2026-09-27_at_9.31.01_PM.jpeg",
+   "caption": "اعمدة وجدران الطابق الاول",
+   "taken_date": "2026-09-27",
+   "order": 0
+  }
+ ]
+}
