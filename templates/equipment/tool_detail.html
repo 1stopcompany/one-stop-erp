@@ -1,0 +1,109 @@
+{% extends 'base.html' %}
+{% block title %}{{ tool.code }} {{ tool.name }}{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-start flex-wrap gap-2 my-4">
+  <div>
+    <h1 class="h3 mb-1">{{ tool.code }} &mdash; {{ tool.name }}</h1>
+    <span class="badge {% if tool.status == 'working' or tool.status == 'new' %}bg-success{% elif tool.status == 'scrapped' %}bg-dark{% elif tool.status == 'broken' %}bg-danger{% else %}bg-warning text-dark{% endif %}">{{ tool.get_status_display }}</span>
+    <span class="ms-2"><i class="bi bi-geo-alt"></i> {{ tool.location_label }}{% if tool.holder %} &mdash; {{ tool.holder }}{% endif %}</span>
+  </div>
+  <div class="d-flex gap-2">
+    <a href="{% url 'equipment:tool_list' %}" class="btn btn-outline-secondary">Register</a>
+    {% if can_manage %}<a href="{% url 'equipment:tool_edit' tool.pk %}" class="btn btn-outline-primary">Edit</a>
+    <a href="{% url 'equipment:labels_pdf' %}?ids={{ tool.pk }}" target="_blank" class="btn btn-outline-secondary"><i class="bi bi-qr-code"></i> Label</a>{% endif %}
+  </div>
+</div>
+
+<div class="row g-3">
+  <div class="col-lg-5">
+    <div class="card mb-3"><div class="card-header fw-bold">Details</div><table class="table table-sm mb-0">
+      <tr><th class="w-50">Category</th><td>{{ tool.category|default:'-' }}</td></tr>
+      <tr><th>Manufacturer</th><td>{{ tool.manufacturer|default:'-' }}</td></tr>
+      <tr><th>Model / serial</th><td>{{ tool.model_no|default:'-' }} / {{ tool.serial_no|default:'-' }}</td></tr>
+      <tr><th>Purchased</th><td>{{ tool.purchase_date|default:'-' }}{% if tool.purchase_cost %} &middot; {{ tool.purchase_cost }}{% endif %}</td></tr>
+      <tr><th>Last stock-take</th><td>{{ tool.last_inventory_date|default:'-' }}</td></tr>
+      <tr><th>Notes</th><td>{{ tool.notes|default:'-' }}</td></tr>
+    </table>{% if tool.photo %}<img src="{{ tool.photo.url }}" class="card-img-bottom" alt="">{% endif %}</div>
+
+    {# ---- the one open request ---- #}
+    {% if pending %}
+    <div class="card mb-3 border-primary"><div class="card-header fw-bold">Open request &mdash; {{ pending.get_status_display }}</div><div class="card-body">
+      <div>{{ pending.from_label }} &rarr; <strong>{{ pending.to_label }}</strong>{% if pending.holder %} (to {{ pending.holder }}){% endif %}</div>
+      <div class="small text-muted mb-2">Requested by {{ pending.requested_by.get_full_name|default:pending.requested_by.username }}{% if pending.note %} &mdash; {{ pending.note }}{% endif %}</div>
+      <div class="d-flex flex-wrap gap-2">
+      {% if pending.status == 'requested' and can_approve %}
+        <form method="post" action="{% url 'equipment:transfer_action' pending.pk 'approve' %}">{% csrf_token %}<button class="btn btn-success btn-sm">Approve</button></form>
+      {% endif %}
+      {% if pending.status == 'approved' and can_complete %}
+        <form method="post" action="{% url 'equipment:transfer_action' pending.pk 'complete' %}" class="w-100 border rounded p-2">{% csrf_token %}
+          <div class="fw-bold mb-1">Complete the handover</div>
+          {% if pending.kind == 'return' %}
+          <label class="form-label small mb-0">Condition of the tool coming back *</label>
+          <select name="return_condition" class="form-select form-select-sm mb-1" required>
+            <option value="">Choose...</option><option value="ok">Good - ready to use</option><option value="needs_maintenance">Needs maintenance</option><option value="scrap">Scrap (beyond repair)</option></select>
+          <input name="return_note" class="form-control form-control-sm mb-1" placeholder="What is wrong / what is needed">
+          {% elif pending.to_project %}<input name="holder" class="form-control form-control-sm mb-1" value="{{ pending.holder }}" placeholder="Person receiving on site">{% endif %}
+          <button class="btn btn-primary btn-sm">Confirm handover</button>
+        </form>
+      {% endif %}
+      {% if pending.status == 'requested' or pending.status == 'approved' %}
+        {% if can_approve or can_complete %}<form method="post" action="{% url 'equipment:transfer_action' pending.pk 'reject' %}" onsubmit="this.reason.value = prompt('Reason for rejecting?') || ''; return this.reason.value !== '';">{% csrf_token %}<input type="hidden" name="reason"><button class="btn btn-outline-danger btn-sm">Reject</button></form>{% endif %}
+        <form method="post" action="{% url 'equipment:transfer_action' pending.pk 'cancel' %}">{% csrf_token %}<button class="btn btn-outline-secondary btn-sm">Cancel request</button></form>
+      {% endif %}
+      </div></div></div>
+    {% elif can_request %}
+    <div class="card mb-3"><div class="card-header fw-bold">Request a handover</div><div class="card-body">
+      <form method="post" action="{% url 'equipment:transfer_request' tool.pk %}">{% csrf_token %}
+        <label class="form-label small mb-0">Send to</label>
+        <select name="destination" class="form-select form-select-sm mb-2" required><option value="">Choose...</option>
+          <optgroup label="Projects">{% for p in projects %}{% if p.pk != tool.project_id %}<option value="p{{ p.pk }}">{{ p.project_symbol }} &mdash; {{ p.name }}</option>{% endif %}{% endfor %}</optgroup>
+          <optgroup label="Return to warehouse">{% for w in warehouses %}{% if w.pk != tool.warehouse_id %}<option value="w{{ w.pk }}">{{ w.name }}</option>{% endif %}{% endfor %}</optgroup></select>
+        <input name="holder" class="form-control form-control-sm mb-2" placeholder="Person who will hold it on site (optional)">
+        <input name="note" class="form-control form-control-sm mb-2" placeholder="Note (optional)">
+        <button class="btn btn-primary btn-sm">Send request</button>
+        <div class="small text-muted mt-1">A manager approves it, then the storekeeper completes the handover.</div>
+      </form></div></div>
+    {% endif %}
+
+    {# ---- maintenance ---- #}
+    {% if open_job %}
+    <div class="card mb-3 border-warning"><div class="card-header fw-bold">Maintenance &mdash; {{ open_job.get_status_display }}</div><div class="card-body">
+      <div class="mb-2">{{ open_job.problem }}</div>
+      {% if can_manage %}
+      <form method="post" action="{% url 'equipment:maintenance_update' open_job.pk %}">{% csrf_token %}
+        <div class="row g-1 mb-1"><div class="col-6"><input name="vendor" value="{{ open_job.vendor }}" class="form-control form-control-sm" placeholder="Workshop / vendor"></div>
+          <div class="col-6"><input name="cost" value="{{ open_job.cost|default_if_none:'' }}" class="form-control form-control-sm" placeholder="Cost"></div></div>
+        <input name="parts" value="{{ open_job.parts }}" class="form-control form-control-sm mb-1" placeholder="Parts replaced">
+        <input name="result_note" value="{{ open_job.result_note }}" class="form-control form-control-sm mb-2" placeholder="Result / note">
+        <div class="d-flex flex-wrap gap-1">
+          <button name="status" value="in_progress" class="btn btn-outline-primary btn-sm">Started</button>
+          <button name="status" value="done" class="btn btn-success btn-sm">Done - back in service</button>
+          <button name="status" value="scrapped" class="btn btn-outline-danger btn-sm" onclick="return confirm('Scrap this tool? It will leave the working stock.');">Scrap</button>
+          <button name="status" value="cancelled" class="btn btn-outline-secondary btn-sm">Cancel job</button>
+        </div></form>
+      {% endif %}</div></div>
+    {% elif can_manage and tool.status != 'scrapped' %}
+    <div class="card mb-3"><div class="card-header fw-bold">Send for maintenance</div><div class="card-body">
+      <form method="post" action="{% url 'equipment:maintenance_open' tool.pk %}">{% csrf_token %}
+        <input name="problem" class="form-control form-control-sm mb-2" placeholder="What is wrong / what service is needed" required>
+        <button class="btn btn-warning btn-sm">Open maintenance job</button></form></div></div>
+    {% endif %}
+  </div>
+
+  <div class="col-lg-7">
+    <div class="card mb-3"><div class="card-header fw-bold">Movement history</div><div class="table-responsive"><table class="table table-sm mb-0">
+      <thead><tr><th>Date</th><th>What</th><th>From &rarr; To</th><th>By</th><th>Status</th></tr></thead><tbody>
+      {% for h in history %}
+        <tr><td class="text-nowrap">{{ h.completed_at|default:h.requested_at|date:'d/m/Y' }}</td><td>{{ h.get_kind_display }}{% if h.return_condition %}<div class="small text-muted">{{ h.get_return_condition_display }}{% if h.return_note %}: {{ h.return_note }}{% endif %}</div>{% endif %}{% if h.rejection_reason %}<div class="small text-danger">{{ h.rejection_reason }}</div>{% endif %}</td>
+          <td>{{ h.from_label }} &rarr; {{ h.to_label }}</td>
+          <td class="small">{{ h.requested_by.get_full_name|default:h.requested_by.username }}{% if h.completed_by %}<br>handover: {{ h.completed_by.get_full_name|default:h.completed_by.username }}{% endif %}</td>
+          <td><span class="badge {% if h.status == 'completed' %}bg-success{% elif h.status == 'rejected' %}bg-danger{% else %}bg-primary{% endif %}">{{ h.get_status_display }}</span></td></tr>
+      {% empty %}<tr><td colspan="5" class="text-muted text-center">No movements.</td></tr>{% endfor %}</tbody></table></div></div>
+
+    <div class="card"><div class="card-header fw-bold">Maintenance history</div><div class="table-responsive"><table class="table table-sm mb-0">
+      <thead><tr><th>Opened</th><th>Problem</th><th>Vendor / parts</th><th>Cost</th><th>Status</th></tr></thead><tbody>
+      {% for j in jobs %}<tr><td class="text-nowrap">{{ j.opened_at|date:'d/m/Y' }}</td><td>{{ j.problem }}{% if j.result_note %}<div class="small text-muted">{{ j.result_note }}</div>{% endif %}</td><td>{{ j.vendor }} {{ j.parts }}</td><td>{{ j.cost|default_if_none:'' }}</td><td>{{ j.get_status_display }}{% if j.finished_date %}<div class="small text-muted">{{ j.finished_date|date:'d/m/Y' }}</div>{% endif %}</td></tr>
+      {% empty %}<tr><td colspan="5" class="text-muted text-center">No maintenance yet.</td></tr>{% endfor %}</tbody></table></div></div>
+  </div>
+</div>
+{% endblock %}

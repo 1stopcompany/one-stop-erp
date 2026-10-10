@@ -1,0 +1,406 @@
+{
+ "inventory_date": "2026-10-10",
+ "source": "جرد للعدة الكهربائية 10-10",
+ "tools": [
+  {
+   "ref": "INV-2026-10-10-01",
+   "name": "صاروخ 9 إنش",
+   "category": "صاروخ",
+   "manufacturer": "Bosch",
+   "status": "new",
+   "location": "TAB",
+   "holder": "",
+   "notes": "جديد لم يستخدم - تم توريده بدلا من ايموتب لتكرار اعطاله"
+  },
+  {
+   "ref": "INV-2026-10-10-02",
+   "name": "صاروخ 9 إنش",
+   "category": "صاروخ",
+   "manufacturer": "Bosch",
+   "status": "working",
+   "location": "ORL2",
+   "holder": "اسامة الرجعي",
+   "notes": "يعمل بحالة جيدة - قص الحديد"
+  },
+  {
+   "ref": "INV-2026-10-10-03",
+   "name": "صاروخ 9 إنش",
+   "category": "صاروخ",
+   "manufacturer": "DeWalt",
+   "status": "working",
+   "location": "TAB",
+   "holder": "",
+   "notes": "يعمل بحالة جيدة - تم تغيير كبسة+كيبل (الأصفر)"
+  },
+  {
+   "ref": "INV-2026-10-10-04",
+   "name": "صاروخ 9 إنش",
+   "category": "صاروخ",
+   "manufacturer": "Imhotep",
+   "status": "broken",
+   "location": "TAB",
+   "holder": "",
+   "notes": "خربان - يحتاج الى موبين +فحمات"
+  },
+  {
+   "ref": "INV-2026-10-10-05",
+   "name": "صاروخ 9 إنش",
+   "category": "صاروخ",
+   "manufacturer": "CAT",
+   "status": "working",
+   "location": "TAB",
+   "holder": "",
+   "notes": "يعمل بصورة ممتازة - قص الحجر"
+  },
+  {
+   "ref": "INV-2026-10-10-06",
+   "name": "صاروخ صغير",
+   "category": "صاروخ",
+   "manufacturer": "Bosch",
+   "status": "working",
+   "location": "TAB",
+   "holder": "",
+   "notes": "يعمل بصورة ممتازة"
+  },
+  {
+   "ref": "INV-2026-10-10-07",
+   "name": "بلاور هواء",
+   "category": "بلاور",
+   "manufacturer": "CAT",
+   "status": "working",
+   "location": "TAB",
+   "holder": "",
+   "notes": "بطارية - ممتاز معه شاحن + 2 بطارية"
+  },
+  {
+   "ref": "INV-2026-10-10-08",
+   "name": "بلاور هواء انكو",
+   "category": "بلاور",
+   "manufacturer": "INCO",
+   "status": "working",
+   "location": "TAB",
+   "holder": "",
+   "notes": "يعمل بصورة ممتازة (كيبل) - غير متوفر له راس"
+  },
+  {
+   "ref": "INV-2026-10-10-09",
+   "name": "ماكينة قدوح",
+   "category": "ماكينة",
+   "manufacturer": "",
+   "status": "working",
+   "location": "WH",
+   "holder": "",
+   "notes": "تعمل - لم يتم استخدامها في طالب العمايرة للان"
+  },
+  {
+   "ref": "INV-2026-10-10-10",
+   "name": "باتيشون بوش",
+   "category": "باتيشون",
+   "manufacturer": "Bosch",
+   "status": "working",
+   "location": "ORL2",
+   "holder": "",
+   "notes": "يعمل بصورة جيدة - تم تغيير كبسة ويعمل بصورة ممتازة"
+  },
+  {
+   "ref": "INV-2026-10-10-11",
+   "name": "باتيشون كات",
+   "category": "باتيشون",
+   "manufacturer": "CAT",
+   "status": "working",
+   "location": "TAB",
+   "holder": "",
+   "notes": "يعمل بصورة جيدة"
+  },
+  {
+   "ref": "INV-2026-10-10-12",
+   "name": "جيكسون دي ولت",
+   "category": "جيكسون",
+   "manufacturer": "DeWalt",
+   "status": "working",
+   "location": "ORL2",
+   "holder": "",
+   "notes": "يعمل بصورة جيدة - تم تغيير بيلية+ طارة قص (الأصفر)"
+  },
+  {
+   "ref": "INV-2026-10-10-13",
+   "name": "جيكسون بوش",
+   "category": "جيكسون",
+   "manufacturer": "Bosch",
+   "status": "working",
+   "location": "TAB",
+   "holder": "",
+   "notes": "يعمل بصورة جيدة - تم تغيير طارة قص"
+  },
+  {
+   "ref": "INV-2026-10-10-14",
+   "name": "ماتور كهرباء 3.5 كيلو",
+   "category": "ماتور",
+   "manufacturer": "Total",
+   "status": "working",
+   "location": "ORL2",
+   "holder": "",
+   "notes": "يعمل بصورة جيدة"
+  },
+  {
+   "ref": "INV-2026-10-10-15",
+   "name": "ونش كهربائي",
+   "category": "ونش",
+   "manufacturer": "",
+   "status": "working",
+   "location": "TAB",
+   "holder": "",
+   "notes": "يعمل بصورة جيدة"
+  },
+  {
+   "ref": "INV-2026-10-10-16-1",
+   "name": "رجاج باطون",
+   "category": "رجاج باطون",
+   "manufacturer": "SHATAL",
+   "status": "working",
+   "location": "TAB",
+   "holder": "",
+   "notes": "يعمل بصورة جيدة - تم تغيير كيبل للاثنين"
+  },
+  {
+   "ref": "INV-2026-10-10-16-2",
+   "name": "رجاج باطون",
+   "category": "رجاج باطون",
+   "manufacturer": "SHATAL",
+   "status": "working",
+   "location": "TAB",
+   "holder": "",
+   "notes": "يعمل بصورة جيدة - تم تغيير كيبل للاثنين"
+  },
+  {
+   "ref": "INV-2026-10-10-17-1",
+   "name": "ماكينة تربيط حديد",
+   "category": "ماكينة تربيط",
+   "manufacturer": "Makita",
+   "status": "working",
+   "location": "TAB",
+   "holder": "",
+   "notes": "يعمل بصورة ممتازة - معه 2 بطارية+شاحن"
+  },
+  {
+   "ref": "INV-2026-10-10-17-2",
+   "name": "ماكينة تربيط حديد",
+   "category": "ماكينة تربيط",
+   "manufacturer": "Makita",
+   "status": "working",
+   "location": "TAB",
+   "holder": "",
+   "notes": "يعمل بصورة ممتازة - معه 2 بطارية+شاحن"
+  },
+  {
+   "ref": "INV-2026-10-10-18",
+   "name": "مفركاه (مفك براغي)",
+   "category": "مفك",
+   "manufacturer": "Bosch",
+   "status": "working",
+   "location": "TAB",
+   "holder": "",
+   "notes": "يعمل بصورة ممتازة - يستخدم لثقب الحجر 2 بطارية"
+  },
+  {
+   "ref": "INV-2026-10-10-19",
+   "name": "ماكينة سكريد (Screed)",
+   "category": "ماكينة",
+   "manufacturer": "",
+   "status": "working",
+   "location": "TAB",
+   "holder": "",
+   "notes": "تعمل بصورة جيدة - تسوية الاسطح تم استخدامها عدد 2 مرة"
+  },
+  {
+   "ref": "INV-2026-10-10-20",
+   "name": "منشار شايش طاولة",
+   "category": "منشار",
+   "manufacturer": "SHATAL",
+   "status": "working",
+   "location": "TAB",
+   "holder": "",
+   "notes": "يعمل بصورة جيدة"
+  },
+  {
+   "ref": "INV-2026-10-10-21",
+   "name": "مفركاه براغي",
+   "category": "مفك",
+   "manufacturer": "Bosch",
+   "status": "working",
+   "location": "TAB",
+   "holder": "",
+   "notes": "يعمل بصورة جيدة - متوفرة مع شاحن"
+  },
+  {
+   "ref": "INV-2026-10-10-22",
+   "name": "ترينشر BAUER",
+   "category": "ترينشر",
+   "manufacturer": "BAUER",
+   "status": "working",
+   "location": "TAB",
+   "holder": "",
+   "notes": "يعمل بصورة ممتازة"
+  },
+  {
+   "ref": "INV-2026-10-10-23",
+   "name": "ايرليس",
+   "category": "ماكينة",
+   "manufacturer": "",
+   "status": "working",
+   "location": "WH",
+   "holder": "",
+   "notes": "لا توجد معلومات - يحتاج فحص"
+  },
+  {
+   "ref": "INV-2026-10-10-24",
+   "name": "كونغو 5 كغم",
+   "category": "كونغو",
+   "manufacturer": "Bosch",
+   "status": "working",
+   "location": "TAB",
+   "holder": "",
+   "notes": "يعمل بصورة ممتازة"
+  },
+  {
+   "ref": "INV-2026-10-10-25",
+   "name": "كونغو 11 كغم",
+   "category": "كونغو",
+   "manufacturer": "Bosch",
+   "status": "working",
+   "location": "WH",
+   "holder": "",
+   "notes": "يعمل بصورة ممتازة - الموقع غير مسجل في الجرد"
+  },
+  {
+   "ref": "INV-2026-10-10-26",
+   "name": "جيتور",
+   "category": "ماكينة",
+   "manufacturer": "",
+   "status": "working",
+   "location": "WH",
+   "holder": "",
+   "notes": "غير مسجل في الجرد"
+  },
+  {
+   "ref": "INV-2026-10-10-27",
+   "name": "بيجوم 6 م",
+   "category": "بيجوم",
+   "manufacturer": "",
+   "status": "working",
+   "location": "WH",
+   "holder": "",
+   "notes": "مستودعات"
+  },
+  {
+   "ref": "INV-2026-10-10-28-1",
+   "name": "سلم 6 درجات",
+   "category": "سلم",
+   "manufacturer": "",
+   "status": "working",
+   "location": "WH",
+   "holder": "",
+   "notes": "الموقع غير مسجل في الجرد"
+  },
+  {
+   "ref": "INV-2026-10-10-28-2",
+   "name": "سلم 6 درجات",
+   "category": "سلم",
+   "manufacturer": "",
+   "status": "working",
+   "location": "WH",
+   "holder": "",
+   "notes": "الموقع غير مسجل في الجرد"
+  },
+  {
+   "ref": "INV-2026-10-10-28-3",
+   "name": "سلم 6 درجات",
+   "category": "سلم",
+   "manufacturer": "",
+   "status": "working",
+   "location": "WH",
+   "holder": "",
+   "notes": "الموقع غير مسجل في الجرد"
+  },
+  {
+   "ref": "INV-2026-10-10-29-1",
+   "name": "سلم 10 درجات",
+   "category": "سلم",
+   "manufacturer": "",
+   "status": "working",
+   "location": "WH",
+   "holder": "",
+   "notes": "الموقع غير مسجل في الجرد"
+  },
+  {
+   "ref": "INV-2026-10-10-29-2",
+   "name": "سلم 10 درجات",
+   "category": "سلم",
+   "manufacturer": "",
+   "status": "working",
+   "location": "WH",
+   "holder": "",
+   "notes": "الموقع غير مسجل في الجرد"
+  },
+  {
+   "ref": "INV-2026-10-10-30",
+   "name": "سلم معدني",
+   "category": "سلم",
+   "manufacturer": "",
+   "status": "working",
+   "location": "WH",
+   "holder": "",
+   "notes": "مستودعات"
+  },
+  {
+   "ref": "INV-2026-10-10-31",
+   "name": "ليزر",
+   "category": "اجهزة قياس",
+   "manufacturer": "",
+   "status": "working",
+   "location": "TAB",
+   "holder": "",
+   "notes": ""
+  },
+  {
+   "ref": "INV-2026-10-10-32",
+   "name": "ليفل",
+   "category": "اجهزة قياس",
+   "manufacturer": "",
+   "status": "working",
+   "location": "TAB",
+   "holder": "",
+   "notes": "يحتاج الى عمل معايرة"
+  },
+  {
+   "ref": "INV-2026-10-10-33",
+   "name": "معرفير",
+   "category": "اجهزة قياس",
+   "manufacturer": "",
+   "status": "working",
+   "location": "TAB",
+   "holder": "",
+   "notes": ""
+  },
+  {
+   "ref": "INV-2026-10-10-34",
+   "name": "شاروخ غاز",
+   "category": "غاز",
+   "manufacturer": "",
+   "status": "working",
+   "location": "TAB",
+   "holder": "",
+   "notes": "جرة غاز 5 كغم"
+  },
+  {
+   "ref": "INV-2026-10-10-35",
+   "name": "ماكينة تنعيم الاسطح",
+   "category": "ماكينة",
+   "manufacturer": "",
+   "status": "working",
+   "location": "WH",
+   "holder": "محمود",
+   "notes": "مع محمود - الموقع غير مسجل"
+  }
+ ]
+}

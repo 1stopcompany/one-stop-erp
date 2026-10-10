@@ -15,6 +15,7 @@ class CustomUser(AbstractUser):
         ('site_engineer', _('Site Engineer')),
         ('procurement_officer', _('Procurement Officer')),
         ('accountant', _('Accountant')),
+        ('storekeeper', _('Storekeeper')),
     )
     
     role = models.CharField(
@@ -93,6 +94,9 @@ class CustomUser(AbstractUser):
 
     def is_procurement_officer(self):
         return self.role == 'procurement_officer'
+
+    def is_storekeeper(self):
+        return self.role == 'storekeeper'
 
 
 class UserAuditLog(models.Model):

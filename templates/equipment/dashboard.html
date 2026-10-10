@@ -1,57 +1,60 @@
-{% extends 'module_base.html' %}
-
-{% block title %}{{ module_name }} - ERP System{% endblock %}
-
+{% extends 'base.html' %}
+{% block title %}Equipment &amp; Tools{% endblock %}
 {% block content %}
-<div class="container-fluid mt-5">
-
-  <div class="row mb-4">
-    <div class="col-md-12">
-      <div class="card border-0 shadow-sm">
-        <div class="card-body d-flex justify-content-between align-items-center">
-          <div>
-            <h1 class="mb-0">
-              <span style="font-size:2.5rem;">{{ module_icon }}</span>
-              {{ module_name }}
-            </h1>
-            <p class="text-muted mt-2">
-              Manage all {{ module_name|lower }} operations
-            </p>
-          </div>
-          <a href="{% url 'dashboard' %}" class="btn btn-outline-secondary">
-            <i class="bi bi-house"></i> Back to Dashboard
-          </a>
-        </div>
-      </div>
-    </div>
+<div class="d-flex justify-content-between align-items-center flex-wrap gap-2 my-4">
+  <div>
+    <h1 class="h3 mb-0"><i class="bi bi-tools"></i> Equipment &amp; Tools</h1>
+    <p class="text-muted mb-0">Every tool is one physical unit with its own code, location, movements and maintenance history.</p>
   </div>
-
-  <div class="card border-0 shadow-sm">
-    <div class="card-body">
-      <div class="alert alert-info mb-0">
-        <i class="bi bi-info-circle"></i>
-        <strong>Module Status:</strong> {{ module_name }} module is under development.
-      </div>
-    </div>
+  <div class="d-flex gap-2">
+    <a href="{% url 'equipment:tool_list' %}" class="btn btn-primary"><i class="bi bi-list-ul"></i> Tools register</a>
+    <a href="{% url 'equipment:transfer_list' %}" class="btn btn-outline-primary"><i class="bi bi-arrow-left-right"></i> Transfers</a>
+    {% if can_manage %}<a href="{% url 'equipment:tool_add' %}" class="btn btn-outline-success"><i class="bi bi-plus-circle"></i> Add tool</a>
+    <a href="{% url 'equipment:labels_pdf' %}" class="btn btn-outline-secondary" target="_blank"><i class="bi bi-qr-code"></i> Print all labels</a>{% endif %}
   </div>
+</div>
 
-  <div class="row mt-4">
-    <div class="col-md-12">
-      <div class="card border-0 shadow-sm">
-        <div class="card-body d-flex gap-2 flex-wrap">
-          <a href="{% url 'dashboard' %}" class="btn btn-outline-primary">
-            <i class="bi bi-speedometer2"></i> Dashboard
-          </a>
-          <a href="{% url 'projects:project_list' %}" class="btn btn-outline-primary">
-            <i class="bi bi-building"></i> Projects
-          </a>
-          <a href="{% url 'reports:report_type_selection' %}" class="btn btn-outline-primary">
-            <i class="bi bi-file-text"></i> Reports
-          </a>
-        </div>
-      </div>
-    </div>
-  </div>
+<div class="row g-3 mb-4">
+  <div class="col-6 col-md-3"><div class="card"><div class="card-body"><div class="text-muted small">Tools in service</div><div class="fs-3 fw-bold">{{ tool_count }}</div></div></div></div>
+  <div class="col-6 col-md-3"><div class="card"><div class="card-body"><div class="text-muted small">Waiting for approval</div><div class="fs-3 fw-bold">{{ waiting_approval_all }}</div></div></div></div>
+  <div class="col-6 col-md-3"><div class="card"><div class="card-body"><div class="text-muted small">Waiting for handover</div><div class="fs-3 fw-bold">{{ waiting_handover_all }}</div></div></div></div>
+  <div class="col-6 col-md-3"><div class="card"><div class="card-body"><div class="text-muted small">Open maintenance</div><div class="fs-3 fw-bold">{{ open_jobs|length }}</div></div></div></div>
+</div>
 
+{% if waiting_approval %}
+<div class="card mb-4"><div class="card-header fw-bold">Requests waiting for your approval</div>
+  <ul class="list-group list-group-flush">
+  {% for t in waiting_approval %}
+    <li class="list-group-item d-flex justify-content-between align-items-center flex-wrap gap-2">
+      <span><a href="{% url 'equipment:tool_detail' t.tool_id %}" class="fw-bold">{{ t.tool.code }}</a> {{ t.tool.name }} &mdash; {{ t.from_label }} &rarr; {{ t.to_label }} <span class="text-muted small">(by {{ t.requested_by.get_full_name|default:t.requested_by.username }})</span></span>
+      <span class="d-flex gap-1">
+        <form method="post" action="{% url 'equipment:transfer_action' t.pk 'approve' %}?">{% csrf_token %}<input type="hidden" name="next" value="{% url 'equipment:dashboard' %}"><button class="btn btn-sm btn-success">Approve</button></form>
+        <form method="post" action="{% url 'equipment:transfer_action' t.pk 'reject' %}" onsubmit="this.reason.value = prompt('Reason for rejecting?') || ''; return this.reason.value !== '';">{% csrf_token %}<input type="hidden" name="reason"><input type="hidden" name="next" value="{% url 'equipment:dashboard' %}"><button class="btn btn-sm btn-outline-danger">Reject</button></form>
+      </span>
+    </li>
+  {% endfor %}
+  </ul></div>
+{% endif %}
+
+{% if waiting_handover %}
+<div class="card mb-4"><div class="card-header fw-bold">Approved &mdash; waiting for the storekeeper's handover</div>
+  <ul class="list-group list-group-flush">
+  {% for t in waiting_handover %}
+    <li class="list-group-item"><a href="{% url 'equipment:tool_detail' t.tool_id %}" class="fw-bold">{{ t.tool.code }}</a> {{ t.tool.name }} &mdash; {{ t.from_label }} &rarr; {{ t.to_label }}</li>
+  {% endfor %}
+  </ul></div>
+{% endif %}
+
+<div class="row g-3">
+  <div class="col-md-6"><div class="card h-100"><div class="card-header fw-bold">Where the tools are</div>
+    <ul class="list-group list-group-flush">
+    {% for row in by_place %}<li class="list-group-item d-flex justify-content-between"><span>{% if row.project__project_symbol %}Project {{ row.project__project_symbol }}{% else %}{{ row.warehouse__name }}{% endif %}</span><span class="badge bg-secondary">{{ row.n }}</span></li>
+    {% empty %}<li class="list-group-item text-muted">No tools yet.</li>{% endfor %}
+    </ul></div></div>
+  <div class="col-md-6"><div class="card h-100"><div class="card-header fw-bold">Open maintenance</div>
+    <ul class="list-group list-group-flush">
+    {% for job in open_jobs %}<li class="list-group-item"><a href="{% url 'equipment:tool_detail' job.tool_id %}" class="fw-bold">{{ job.tool.code }}</a> {{ job.tool.name }} &mdash; {{ job.problem|truncatechars:60 }} <span class="badge bg-warning text-dark">{{ job.get_status_display }}</span></li>
+    {% empty %}<li class="list-group-item text-muted">Nothing in maintenance.</li>{% endfor %}
+    </ul></div></div>
 </div>
 {% endblock %}

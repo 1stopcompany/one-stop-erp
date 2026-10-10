@@ -1,0 +1,25 @@
+{% extends 'base.html' %}
+{% block title %}{% if tool %}Edit {{ tool.code }}{% else %}Add tool{% endif %}{% endblock %}
+{% block content %}
+<div class="my-4"><h1 class="h3">{% if tool %}Edit {{ tool.code }}{% else %}Add a tool{% endif %}</h1>
+  {% if not tool %}<p class="text-muted">A new tool is received into a warehouse first and gets its code automatically (EQ-0001 ...). Add each physical unit separately.</p>{% endif %}</div>
+<form method="post" enctype="multipart/form-data" class="card card-body" style="max-width: 760px;">{% csrf_token %}
+  <div class="row g-3">
+    <div class="col-md-8"><label class="form-label">Tool name *</label><input name="name" class="form-control" required value="{{ f.name }}"></div>
+    <div class="col-md-4"><label class="form-label">Category</label><input name="category" class="form-control" value="{{ f.category }}" placeholder="Grinder, Drill, Ladder..."></div>
+    <div class="col-md-4"><label class="form-label">Manufacturer</label><input name="manufacturer" class="form-control" value="{{ f.manufacturer }}"></div>
+    <div class="col-md-4"><label class="form-label">Model</label><input name="model_no" class="form-control" value="{{ f.model_no }}"></div>
+    <div class="col-md-4"><label class="form-label">Serial no.</label><input name="serial_no" class="form-control" value="{{ f.serial_no }}"></div>
+    <div class="col-md-4"><label class="form-label">Purchase date</label><input type="date" name="purchase_date" class="form-control" value="{{ f.purchase_date }}"></div>
+    <div class="col-md-4"><label class="form-label">Purchase cost</label><input name="purchase_cost" class="form-control" value="{{ f.purchase_cost }}"></div>
+    <div class="col-md-4"><label class="form-label">Condition</label><select name="status" class="form-select">{% for value, label in statuses %}<option value="{{ value }}" {% if value == f.status %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></div>
+    {% if not tool %}
+    <div class="col-md-6"><label class="form-label">Receive into warehouse *</label><select name="warehouse" class="form-select" required>{% for w in warehouses %}<option value="{{ w.pk }}" {% if w.name == 'Main Warehouse' %}selected{% endif %}>{{ w.name }}</option>{% endfor %}</select></div>
+    <div class="col-md-6"><label class="form-label">Receiving note</label><input name="receive_note" class="form-control" placeholder="e.g. supplier / invoice"></div>
+    {% endif %}
+    <div class="col-md-6"><label class="form-label">Photo</label><input type="file" name="photo" accept="image/*" class="form-control"></div>
+    <div class="col-12"><label class="form-label">Notes</label><textarea name="notes" rows="2" class="form-control">{{ f.notes }}</textarea></div>
+  </div>
+  <div class="mt-3 d-flex gap-2"><button class="btn btn-primary">Save</button><a class="btn btn-outline-secondary" href="{% if tool %}{% url 'equipment:tool_detail' tool.pk %}{% else %}{% url 'equipment:tool_list' %}{% endif %}">Cancel</a></div>
+</form>
+{% endblock %}

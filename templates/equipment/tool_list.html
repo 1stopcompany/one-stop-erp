@@ -1,0 +1,35 @@
+{% extends 'base.html' %}
+{% block title %}Tools register{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center flex-wrap gap-2 my-4">
+  <h1 class="h3 mb-0"><i class="bi bi-list-ul"></i> Tools register <span class="text-muted fs-6">({{ tools|length }})</span></h1>
+  <div class="d-flex gap-2">
+    <a href="{% url 'equipment:dashboard' %}" class="btn btn-outline-secondary">Overview</a>
+    {% if can_manage %}<a href="{% url 'equipment:tool_add' %}" class="btn btn-success"><i class="bi bi-plus-circle"></i> Add tool</a>{% endif %}
+  </div>
+</div>
+
+<form method="get" class="row g-2 mb-3">
+  <div class="col-md-4"><input name="q" value="{{ q }}" class="form-control" placeholder="Search code, name, maker, serial..."></div>
+  <div class="col-md-3"><select name="status" class="form-select"><option value="">All (except scrapped)</option>{% for value, label in statuses %}<option value="{{ value }}" {% if status == value %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></div>
+  <div class="col-md-3"><select name="place" class="form-select"><option value="">Anywhere</option>
+    {% for value, label in places %}<option value="{{ value }}" {% if place == value %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></div>
+  <div class="col-md-2 d-flex gap-1"><button class="btn btn-primary flex-grow-1">Filter</button>
+    {% if can_manage %}<a class="btn btn-outline-secondary" target="_blank" href="{% url 'equipment:labels_pdf' %}?place={{ place }}" title="Labels for the chosen place"><i class="bi bi-qr-code"></i></a>{% endif %}</div>
+</form>
+
+<div class="card"><div class="table-responsive"><table class="table table-hover align-middle mb-0">
+  <thead><tr><th>Code</th><th>Tool</th><th>Maker</th><th>Status</th><th>Location</th><th>Holder</th></tr></thead>
+  <tbody>
+  {% for t in tools %}
+    <tr>
+      <td><a href="{% url 'equipment:tool_detail' t.pk %}" class="fw-bold text-decoration-none">{{ t.code }}</a></td>
+      <td>{{ t.name }}{% if t.category %}<div class="small text-muted">{{ t.category }}</div>{% endif %}</td>
+      <td>{{ t.manufacturer }}</td>
+      <td><span class="badge {% if t.status == 'working' or t.status == 'new' %}bg-success{% elif t.status == 'scrapped' %}bg-dark{% elif t.status == 'broken' %}bg-danger{% else %}bg-warning text-dark{% endif %}">{{ t.get_status_display }}</span></td>
+      <td>{{ t.location_label }}</td>
+      <td>{{ t.holder }}</td>
+    </tr>
+  {% empty %}<tr><td colspan="6" class="text-center text-muted py-4">No tools match.</td></tr>{% endfor %}
+  </tbody></table></div></div>
+{% endblock %}
