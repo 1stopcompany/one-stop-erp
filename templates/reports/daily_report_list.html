@@ -79,6 +79,7 @@
                     <tr>
                         <td>
                             <strong>{{ report.report_number }}</strong>
+                            {% if report.is_idle_day %}<span class="badge bg-warning text-dark" title="{{ report.get_idle_reason_display }}">Idle day</span>{% endif %}
                         </td>
                         <td>{{ report.report_date|date:"d M Y" }}</td>
                         <td>{{ report.project.name }}</td>

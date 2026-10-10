@@ -130,6 +130,9 @@ class ProjectDetailView(LoginRequiredMixin, DetailView):
         context["floors"] = floors
         context["floors_count"] = floors.count()
 
+        from reports.services.execution_days import execution_days
+        context["execution_days"] = execution_days(project)
+
         # The project page's own "Recent Reports" table used to only ever query MonthlyReport (and even
         # then, into a context key -- 'reports' -- the template never read; it reads 'recent_reports'),
         # so a project's Daily and Owner Financial reports never showed up here at all, and PMs/admins

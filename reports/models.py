@@ -189,6 +189,30 @@ class DailyReport(BaseReport):
         choices=WEATHER_CHOICES,
         help_text=_('Weather conditions during the day')
     )
+
+    # A day the site did no work still counts as a day of the contract period and still gets its report (a Friday, a holiday, a
+    # stoppage): the report is then marked as an idle day with the reason, and nothing else is required in it.
+    SITE_STATUS_CHOICES = (
+        ('working', _('Working day')),
+        ('idle', _('Idle day - no work on site')),
+    )
+    IDLE_REASON_CHOICES = (
+        ('weekly_rest', _('Weekly rest day (Friday)')),
+        ('public_holiday', _('Public holiday')),
+        ('weather', _('Bad weather')),
+        ('closure', _('Closure / security situation')),
+        ('owner_stop', _('Stopped by the owner or the consultant')),
+        ('waiting', _('Waiting for materials or approvals')),
+        ('other', _('Other (explain in the remarks)')),
+    )
+    site_status = models.CharField(max_length=10, choices=SITE_STATUS_CHOICES, default='working',
+                                   help_text=_('Whether work was done on site that day'))
+    idle_reason = models.CharField(max_length=20, choices=IDLE_REASON_CHOICES, blank=True,
+                                   help_text=_('Why no work was done (only for an idle day)'))
+
+    @property
+    def is_idle_day(self):
+        return self.site_status == 'idle'
     
     remarks = models.TextField(
         blank=True,

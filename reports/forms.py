@@ -20,8 +20,10 @@ class DailyReportForm(forms.ModelForm):
     
     class Meta:
         model = DailyReport
-        fields = ['project', 'report_date', 'weather_conditions', 'remarks', 'work_hours_note']
+        fields = ['project', 'report_date', 'site_status', 'idle_reason', 'weather_conditions', 'remarks', 'work_hours_note']
         widgets = {
+            'site_status': forms.RadioSelect(),
+            'idle_reason': forms.Select(attrs={'class': 'form-control'}),
             'project': forms.Select(attrs={
                 'class': 'form-control',
                 'required': True
@@ -46,6 +48,17 @@ class DailyReportForm(forms.ModelForm):
                 'placeholder': 'e.g. "24 hrs staff / 8 hrs workers"'
             }),
         }
+
+    def clean(self):
+        cleaned = super().clean()
+        if cleaned.get('site_status') == 'idle':
+            if not cleaned.get('idle_reason'):
+                self.add_error('idle_reason', 'Choose why no work was done that day.')
+            elif cleaned['idle_reason'] == 'other' and not (cleaned.get('remarks') or '').strip():
+                self.add_error('remarks', 'Explain the reason in the remarks.')
+        else:
+            cleaned['idle_reason'] = ''
+        return cleaned
 
 
 class DailyWorkForceForm(forms.ModelForm):

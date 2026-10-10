@@ -44,6 +44,34 @@
                             {% endif %}
                         </div>
 
+                        <!-- Site status: a day with no work still gets its report -->
+                        <div class="mb-3 p-3 border rounded bg-light">
+                            <label class="form-label fw-bold"><i class="fas fa-hard-hat"></i> Site status</label>
+                            <div class="d-flex flex-wrap gap-4">
+                                {% for radio in form.site_status %}
+                                <div class="form-check">{{ radio.tag }} <label class="form-check-label" for="{{ radio.id_for_label }}">{{ radio.choice_label }}</label></div>
+                                {% endfor %}
+                            </div>
+                            <div id="idleReasonBox" class="mt-2" style="display:none;">
+                                <label for="{{ form.idle_reason.id_for_label }}" class="form-label">Why was there no work? <span class="text-danger">*</span></label>
+                                {{ form.idle_reason }}
+                                <small class="form-text text-muted">The day still counts as a project day. Nothing else is required in this report (add workers or equipment only if someone was on site).</small>
+                            </div>
+                            {% if form.site_status.errors %}<div class="alert alert-danger mt-2">{{ form.site_status.errors }}</div>{% endif %}
+                            {% if form.idle_reason.errors %}<div class="alert alert-danger mt-2">{{ form.idle_reason.errors }}</div>{% endif %}
+                        </div>
+                        <script>
+                        (function () {
+                            var box = document.getElementById('idleReasonBox');
+                            function sync() {
+                                var idle = document.querySelector('input[name="site_status"]:checked');
+                                box.style.display = (idle && idle.value === 'idle') ? 'block' : 'none';
+                            }
+                            document.querySelectorAll('input[name="site_status"]').forEach(function (r) { r.addEventListener('change', sync); });
+                            sync();
+                        })();
+                        </script>
+
                         <!-- Weather Conditions -->
                         <div class="mb-3">
                             <label for="{{ form.weather_conditions.id_for_label }}" class="form-label">

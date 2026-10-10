@@ -1003,6 +1003,8 @@ def generate_daily_report_pdf(report):
         ('مهندس الموقع / Site Engineer', report.site_engineer.get_full_name() if report.site_engineer else 'N/A'),
         ('الطقس / Weather', report.get_weather_conditions_display() if report.weather_conditions else '—'),
     ]
+    if report.is_idle_day:   # a day with no work still gets its report: say so and why
+        info_pairs += [('حالة الموقع / Site status', 'يوم بدون عمل / Idle day'), ('السبب / Reason', report.get_idle_reason_display())]
     info_rows = [list(info_pairs[i]) + list(info_pairs[i + 1]) for i in range(0, len(info_pairs), 2)]
     elements.append(label_value_table(info_rows, [page_width * w for w in (0.14, 0.36, 0.14, 0.36)]))
     elements.append(Spacer(1, 0.12 * inch))
