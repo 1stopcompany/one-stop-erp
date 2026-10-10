@@ -1499,6 +1499,24 @@ def project_schedule(request, project_id):
 
 
 @login_required
+def plan_vs_actual_page(request, project_id):
+    """The MS Project plan against the actual BOQ progress, phase by phase, as of a chosen date (default today)."""
+    from datetime import date as _date
+    from django.http import HttpResponseForbidden
+    from projects.views_workflow import can_view_project
+    from .services.plan_vs_actual import plan_vs_actual
+
+    project = get_object_or_404(Project, pk=project_id)
+    if not can_view_project(request.user, project):
+        return HttpResponseForbidden("You can't see this project.")
+    try:
+        as_of = _date.fromisoformat(request.GET.get('date', ''))
+    except ValueError:
+        as_of = _date.today()
+    return render(request, 'reports/plan_vs_actual.html', {'project': project, 'result': plan_vs_actual(project, as_of), 'as_of': as_of})
+
+
+@login_required
 @require_http_methods(["GET", "POST"])
 def schedule_editor(request, project_id):
     """Type the project's schedule in by hand (one table); the Gantt page draws it. Same people as the workflow pages may edit."""

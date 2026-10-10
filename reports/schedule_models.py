@@ -90,3 +90,23 @@ class ScheduleTask(models.Model):
 
     def __str__(self):
         return f"{self.project.project_symbol} - #{self.source_task_id} {self.name}"
+
+
+class PhaseScheduleLink(models.Model):
+    """
+    Links a BOQ phase (the contract breakdown the owner is paid by) to the MS Project plan tasks that carry its work, so the plan
+    can be compared with the actual progress per phase (reports.services.plan_vs_actual). It stores the task's MS Project Unique
+    ID rather than the ScheduleTask row, so the links survive re-importing the schedule (which recreates every task row).
+    A phase without any link is simply not part of the comparison; the owner's report keeps using the contract breakdown.
+    """
+    phase = models.ForeignKey('reports.ProjectPhase', on_delete=models.CASCADE, related_name='schedule_links')
+    task_unique_id = models.PositiveIntegerField(help_text=_("MS Project Unique ID of a (leaf) plan task that carries this phase's work"))
+
+    class Meta:
+        unique_together = ('phase', 'task_unique_id')
+        ordering = ['phase', 'task_unique_id']
+        verbose_name = _('Phase / plan task link')
+        verbose_name_plural = _('Phase / plan task links')
+
+    def __str__(self):
+        return f"{self.phase} -> plan task {self.task_unique_id}"

@@ -1164,6 +1164,7 @@ from .progress_models import (  # noqa: E402,F401
 
 from .schedule_models import (  # noqa: E402,F401
     ScheduleTask,
+    PhaseScheduleLink,
 )
 
 from .site_event_models import (  # noqa: E402,F401

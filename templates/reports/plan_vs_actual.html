@@ -1,0 +1,59 @@
+{% extends 'base.html' %}
+{% block title %}Plan vs Actual - {{ project.name }}{% endblock %}
+{% block content %}
+<div class="container-fluid py-3">
+  <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+    <div>
+      <h1 class="h3 mb-1"><i class="bi bi-graph-up"></i> Plan vs Actual</h1>
+      <p class="text-muted mb-0">{{ project.name }} <span class="badge bg-primary">{{ project.project_symbol }}</span></p>
+    </div>
+    <div class="d-flex flex-wrap gap-2 align-items-center">
+      <form method="get" class="d-flex gap-2 align-items-center">
+        <label class="small text-muted mb-0" for="asOf">As of</label>
+        <input type="date" id="asOf" name="date" value="{{ as_of|date:'Y-m-d' }}" class="form-control form-control-sm" style="width:auto;" onchange="this.form.submit()">
+      </form>
+      <a href="{% url 'reports:project_schedule' project_id=project.id %}" class="btn btn-outline-secondary btn-sm"><i class="bi bi-bar-chart-steps"></i> Schedule</a>
+      <a href="{% url 'projects:project_detail' pk=project.id %}" class="btn btn-outline-secondary btn-sm"><i class="bi bi-arrow-left"></i> Project</a>
+    </div>
+  </div>
+
+  <div class="row g-3 mb-3">
+    <div class="col-6 col-lg-3"><div class="card h-100"><div class="card-body"><div class="text-muted small">Planned (MS Project)</div><div class="fs-3 fw-bold">{{ result.planned_total|floatformat:2 }}%</div></div></div></div>
+    <div class="col-6 col-lg-3"><div class="card h-100"><div class="card-body"><div class="text-muted small">Actual (BOQ progress)</div><div class="fs-3 fw-bold">{{ result.actual_total|floatformat:2 }}%</div></div></div></div>
+    <div class="col-6 col-lg-3"><div class="card h-100"><div class="card-body"><div class="text-muted small">Difference</div>
+      <div class="fs-3 fw-bold {% if result.status_total == 'behind' %}text-danger{% elif result.status_total == 'ahead' %}text-success{% endif %}">{{ result.variance_total|floatformat:"2" }} pts</div></div></div></div>
+    <div class="col-6 col-lg-3"><div class="card h-100"><div class="card-body"><div class="text-muted small">Status</div>
+      <div class="fs-4 fw-bold">{% if result.status_total == 'behind' %}<span class="text-danger">Behind the plan</span>{% elif result.status_total == 'ahead' %}<span class="text-success">Ahead of the plan</span>{% else %}On track{% endif %}</div></div></div></div>
+  </div>
+
+  <div class="card">
+    <div class="table-responsive">
+      <table class="table table-sm align-middle mb-0">
+        <thead class="table-light"><tr>
+          <th style="width:46px;">#</th><th>Phase (contract item)</th><th class="text-end" style="width:80px;">Weight %</th>
+          <th style="width:220px;">Planned</th><th style="width:220px;">Actual</th><th class="text-end" style="width:100px;">Difference</th><th style="width:130px;">Status</th><th style="width:190px;">Plan window</th>
+        </tr></thead>
+        <tbody>
+        {% for row in result.rows %}
+          <tr>
+            <td>{{ row.phase.code }}</td>
+            <td>{{ row.phase.name_ar }}</td>
+            <td class="text-end">{{ row.weight|floatformat:"-2" }}</td>
+            <td>{% if row.linked %}<div class="progress" style="height:14px;"><div class="progress-bar bg-secondary" style="width:{{ row.planned|floatformat:'0' }}%"></div></div><div class="small text-muted">{{ row.planned|floatformat:1 }}%</div>{% else %}<span class="text-muted small">no plan link</span>{% endif %}</td>
+            <td><div class="progress" style="height:14px;"><div class="progress-bar bg-primary" style="width:{{ row.actual|floatformat:'0' }}%"></div></div><div class="small text-muted">{{ row.actual|floatformat:1 }}%</div></td>
+            <td class="text-end fw-bold {% if row.status == 'behind' %}text-danger{% elif row.status == 'ahead' %}text-success{% endif %}">{% if row.linked %}{{ row.variance|floatformat:1 }}{% else %}&mdash;{% endif %}</td>
+            <td>{% if row.status == 'behind' %}<span class="badge bg-danger">Behind</span>{% elif row.status == 'ahead' %}<span class="badge bg-success">Ahead</span>{% elif row.status == 'on_track' %}<span class="badge bg-secondary">On track</span>{% else %}<span class="badge bg-light text-dark border">Not compared</span>{% endif %}</td>
+            <td class="small text-muted">{% if row.start %}{{ row.start|date:'d/m/Y' }} &rarr; {{ row.finish|date:'d/m/Y' }}{% else %}&mdash;{% endif %}</td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  <p class="small text-muted mt-3 mb-0">
+    <i class="bi bi-info-circle"></i> Planned = what the MS Project plan says should be done by this date (each phase's linked tasks, weighted by duration, spread evenly between
+    their start and finish). Actual = the progress recorded on the contract items. A difference within &plusmn;2 points counts as on track. Phases with no link to the plan are not compared.
+    The owner's report is not affected: it keeps the contract breakdown and dates.
+  </p>
+</div>
+{% endblock %}
