@@ -10,7 +10,7 @@ PC to the server -- with its price table, phase descriptions and photos (the pho
 The report is created as a DRAFT for the project's site engineer on this database. The project, its BOQ phases (matched by code) and
 the progress entries must already be here: the report's money figures are computed from them. When a report with the same number
 already exists the import is refused unless --replace is given (then only that report, with its table rows and photo records, is
-replaced). No other report, project or BOQ record is touched.
+replaced). The author is the project's site engineer, or --author USERNAME. No other report, project or BOQ record is touched.
 """
 import datetime
 import json
@@ -62,11 +62,13 @@ class Command(BaseCommand):
         parser.add_argument('folder', nargs='?', help='export: the bundle folder to write')
         parser.add_argument('--apply', action='store_true', help='import: really write it (without it, only a preview)')
         parser.add_argument('--replace', action='store_true', help='import: replace the report of the same number if it exists here')
+        parser.add_argument('--author', help="import: username of the report's author on this database (a site engineer or project manager); "
+                                             "default: the project's site engineer")
 
     def handle(self, *args, **options):
         if options['action'] == 'export':
             return self.export(options['target'], options['folder'])
-        return self.import_(options['target'], options['apply'], options['replace'])
+        return self.import_(options['target'], options['apply'], options['replace'], options['author'])
 
     # ------------------------------------------------------------------ export
     def export(self, number, folder):
@@ -98,14 +100,22 @@ class Command(BaseCommand):
         self.stdout.write(self.style.SUCCESS(f"{number}: {len(data['price_items'])} price rows, {len(data['phase_updates'])} phase descriptions, {len(photos)} photos written to {folder}"))
 
     # ------------------------------------------------------------------ import
-    def import_(self, folder, apply, replace):
+    def import_(self, folder, apply, replace, author_username=None):
         with open(os.path.join(folder, 'report.json'), encoding='utf-8') as handle:
             data = json.load(handle)
         project = Project.objects.filter(project_symbol=data['project']).first()
         if not project:
             raise CommandError(f"This database has no project {data['project']}.")
-        if not project.site_engineer_id:
-            raise CommandError(f'{project.project_symbol} has no site engineer here; the report needs one. Nothing was changed.')
+        author = project.site_engineer
+        if author_username:
+            from django.contrib.auth import get_user_model
+            author = get_user_model().objects.filter(username=author_username, is_active=True).first()
+            if not author:
+                raise CommandError(f'No active user named {author_username} on this database; nothing was changed.')
+            if author.role not in ('site_engineer', 'project_manager'):
+                raise CommandError(f'{author_username} is a {author.role}; the report author must be a site engineer or a project manager. Nothing was changed.')
+        if not author:
+            raise CommandError(f'{project.project_symbol} has no site engineer here: add --author USERNAME (a site engineer or project manager). Nothing was changed.')
         phases = {p.code: p for p in ProjectPhase.objects.filter(project=project)}
         needed = {row['phase'] for row in data['phase_updates']} | {row['phase'] for row in data['photos']}
         missing = sorted(needed - set(phases))
@@ -123,6 +133,7 @@ class Command(BaseCommand):
         self.stdout.write(f"Report {number}: period {report_data['reporting_period_from']} -> {report_data['reporting_period_to']}, previous payments "
                           f"{report_data['previous_payments_total']:,.2f}; {len(data['price_items'])} price rows, {len(data['phase_updates'])} phase "
                           f"descriptions, {len(data['photos'])} photos. Project: {project.project_symbol} (contract value here: {project.contract_value}).")
+        self.stdout.write(f'Author on this database: {author.username} ({author.role}).')
         self.stdout.write('This database: ' + (f'the report exists ({existing.status}) and would be REPLACED.' if existing else 'no such report -> it would be created as a draft.'))
         if not apply:
             self.stdout.write(self.style.WARNING('Preview only. Run again with --apply to write it.'))
@@ -132,7 +143,7 @@ class Command(BaseCommand):
             if existing:
                 ProjectPhasePhoto.objects.filter(owner_financial_report=existing).delete()
                 existing.delete()
-            report = OwnerFinancialReport.objects.create(project=project, site_engineer=project.site_engineer, status='draft', **report_data)
+            report = OwnerFinancialReport.objects.create(project=project, site_engineer=author, status='draft', **report_data)
             for row in data['price_items']:
                 OwnerReportPriceComparisonItem.objects.create(
                     report=report, item_type=row['item_type'], item_name=row['item_name'], unit=row['unit'], quantity=Decimal(row['quantity']),
