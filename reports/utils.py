@@ -1182,11 +1182,11 @@ def generate_daily_report_pdf(report):
             crew_label = row['crew'].name if row['crew'] else _t('بدون طاقم / No Crew')
             activity_label = row['activity'].activity_description if row['activity'] else '—'
             qty_label = f"{_qty(row['quantity_today'], '')} {row['unit']}".strip() if row['quantity_today'] else '—'
-            cost_per_unit_label = f"${row['cost_per_unit']:.2f} / {row['unit']}" if row['cost_per_unit'] else '—'
+            cost_per_unit_label = f"₪{row['cost_per_unit']:.2f} / {row['unit']}" if row['cost_per_unit'] else '—'
             rows.append([
                 rtl_paragraph(crew_label, cell_left_style, col_widths[0] - 6),
                 rtl_paragraph(activity_label, cell_left_style, col_widths[1] - 8),
-                _qty(row['hours'], '0'), f"${row['cost']:.2f}", qty_label, cost_per_unit_label,
+                _qty(row['hours'], '0'), f"₪{row['cost']:.2f}", qty_label, cost_per_unit_label,
             ])
         elements.append(hdr_table(rows, col_widths, font_size=7.5))
         elements.append(Paragraph(

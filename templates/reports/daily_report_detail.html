@@ -362,9 +362,9 @@
                                             <td>{{ row.crew.name|default:"— No Crew —" }}</td>
                                             <td>{{ row.activity.activity_description|default:"—" }}</td>
                                             <td>{{ row.hours }}</td>
-                                            <td>${{ row.cost|floatformat:2 }}</td>
+                                            <td>₪{{ row.cost|floatformat:2 }}</td>
                                             <td>{% if row.quantity_today %}{{ row.quantity_today }} {{ row.unit }}{% else %}—{% endif %}</td>
-                                            <td>{% if row.cost_per_unit %}${{ row.cost_per_unit|floatformat:2 }} / {{ row.unit }}{% else %}—{% endif %}</td>
+                                            <td>{% if row.cost_per_unit %}₪{{ row.cost_per_unit|floatformat:2 }} / {{ row.unit }}{% else %}—{% endif %}</td>
                                         </tr>
                                         {% endfor %}
                                     </tbody>

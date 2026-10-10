@@ -28,7 +28,7 @@
                 <thead>
                     <tr>
                         <th><i class="fas fa-briefcase me-1"></i>Title</th>
-                        <th><i class="fas fa-dollar-sign me-1"></i>Salary Range</th>
+                        <th><i class="fas fa-shekel-sign me-1"></i>Salary Range</th>
                         <th><i class="fas fa-users me-1"></i>Employees</th>
                         <th><i class="fas fa-calendar-alt me-1"></i>Created</th>
                         <th width="120">Actions</th>
@@ -48,7 +48,7 @@
                         <td>
                             {% if position.salary_min and position.salary_max %}
                                 <span class="text-success fw-bold">
-                                    ${{ position.salary_min|floatformat:0 }} - ${{ position.salary_max|floatformat:0 }}
+                                    ₪{{ position.salary_min|floatformat:0 }} - ₪{{ position.salary_max|floatformat:0 }}
                                 </span>
                             {% else %}
                                 <span class="text-muted">Not specified</span>

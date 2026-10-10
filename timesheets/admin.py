@@ -31,7 +31,7 @@ class PositionAdmin(admin.ModelAdmin):
 
     def salary_range(self, obj):
         if obj.salary_min and obj.salary_max:
-            return f"${'{obj.salary_min:,.2f}'} - ${'{obj.salary_max:,.2f}'}"
+            return f"₪{obj.salary_min:,.2f} - ₪{obj.salary_max:,.2f}"
         return "Not specified"
     salary_range.short_description = 'Salary Range'
 

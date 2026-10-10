@@ -180,7 +180,7 @@
                         <tr>
                             <td><strong>{{ po.po_number }}</strong></td>
                             <td>{{ po.vendor.name }}</td>
-                            <td>${{ po.total_price|floatformat:2 }}</td>
+                            <td>₪{{ po.total_price|floatformat:2 }}</td>
                             <td>
                                 <span class="badge badge-{{ po.status }}">
                                     {{ po.get_status_display }}
