@@ -140,6 +140,7 @@ urlpatterns = [
     path('owner-financial/<int:pk>/review/', views.review_owner_financial_report, name='review_owner_financial_report'),
     path('owner-financial/<int:pk>/approve/', views.approve_owner_financial_report, name='approve_owner_financial_report'),
     path('owner-financial/<int:pk>/export-pdf/', views.export_owner_financial_pdf, name='export_owner_financial_pdf'),
+    path('owner-financial/<int:pk>/freeze/', views.freeze_owner_report, name='freeze_owner_report'),
 
     path('api/owner-financial/<int:report_id>/price-items/', api_views.owner_report_price_item_list_create, name='api_owner_report_price_items'),
     path('api/owner-financial/<int:report_id>/price-items/<int:item_id>/', api_views.owner_report_price_item_delete, name='api_owner_report_price_items_delete'),

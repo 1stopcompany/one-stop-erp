@@ -24,7 +24,9 @@ BEFORE being applied -- using the exact unrounded fraction gives a
 result off by tens of shekels from the real, signed report.
 """
 
+import datetime
 from decimal import Decimal, ROUND_HALF_UP
+from types import SimpleNamespace
 
 from django.db import models
 from django.utils.translation import gettext_lazy as _
@@ -32,6 +34,69 @@ from django.core.validators import MinValueValidator
 
 from .models import BaseReport
 from .progress_models import calculate_project_progress
+
+
+def _num(value):
+    return None if value is None else str(value)
+
+
+def _freeze_progress(result):
+    """calculate_project_progress() -> plain JSON data (phases and items copied with every attribute the report prints)."""
+    def phase_data(phase):
+        return {'id': phase.pk, 'code': phase.code, 'name_ar': phase.name_ar, 'name_en': phase.name_en, 'order': phase.order,
+                'weight_percentage': str(phase.weight_percentage)}
+
+    def item_data(item):
+        return {'id': item.pk, 'code': item.code, 'name_ar': item.name_ar, 'name_en': item.name_en, 'order': item.order,
+                'weight_percentage': str(item.weight_percentage),
+                'planned_start_date': item.planned_start_date.isoformat() if item.planned_start_date else None,
+                'planned_completion_date': item.planned_completion_date.isoformat() if item.planned_completion_date else None}
+
+    return {
+        'overall_percentage': str(result['overall_percentage']),
+        'phases': [{
+            'phase': phase_data(row['phase']), 'execution_percentage': _num(row['execution_percentage']), 'earned_value': _num(row['earned_value']),
+            'sub_items': [{'sub_item': item_data(sub['sub_item']), 'execution_percentage': _num(sub['execution_percentage'])} for sub in row['sub_items']],
+        } for row in result['phases']],
+    }
+
+
+class _Items:
+    """Stands in for `phase.sub_items` (the printed report only calls .all() on it)."""
+    def __init__(self, items):
+        self._items = items
+
+    def all(self):
+        return list(self._items)
+
+    def __iter__(self):
+        return iter(self._items)
+
+
+def _thaw_progress(data):
+    """The frozen JSON -> the same structure calculate_project_progress() returns, with plain objects for phases and items."""
+    def dec(value):
+        return None if value is None else Decimal(value)
+
+    def day(value):
+        return datetime.date.fromisoformat(value) if value else None
+
+    phases = []
+    for row in data['phases']:
+        items, sub_rows = [], []
+        for sub in row['sub_items']:
+            d = sub['sub_item']
+            item = SimpleNamespace(pk=d['id'], id=d['id'], code=d['code'], name_ar=d['name_ar'], name_en=d['name_en'], order=d['order'],
+                                   weight_percentage=Decimal(d['weight_percentage']), planned_start_date=day(d['planned_start_date']),
+                                   planned_completion_date=day(d['planned_completion_date']))
+            items.append(item)
+            sub_rows.append({'sub_item': item, 'execution_percentage': dec(sub['execution_percentage'])})
+        d = row['phase']
+        phase = SimpleNamespace(pk=d['id'], id=d['id'], code=d['code'], name_ar=d['name_ar'], name_en=d['name_en'], order=d['order'],
+                                weight_percentage=Decimal(d['weight_percentage']), sub_items=_Items(items))
+        phases.append({'phase': phase, 'execution_percentage': dec(row['execution_percentage']), 'earned_value': dec(row['earned_value']),
+                       'sub_items': sub_rows})
+    return {'overall_percentage': Decimal(data['overall_percentage']), 'phases': phases}
 
 
 class OwnerFinancialReport(BaseReport):
@@ -83,10 +148,38 @@ class OwnerFinancialReport(BaseReport):
     def get_report_type(self):
         return 'owner_financial'
 
+    # A report that went to the owner is FROZEN: the progress it showed (overall %, every phase and item with its weight, dates and
+    # execution %) is stored here, and the report keeps showing exactly that, whatever is edited in the BOQ or the progress later.
+    frozen_at = models.DateTimeField(null=True, blank=True, help_text=_('When the report was frozen as final (its figures no longer follow the live progress)'))
+    frozen_progress = models.JSONField(null=True, blank=True, help_text=_('The progress breakdown as it was when the report was frozen'))
+
+    @property
+    def is_frozen(self):
+        return self.frozen_at is not None and self.frozen_progress is not None
+
+    @property
+    def is_editable(self):
+        return self.status == 'draft' and not self.is_frozen
+
     def _progress_result(self):
+        if self.is_frozen:
+            return _thaw_progress(self.frozen_progress)
         return calculate_project_progress(
             self.project, as_of_date=self.reporting_period_to, contract_value=self.contract_value_snapshot,
         )
+
+    def freeze(self, when=None):
+        """Store the current progress breakdown and stop following the live data."""
+        from django.utils import timezone
+        self.frozen_progress = _freeze_progress(calculate_project_progress(
+            self.project, as_of_date=self.reporting_period_to, contract_value=self.contract_value_snapshot))
+        self.frozen_at = when or timezone.now()
+        self.save(update_fields=['frozen_progress', 'frozen_at'])
+
+    def unfreeze(self):
+        self.frozen_progress = None
+        self.frozen_at = None
+        self.save(update_fields=['frozen_progress', 'frozen_at'])
 
     def earned_value_to_date(self):
         """Monetary value of work completed to date ("قيمة الأعمال المنجزة")."""

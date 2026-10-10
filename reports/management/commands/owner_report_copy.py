@@ -91,6 +91,7 @@ class Command(BaseCommand):
             'price_items': [{'item_type': i.item_type, 'item_name': i.item_name, 'unit': i.unit, 'quantity': str(i.quantity),
                              'old_unit_price': str(i.old_unit_price), 'new_unit_price': str(i.new_unit_price)}
                             for i in report.price_comparison_items.all().order_by('id')],
+            'frozen_at': _dump(report.frozen_at.isoformat()) if report.frozen_at else None, 'frozen_progress': report.frozen_progress,
             'phase_updates': [{'phase': u.phase.code, 'status': u.status, 'work_performed': u.work_performed, 'order': u.order}
                               for u in report.phase_updates.select_related('phase').order_by('order', 'id')],
             'photos': photos,
@@ -144,6 +145,10 @@ class Command(BaseCommand):
                 ProjectPhasePhoto.objects.filter(owner_financial_report=existing).delete()
                 existing.delete()
             report = OwnerFinancialReport.objects.create(project=project, site_engineer=author, status='draft', **report_data)
+            if data.get('frozen_progress'):   # the report was final when it was exported: keep it final, with the same fixed figures
+                report.frozen_progress = data['frozen_progress']
+                report.frozen_at = datetime.datetime.fromisoformat(data['frozen_at'])
+                report.save(update_fields=['frozen_progress', 'frozen_at'])
             for row in data['price_items']:
                 OwnerReportPriceComparisonItem.objects.create(
                     report=report, item_type=row['item_type'], item_name=row['item_name'], unit=row['unit'], quantity=Decimal(row['quantity']),

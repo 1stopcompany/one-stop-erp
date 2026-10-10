@@ -961,6 +961,8 @@ def _truthy_callable(obj, name: str) -> bool:
 def _can_edit_report(user, report) -> bool:
     if user.is_anonymous:
         return False
+    if getattr(report, "frozen_at", None):   # a final (frozen) owner report is read-only
+        return False
     if getattr(report, "site_engineer_id", None) and report.site_engineer_id == user.id:
         return True
     if getattr(report, "created_by_id", None) and report.created_by_id == user.id:

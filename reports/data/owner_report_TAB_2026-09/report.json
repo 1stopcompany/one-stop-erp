@@ -90,6 +90,753 @@
    "new_unit_price": "700.00"
   }
  ],
+ "frozen_at": "2026-10-10T11:27:27.504364+00:00",
+ "frozen_progress": {
+  "phases": [
+   {
+    "phase": {
+     "id": 1,
+     "code": "1",
+     "order": 1,
+     "name_ar": "أعمال التصميم والترخيص تشمل فقط رسوم الدفاع المدني والاثار و نقابة المهندسين",
+     "name_en": "Design & Licensing Works (Civil Defense, Antiquities & Engineers Association fees only)",
+     "weight_percentage": "6.000"
+    },
+    "sub_items": [
+     {
+      "sub_item": {
+       "id": 1,
+       "code": "",
+       "order": 1,
+       "name_ar": "عمل التصاميم",
+       "name_en": "Design works",
+       "weight_percentage": "3.000",
+       "planned_start_date": "2025-11-01",
+       "planned_completion_date": "2026-01-01"
+      },
+      "execution_percentage": "100.00"
+     },
+     {
+      "sub_item": {
+       "id": 2,
+       "code": "",
+       "order": 2,
+       "name_ar": "تقديم التراخيص ودفع الرسوم",
+       "name_en": "Submission of licenses & fee payment",
+       "weight_percentage": "2.500",
+       "planned_start_date": "2025-11-01",
+       "planned_completion_date": "2026-05-01"
+      },
+      "execution_percentage": "100.00"
+     },
+     {
+      "sub_item": {
+       "id": 3,
+       "code": "",
+       "order": 3,
+       "name_ar": "الفحص والموافقة",
+       "name_en": "Review & approval",
+       "weight_percentage": "0.500",
+       "planned_start_date": "2025-11-01",
+       "planned_completion_date": null
+      },
+      "execution_percentage": "100.00"
+     }
+    ],
+    "earned_value": "492000.0000000",
+    "execution_percentage": "100.00"
+   },
+   {
+    "phase": {
+     "id": 2,
+     "code": "2",
+     "order": 2,
+     "name_ar": "أعمال الحفريات وتسوية الأرض",
+     "name_en": "Excavation & Land-Leveling Works",
+     "weight_percentage": "4.000"
+    },
+    "sub_items": [
+     {
+      "sub_item": {
+       "id": 4,
+       "code": "",
+       "order": 1,
+       "name_ar": "تسوية الموقع",
+       "name_en": "Site leveling",
+       "weight_percentage": "0.500",
+       "planned_start_date": "2025-12-01",
+       "planned_completion_date": "2025-12-10"
+      },
+      "execution_percentage": "100.00"
+     },
+     {
+      "sub_item": {
+       "id": 5,
+       "code": "",
+       "order": 2,
+       "name_ar": "الحفريات",
+       "name_en": "Excavation",
+       "weight_percentage": "3.000",
+       "planned_start_date": "2025-12-01",
+       "planned_completion_date": "2026-01-01"
+      },
+      "execution_percentage": "100.00"
+     },
+     {
+      "sub_item": {
+       "id": 6,
+       "code": "",
+       "order": 3,
+       "name_ar": "الردميات",
+       "name_en": "Backfilling",
+       "weight_percentage": "0.500",
+       "planned_start_date": "2025-12-01",
+       "planned_completion_date": "2026-04-15"
+      },
+      "execution_percentage": "100.00"
+     }
+    ],
+    "earned_value": "328000.0000000",
+    "execution_percentage": "100.00"
+   },
+   {
+    "phase": {
+     "id": 3,
+     "code": "3",
+     "order": 3,
+     "name_ar": "أعمال القواعد والجسور الرابطة",
+     "name_en": "Foundations & Tie-Beam Works",
+     "weight_percentage": "10.000"
+    },
+    "sub_items": [
+     {
+      "sub_item": {
+       "id": 7,
+       "code": "",
+       "order": 1,
+       "name_ar": "البئر",
+       "name_en": "Well / pit",
+       "weight_percentage": "6.000",
+       "planned_start_date": "2026-02-10",
+       "planned_completion_date": "2026-03-15"
+      },
+      "execution_percentage": "100.00"
+     },
+     {
+      "sub_item": {
+       "id": 8,
+       "code": "",
+       "order": 2,
+       "name_ar": "القواعد",
+       "name_en": "Foundations",
+       "weight_percentage": "3.000",
+       "planned_start_date": "2026-02-10",
+       "planned_completion_date": "2026-04-11"
+      },
+      "execution_percentage": "100.00"
+     },
+     {
+      "sub_item": {
+       "id": 9,
+       "code": "",
+       "order": 3,
+       "name_ar": "جسور الربط",
+       "name_en": "Tie beams",
+       "weight_percentage": "1.000",
+       "planned_start_date": "2026-02-10",
+       "planned_completion_date": "2026-04-11"
+      },
+      "execution_percentage": "100.00"
+     }
+    ],
+    "earned_value": "820000.0000000",
+    "execution_percentage": "100.00"
+   },
+   {
+    "phase": {
+     "id": 4,
+     "code": "4",
+     "order": 4,
+     "name_ar": "الأعمدة والعقدات وجدران الطابق السفلي المواقف والمخازن",
+     "name_en": "Columns, Nodes & Walls – Basement Parking/Storage Floor",
+     "weight_percentage": "10.000"
+    },
+    "sub_items": [
+     {
+      "sub_item": {
+       "id": 10,
+       "code": "",
+       "order": 1,
+       "name_ar": "الحفرة الصماء",
+       "name_en": "Blind pit",
+       "weight_percentage": "1.000",
+       "planned_start_date": "2025-12-24",
+       "planned_completion_date": "2026-02-10"
+      },
+      "execution_percentage": "100.00"
+     },
+     {
+      "sub_item": {
+       "id": 11,
+       "code": "",
+       "order": 2,
+       "name_ar": "جدران الموقف",
+       "name_en": "Parking walls",
+       "weight_percentage": "1.000",
+       "planned_start_date": "2025-12-24",
+       "planned_completion_date": "2026-04-30"
+      },
+      "execution_percentage": "100.00"
+     },
+     {
+      "sub_item": {
+       "id": 12,
+       "code": "",
+       "order": 3,
+       "name_ar": "عقدة الموقف",
+       "name_en": "Parking floor slab (node)",
+       "weight_percentage": "2.000",
+       "planned_start_date": "2025-12-24",
+       "planned_completion_date": "2026-05-10"
+      },
+      "execution_percentage": "100.00"
+     },
+     {
+      "sub_item": {
+       "id": 13,
+       "code": "",
+       "order": 4,
+       "name_ar": "جدران المخازن",
+       "name_en": "Storage walls",
+       "weight_percentage": "1.000",
+       "planned_start_date": "2025-12-24",
+       "planned_completion_date": "2026-05-30"
+      },
+      "execution_percentage": "100.00"
+     },
+     {
+      "sub_item": {
+       "id": 14,
+       "code": "",
+       "order": 5,
+       "name_ar": "عقدة المخازن",
+       "name_en": "Storage floor slab (node)",
+       "weight_percentage": "2.000",
+       "planned_start_date": "2025-12-24",
+       "planned_completion_date": "2026-06-30"
+      },
+      "execution_percentage": "100.00"
+     },
+     {
+      "sub_item": {
+       "id": 15,
+       "code": "",
+       "order": 6,
+       "name_ar": "جدران السدة",
+       "name_en": "Mezzanine walls",
+       "weight_percentage": "1.000",
+       "planned_start_date": "2025-12-24",
+       "planned_completion_date": "2026-07-10"
+      },
+      "execution_percentage": "100.00"
+     },
+     {
+      "sub_item": {
+       "id": 16,
+       "code": "",
+       "order": 7,
+       "name_ar": "عقدة السدة",
+       "name_en": "Mezzanine floor slab (node)",
+       "weight_percentage": "2.000",
+       "planned_start_date": "2025-12-24",
+       "planned_completion_date": "2026-07-30"
+      },
+      "execution_percentage": "100.00"
+     }
+    ],
+    "earned_value": "820000.0000000",
+    "execution_percentage": "100.00"
+   },
+   {
+    "phase": {
+     "id": 5,
+     "code": "5",
+     "order": 5,
+     "name_ar": "الأعمال الهيكلية للطوابق المتكررة 4 طوابق",
+     "name_en": "Structural Works – Repeated Floors (4 floors)",
+     "weight_percentage": "17.000"
+    },
+    "sub_items": [
+     {
+      "sub_item": {
+       "id": 17,
+       "code": "",
+       "order": 1,
+       "name_ar": "جدران الأول",
+       "name_en": "1st floor walls",
+       "weight_percentage": "2.000",
+       "planned_start_date": "2026-07-30",
+       "planned_completion_date": "2026-08-20"
+      },
+      "execution_percentage": "100.00"
+     },
+     {
+      "sub_item": {
+       "id": 18,
+       "code": "",
+       "order": 2,
+       "name_ar": "عقدة الأول",
+       "name_en": "1st floor slab (node)",
+       "weight_percentage": "3.000",
+       "planned_start_date": "2026-07-30",
+       "planned_completion_date": "2026-09-15"
+      },
+      "execution_percentage": "0.00"
+     },
+     {
+      "sub_item": {
+       "id": 19,
+       "code": "",
+       "order": 3,
+       "name_ar": "جدران الثاني",
+       "name_en": "2nd floor walls",
+       "weight_percentage": "1.000",
+       "planned_start_date": "2026-07-30",
+       "planned_completion_date": "2026-10-05"
+      },
+      "execution_percentage": "0.00"
+     },
+     {
+      "sub_item": {
+       "id": 20,
+       "code": "",
+       "order": 4,
+       "name_ar": "عقدة الثاني",
+       "name_en": "2nd floor slab (node)",
+       "weight_percentage": "3.000",
+       "planned_start_date": "2026-07-30",
+       "planned_completion_date": "2026-11-01"
+      },
+      "execution_percentage": "0.00"
+     },
+     {
+      "sub_item": {
+       "id": 21,
+       "code": "",
+       "order": 5,
+       "name_ar": "جدران الثالث",
+       "name_en": "3rd floor walls",
+       "weight_percentage": "1.000",
+       "planned_start_date": "2026-07-30",
+       "planned_completion_date": "2026-11-15"
+      },
+      "execution_percentage": "0.00"
+     },
+     {
+      "sub_item": {
+       "id": 22,
+       "code": "",
+       "order": 6,
+       "name_ar": "عقدة الثالث",
+       "name_en": "3rd floor slab (node)",
+       "weight_percentage": "3.000",
+       "planned_start_date": "2026-07-30",
+       "planned_completion_date": "2026-12-17"
+      },
+      "execution_percentage": "0.00"
+     },
+     {
+      "sub_item": {
+       "id": 23,
+       "code": "",
+       "order": 7,
+       "name_ar": "جدران الرابع",
+       "name_en": "4th floor walls",
+       "weight_percentage": "1.000",
+       "planned_start_date": "2026-07-30",
+       "planned_completion_date": "2027-01-05"
+      },
+      "execution_percentage": "0.00"
+     },
+     {
+      "sub_item": {
+       "id": 24,
+       "code": "",
+       "order": 8,
+       "name_ar": "عقدة الرابع",
+       "name_en": "4th floor slab (node)",
+       "weight_percentage": "3.000",
+       "planned_start_date": "2026-07-30",
+       "planned_completion_date": "2027-02-02"
+      },
+      "execution_percentage": "0.00"
+     }
+    ],
+    "earned_value": "164000.0000000",
+    "execution_percentage": "11.76470588235294117647058824"
+   },
+   {
+    "phase": {
+     "id": 6,
+     "code": "6",
+     "order": 6,
+     "name_ar": "هيكل الرووف والدوبلكسات وغرفة الخزانات",
+     "name_en": "Roof Structure, Duplexes & Water-Tank Room",
+     "weight_percentage": "5.000"
+    },
+    "sub_items": [
+     {
+      "sub_item": {
+       "id": 25,
+       "code": "",
+       "order": 1,
+       "name_ar": "الروف الأول",
+       "name_en": "Roof 1",
+       "weight_percentage": "2.000",
+       "planned_start_date": "2027-02-02",
+       "planned_completion_date": "2027-03-09"
+      },
+      "execution_percentage": "0.00"
+     },
+     {
+      "sub_item": {
+       "id": 26,
+       "code": "",
+       "order": 2,
+       "name_ar": "الروف الثاني",
+       "name_en": "Roof 2",
+       "weight_percentage": "2.000",
+       "planned_start_date": "2027-02-02",
+       "planned_completion_date": "2027-04-13"
+      },
+      "execution_percentage": "0.00"
+     },
+     {
+      "sub_item": {
+       "id": 27,
+       "code": "",
+       "order": 3,
+       "name_ar": "غرف السطح",
+       "name_en": "Rooftop rooms",
+       "weight_percentage": "1.000",
+       "planned_start_date": "2027-02-02",
+       "planned_completion_date": "2027-05-10"
+      },
+      "execution_percentage": "0.00"
+     }
+    ],
+    "earned_value": "0E-7",
+    "execution_percentage": "0.00"
+   },
+   {
+    "phase": {
+     "id": 7,
+     "code": "7",
+     "order": 7,
+     "name_ar": "أعمال الطوب والعزل الداخلي والخارجي",
+     "name_en": "Internal & External Masonry / Insulation Works",
+     "weight_percentage": "6.000"
+    },
+    "sub_items": [
+     {
+      "sub_item": {
+       "id": 28,
+       "code": "",
+       "order": 1,
+       "name_ar": "تقسم الى 9 طوابق من القبو الى اخر روف",
+       "name_en": "Split across 9 floors, basement to top roof",
+       "weight_percentage": "6.000",
+       "planned_start_date": "2026-08-16",
+       "planned_completion_date": "2027-05-26"
+      },
+      "execution_percentage": "5.56"
+     }
+    ],
+    "earned_value": "27355.200000000",
+    "execution_percentage": "5.5600"
+   },
+   {
+    "phase": {
+     "id": 8,
+     "code": "8",
+     "order": 8,
+     "name_ar": "أعمال الحجر الخارجي والتشطيبات المعمارية للواجهات",
+     "name_en": "External Stonework & Architectural Facade Finishes",
+     "weight_percentage": "9.000"
+    },
+    "sub_items": [
+     {
+      "sub_item": {
+       "id": 29,
+       "code": "",
+       "order": 1,
+       "name_ar": "تقسيم الحجر على 9 طوابق",
+       "name_en": "Stonework split across 9 floors",
+       "weight_percentage": "6.000",
+       "planned_start_date": "2026-05-10",
+       "planned_completion_date": "2027-06-28"
+      },
+      "execution_percentage": "44.47"
+     },
+     {
+      "sub_item": {
+       "id": 30,
+       "code": "",
+       "order": 2,
+       "name_ar": "كحلة الحجر",
+       "name_en": "Stone pointing (\"Kahla\")",
+       "weight_percentage": "1.000",
+       "planned_start_date": "2026-05-10",
+       "planned_completion_date": "2027-06-28"
+      },
+      "execution_percentage": "0.00"
+     },
+     {
+      "sub_item": {
+       "id": 31,
+       "code": "",
+       "order": 3,
+       "name_ar": "قصارة ودهان",
+       "name_en": "Plaster & paint",
+       "weight_percentage": "2.000",
+       "planned_start_date": "2026-05-10",
+       "planned_completion_date": "2027-06-28"
+      },
+      "execution_percentage": "0.00"
+     }
+    ],
+    "earned_value": "218792.400000000",
+    "execution_percentage": "29.64666666666666666666666667"
+   },
+   {
+    "phase": {
+     "id": 9,
+     "code": "9",
+     "order": 9,
+     "name_ar": "الأعمال الكهربائية والميكانيكية الأساسية",
+     "name_en": "Core Electrical & Mechanical Works",
+     "weight_percentage": "10.000"
+    },
+    "sub_items": [
+     {
+      "sub_item": {
+       "id": 32,
+       "code": "",
+       "order": 1,
+       "name_ar": "تقسيم على عشرة مراحل (الطوابق + السطح)",
+       "name_en": "Split across ten stages (floors + roof)",
+       "weight_percentage": "10.000",
+       "planned_start_date": "2026-09-26",
+       "planned_completion_date": "2027-08-30"
+      },
+      "execution_percentage": "10.00"
+     }
+    ],
+    "earned_value": "82000.0000000",
+    "execution_percentage": "10.00"
+   },
+   {
+    "phase": {
+     "id": 10,
+     "code": "10",
+     "order": 10,
+     "name_ar": "أعمال التشطيب الداخلي الدهان، البلاط، الأبواب، الألمنيوم",
+     "name_en": "Interior Finishing Works (paint, tiling, doors, aluminum)",
+     "weight_percentage": "16.000"
+    },
+    "sub_items": [
+     {
+      "sub_item": {
+       "id": 33,
+       "code": "",
+       "order": 1,
+       "name_ar": "القبو",
+       "name_en": "Basement",
+       "weight_percentage": "0.500",
+       "planned_start_date": "2026-10-07",
+       "planned_completion_date": "2027-09-07"
+      },
+      "execution_percentage": "0.00"
+     },
+     {
+      "sub_item": {
+       "id": 34,
+       "code": "",
+       "order": 2,
+       "name_ar": "المخازن+ السدة",
+       "name_en": "Storage + mezzanine",
+       "weight_percentage": "1.500",
+       "planned_start_date": "2026-10-07",
+       "planned_completion_date": "2027-09-07"
+      },
+      "execution_percentage": "0.00"
+     },
+     {
+      "sub_item": {
+       "id": 35,
+       "code": "",
+       "order": 3,
+       "name_ar": "الشقق خلف المخازن ×4",
+       "name_en": "Apartments behind storage (×4)",
+       "weight_percentage": "2.000",
+       "planned_start_date": "2026-10-07",
+       "planned_completion_date": "2027-09-07"
+      },
+      "execution_percentage": "0.00"
+     },
+     {
+      "sub_item": {
+       "id": 36,
+       "code": "",
+       "order": 4,
+       "name_ar": "الأربع طوابق مكرر",
+       "name_en": "Repeated 4 floors",
+       "weight_percentage": "8.000",
+       "planned_start_date": "2026-10-07",
+       "planned_completion_date": "2027-09-07"
+      },
+      "execution_percentage": "0.00"
+     },
+     {
+      "sub_item": {
+       "id": 37,
+       "code": "",
+       "order": 5,
+       "name_ar": "الروف مكرر",
+       "name_en": "Repeated roof",
+       "weight_percentage": "4.000",
+       "planned_start_date": "2026-10-07",
+       "planned_completion_date": "2027-09-07"
+      },
+      "execution_percentage": "0.00"
+     }
+    ],
+    "earned_value": "0E-7",
+    "execution_percentage": "0.00"
+   },
+   {
+    "phase": {
+     "id": 11,
+     "code": "11",
+     "order": 11,
+     "name_ar": "أعمال المصاعد وأنظمة الأمان والكاميرات",
+     "name_en": "Elevators, Safety & Camera Systems",
+     "weight_percentage": "3.000"
+    },
+    "sub_items": [
+     {
+      "sub_item": {
+       "id": 38,
+       "code": "",
+       "order": 1,
+       "name_ar": "تأسيس المصعد والأنظمة",
+       "name_en": "Elevator & systems installation",
+       "weight_percentage": "2.000",
+       "planned_start_date": "2027-08-07",
+       "planned_completion_date": "2027-11-28"
+      },
+      "execution_percentage": "0.00"
+     },
+     {
+      "sub_item": {
+       "id": 39,
+       "code": "",
+       "order": 2,
+       "name_ar": "تشغيل المصعد والأنظمة",
+       "name_en": "Elevator & systems commissioning",
+       "weight_percentage": "1.000",
+       "planned_start_date": "2027-08-07",
+       "planned_completion_date": "2027-11-28"
+      },
+      "execution_percentage": "0.00"
+     }
+    ],
+    "earned_value": "0E-7",
+    "execution_percentage": "0.00"
+   },
+   {
+    "phase": {
+     "id": 12,
+     "code": "12",
+     "order": 12,
+     "name_ar": "أعمال الموقع الخارجي واللاندسكيب",
+     "name_en": "External Site & Landscape Works",
+     "weight_percentage": "2.000"
+    },
+    "sub_items": [
+     {
+      "sub_item": {
+       "id": 40,
+       "code": "",
+       "order": 1,
+       "name_ar": "الاسوار الخارجية",
+       "name_en": "Perimeter walls",
+       "weight_percentage": "1.000",
+       "planned_start_date": "2027-06-28",
+       "planned_completion_date": "2027-09-04"
+      },
+      "execution_percentage": "0.00"
+     },
+     {
+      "sub_item": {
+       "id": 41,
+       "code": "",
+       "order": 2,
+       "name_ar": "تأسيس الأنظمة",
+       "name_en": "Systems installation",
+       "weight_percentage": "0.500",
+       "planned_start_date": "2027-06-28",
+       "planned_completion_date": "2027-09-04"
+      },
+      "execution_percentage": "0.00"
+     },
+     {
+      "sub_item": {
+       "id": 42,
+       "code": "",
+       "order": 3,
+       "name_ar": "البلاط والزراعة",
+       "name_en": "Tiling & planting",
+       "weight_percentage": "0.500",
+       "planned_start_date": "2027-06-28",
+       "planned_completion_date": "2027-09-04"
+      },
+      "execution_percentage": "0.00"
+     }
+    ],
+    "earned_value": "0E-7",
+    "execution_percentage": "0.00"
+   },
+   {
+    "phase": {
+     "id": 13,
+     "code": "13",
+     "order": 13,
+     "name_ar": "أعمال الإدارة، الإشراف، والتأمين والصيانة",
+     "name_en": "Management, Supervision, Insurance & Maintenance",
+     "weight_percentage": "2.000"
+    },
+    "sub_items": [
+     {
+      "sub_item": {
+       "id": 43,
+       "code": "",
+       "order": 1,
+       "name_ar": "تقسم على اشهر المشروع 30 شهر",
+       "name_en": "Spread over 30 project months",
+       "weight_percentage": "2.000",
+       "planned_start_date": "2025-11-01",
+       "planned_completion_date": "2028-11-01"
+      },
+      "execution_percentage": "36.85"
+     }
+    ],
+    "earned_value": "60434.000000000",
+    "execution_percentage": "36.8500"
+   }
+  ],
+  "overall_percentage": "36.7388000"
+ },
  "phase_updates": [
   {
    "phase": "1",

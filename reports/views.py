@@ -1290,8 +1290,8 @@ class OwnerFinancialReportUpdateView(LoginRequiredMixin, UpdateView):
 
     def get_queryset(self):
         if self.request.user.is_admin():
-            return OwnerFinancialReport.objects.filter(status='draft')
-        return OwnerFinancialReport.objects.filter(site_engineer=self.request.user, status='draft')
+            return OwnerFinancialReport.objects.filter(status='draft', frozen_at__isnull=True)
+        return OwnerFinancialReport.objects.filter(site_engineer=self.request.user, status='draft', frozen_at__isnull=True)
 
     def form_valid(self, form):
         response = super().form_valid(form)
@@ -1676,6 +1676,28 @@ def restore_report(request, kind, pk):
                                 description=f'Deleted draft {report.report_number} restored')
     messages.success(request, f'{report.report_number} was restored.')
     return redirect('reports:pending_deletions')
+
+
+@login_required
+@require_http_methods(["POST"])
+def freeze_owner_report(request, pk):
+    """Admin only: mark the owner report as FINAL. Its figures are stored and no longer follow the BOQ / progress."""
+    from django.http import HttpResponseForbidden
+    from accounts.models import UserAuditLog
+    if not request.user.is_admin():
+        return HttpResponseForbidden('Only an administrator can freeze a report.')
+    report = get_object_or_404(OwnerFinancialReport.all_objects, pk=pk)
+    if request.POST.get('action') == 'unfreeze':
+        report.unfreeze()
+        UserAuditLog.objects.create(user=request.user, action='update', content_type='reports.OwnerFinancialReport', object_id=pk,
+                                    description=f'{report.report_number} unfrozen (its figures follow the live progress again)')
+        messages.warning(request, f'{report.report_number} is no longer frozen: its figures follow the live progress again.')
+    else:
+        report.freeze()
+        UserAuditLog.objects.create(user=request.user, action='update', content_type='reports.OwnerFinancialReport', object_id=pk,
+                                    description=f'{report.report_number} frozen as final (amount due {report.amount_due():,.2f})')
+        messages.success(request, f'{report.report_number} is now final: its figures are fixed and will not change when the progress or the BOQ is edited.')
+    return redirect('reports:owner_financial_report_detail', pk=pk)
 
 
 @login_required
