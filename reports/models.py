@@ -30,6 +30,14 @@ import uuid
 from datetime import datetime, timedelta
 
 
+class ActiveReportManager(models.Manager):
+    """The default manager of every report type: reports a manager / engineer "deleted" (waiting for the admin to approve the
+    deletion) are hidden everywhere. `all_objects` still sees them (the admin's pending-deletions page uses it)."""
+
+    def get_queryset(self):
+        return super().get_queryset().filter(deleted_at__isnull=True)
+
+
 class BaseReport(models.Model):
     """
     Abstract base class for all reports
@@ -92,6 +100,18 @@ class BaseReport(models.Model):
         default='draft',
         help_text=_('Current status of the report')
     )
+
+    # A draft "deleted" by its engineer or the project manager is not removed: it is hidden from everyone (it keeps being the
+    # backup) until the admin approves the deletion for good, or restores it.
+    deleted_at = models.DateTimeField(null=True, blank=True, db_index=True,
+                                      help_text=_('When a manager / engineer deleted this draft; the admin approves or restores it'))
+    deleted_by = models.ForeignKey(
+        CustomUser, on_delete=models.SET_NULL, null=True, blank=True, related_name='%(class)s_deleted',
+        help_text=_('Who deleted this draft (pending the admin\'s approval)'),
+    )
+
+    objects = ActiveReportManager()
+    all_objects = models.Manager()
     
     reviewed_by = models.ForeignKey(
         CustomUser,

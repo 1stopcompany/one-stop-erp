@@ -38,7 +38,7 @@ def _auto_rows(employee, start, end):
     rows = (
         DailyReportWorkerAttendance.objects
         .filter(employee=employee, report__report_date__gte=start, report__report_date__lte=end)
-        .exclude(report__status='rejected')
+        .exclude(report__status='rejected').exclude(report__deleted_at__isnull=False)
         .select_related('report__project')
     )
     days = {}
@@ -188,7 +188,7 @@ def project_labor_cost(project, as_of=None):
 
     pairs = set()
     manual = EmployeeProjectHours.objects.filter(project=project)
-    auto = DailyReportWorkerAttendance.objects.filter(report__project=project, employee__isnull=False).exclude(report__status='rejected')
+    auto = DailyReportWorkerAttendance.objects.filter(report__project=project, employee__isnull=False).exclude(report__status='rejected').exclude(report__deleted_at__isnull=False)
     if as_of:
         manual = manual.filter(date__lte=as_of)
         auto = auto.filter(report__report_date__lte=as_of)

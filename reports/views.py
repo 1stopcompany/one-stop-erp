@@ -9,7 +9,7 @@ from django.shortcuts import get_object_or_404, render, redirect
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
 from django.views.generic import ListView, DetailView, CreateView, UpdateView, TemplateView
-from django.urls import reverse_lazy
+from django.urls import reverse_lazy, reverse
 from django.db.models import Q
 from django.db import transaction
 from django.contrib import messages
@@ -1530,7 +1530,7 @@ def delete_report(request, kind, pk):
         return HttpResponseForbidden('Only an administrator can delete a report.')
     model_name, label, list_url, detail_url = REPORT_KINDS[kind]
     model = {'DailyReport': DailyReport, 'MonthlyReport': MonthlyReport, 'OwnerFinancialReport': OwnerFinancialReport}[model_name]
-    report = get_object_or_404(model, pk=pk)
+    report = get_object_or_404(model.all_objects, pk=pk)   # also the drafts waiting for this approval
 
     if request.method == 'POST':
         if request.POST.get('confirm') != 'yes':
@@ -1558,8 +1558,90 @@ def delete_report(request, kind, pk):
             if count:
                 kept.append((relation.related_model._meta.verbose_name_plural, count))
     return render(request, 'reports/report_confirm_delete.html', {
-        'report': report, 'label': label, 'removed': removed, 'kept': kept, 'back_url': reverse(detail_url, args=[pk]),
+        'report': report, 'label': label, 'removed': removed, 'kept': kept,
+        'back_url': reverse('reports:pending_deletions') if report.deleted_at else reverse(detail_url, args=[pk]),
     })
+
+
+def _report_model(kind):
+    from django.http import Http404
+    if kind not in REPORT_KINDS:
+        raise Http404
+    name = REPORT_KINDS[kind][0]
+    return {'DailyReport': DailyReport, 'MonthlyReport': MonthlyReport, 'OwnerFinancialReport': OwnerFinancialReport}[name]
+
+
+def can_request_delete(user, report):
+    """A draft may be deleted (pending the admin's approval) by its author, the project's manager or the project's site engineer."""
+    return bool(report.status == 'draft' and not report.deleted_at and
+                user.id in {report.site_engineer_id, report.project.manager_id, report.project.site_engineer_id})
+
+
+@login_required
+@require_http_methods(["GET", "POST"])
+def request_delete_report(request, kind, pk):
+    """
+    A draft's author / the project's manager / its site engineer "delete" it: the draft disappears from every list and page, but it
+    is only hidden -- it stays in the database as the backup until the admin approves the deletion (pending_deletions) or restores it.
+    """
+    from django.db import transaction
+    from django.http import HttpResponseForbidden
+    from django.utils import timezone
+    from accounts.models import UserAuditLog
+
+    model = _report_model(kind)
+    label, list_url, detail_url = REPORT_KINDS[kind][1:]
+    report = get_object_or_404(model, pk=pk)
+    if request.user.is_admin():
+        return redirect('reports:delete_report', kind=kind, pk=pk)   # the admin deletes for good
+    if not can_request_delete(request.user, report):
+        return HttpResponseForbidden('Only the author, the project manager or the site engineer can delete a draft, and only while it is a draft.')
+    if request.method == 'POST':
+        if request.POST.get('confirm') != 'yes':
+            messages.error(request, 'Tick the confirmation box to delete the draft.')
+            return redirect(request.path)
+        with transaction.atomic():
+            model.all_objects.filter(pk=pk).update(deleted_at=timezone.now(), deleted_by=request.user)   # no save(): nothing else changes
+            UserAuditLog.objects.create(user=request.user, action='delete', content_type=f'reports.{model.__name__}', object_id=pk,
+                                        description=f'Draft {report.report_number} ({report.project.project_symbol}) deleted; kept hidden until the admin approves',
+                                        ip_address=(request.META.get('HTTP_X_FORWARDED_FOR', '').split(',')[0].strip() or request.META.get('REMOTE_ADDR') or None))
+        messages.success(request, f'The draft {report.report_number} was deleted.')
+        return redirect(list_url)
+    return render(request, 'reports/report_confirm_delete.html', {
+        'report': report, 'label': label, 'soft': True, 'removed': [], 'kept': [], 'back_url': reverse(detail_url, args=[pk]),
+    })
+
+
+@login_required
+def pending_deletions(request):
+    """Admin only: the drafts engineers / managers deleted, waiting to be approved (deleted for good) or restored."""
+    from django.http import HttpResponseForbidden
+    if not request.user.is_admin():
+        return HttpResponseForbidden('Only an administrator can see the pending deletions.')
+    rows = []
+    for kind, (name, label, _list, _detail) in REPORT_KINDS.items():
+        model = _report_model(kind)
+        for report in model.all_objects.filter(deleted_at__isnull=False).select_related('project', 'deleted_by', 'site_engineer'):
+            rows.append({'kind': kind, 'label': label, 'report': report})
+    rows.sort(key=lambda r: r['report'].deleted_at, reverse=True)
+    return render(request, 'reports/pending_deletions.html', {'rows': rows})
+
+
+@login_required
+@require_http_methods(["POST"])
+def restore_report(request, kind, pk):
+    """Admin only: bring a deleted draft back (it reappears in the lists exactly as it was)."""
+    from django.http import HttpResponseForbidden
+    from accounts.models import UserAuditLog
+    if not request.user.is_admin():
+        return HttpResponseForbidden('Only an administrator can restore a report.')
+    model = _report_model(kind)
+    report = get_object_or_404(model.all_objects, pk=pk, deleted_at__isnull=False)
+    model.all_objects.filter(pk=pk).update(deleted_at=None, deleted_by=None)
+    UserAuditLog.objects.create(user=request.user, action='update', content_type=f'reports.{model.__name__}', object_id=pk,
+                                description=f'Deleted draft {report.report_number} restored')
+    messages.success(request, f'{report.report_number} was restored.')
+    return redirect('reports:pending_deletions')
 
 
 @login_required

@@ -121,7 +121,7 @@ def project_workers_day(request, pk):
 
     # the most recent earlier day with day-labor rows on this project, to copy with one tap
     previous = (DailyReportWorkerAttendance.objects
-                .filter(report__project=project, report__report_date__lt=day, daily_worker__isnull=False)
+                .filter(report__project=project, report__report_date__lt=day, daily_worker__isnull=False, report__deleted_at__isnull=True)
                 .aggregate(day=Max('report__report_date'))['day'])
     previous_rows = []
     if previous:
@@ -130,7 +130,7 @@ def project_workers_day(request, pk):
     # workers seen on this project in the last three weeks, most frequent first
     since = day - timedelta(days=21)
     recent = (DailyReportWorkerAttendance.objects
-              .filter(report__project=project, report__report_date__gte=since, daily_worker__isnull=False)
+              .filter(report__project=project, report__report_date__gte=since, daily_worker__isnull=False, report__deleted_at__isnull=True)
               .values('daily_worker_id', 'daily_worker__full_name', 'daily_worker__trade')
               .annotate(times=Count('id')).order_by('-times', 'daily_worker__full_name')[:40])
     return Response({

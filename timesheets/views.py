@@ -691,7 +691,7 @@ def daily_worker_attendance(request, worker_id):
 
     entries = list(
         DailyReportWorkerAttendance.objects.filter(
-            daily_worker=worker, report__report_date__gte=period_start, report__report_date__lte=period_end,
+            daily_worker=worker, report__report_date__gte=period_start, report__report_date__lte=period_end, report__deleted_at__isnull=True,
         ).select_related('report', 'report__project').order_by('report__report_date')
     )
 

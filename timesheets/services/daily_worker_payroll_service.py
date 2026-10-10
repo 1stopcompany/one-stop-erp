@@ -42,6 +42,7 @@ def compute_daily_worker_statement(worker, period_start, period_end):
         daily_worker=worker,
         report__report_date__gte=period_start,
         report__report_date__lte=period_end,
+        report__deleted_at__isnull=True,
     ).select_related('report', 'report__project')
 
     hourly_rate = worker.daily_rate / Decimal(8)

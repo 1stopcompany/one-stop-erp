@@ -1,0 +1,35 @@
+{% extends 'base.html' %}
+{% block title %}Pending deletions{% endblock %}
+{% block content %}
+<div class="container-fluid py-4">
+  <h1 class="h3 mb-1"><i class="fas fa-trash-restore"></i> Pending deletions</h1>
+  <p class="text-muted">Drafts that an engineer or a manager deleted. They are hidden everywhere and kept as a backup until you approve the deletion or restore them.</p>
+  {% if rows %}
+  <div class="card"><div class="table-responsive">
+    <table class="table align-middle mb-0">
+      <thead class="table-light"><tr><th>Type</th><th>Report</th><th>Project</th><th>Date</th><th>Deleted by</th><th>Deleted on</th><th class="text-end">Action</th></tr></thead>
+      <tbody>
+      {% for row in rows %}
+        <tr>
+          <td>{{ row.label }}</td>
+          <td><strong>{{ row.report.report_number }}</strong></td>
+          <td>{{ row.report.project.name }} <span class="badge bg-primary">{{ row.report.project.project_symbol }}</span></td>
+          <td>{{ row.report.report_date|date:"d/m/Y" }}</td>
+          <td>{{ row.report.deleted_by.get_full_name|default:row.report.deleted_by.username|default:"-" }}</td>
+          <td>{{ row.report.deleted_at|date:"d/m/Y H:i" }}</td>
+          <td class="text-end text-nowrap">
+            <form method="post" action="{% url 'reports:restore_report' kind=row.kind pk=row.report.pk %}" class="d-inline">{% csrf_token %}
+              <button type="submit" class="btn btn-sm btn-outline-success"><i class="fas fa-undo"></i> Restore</button>
+            </form>
+            <a href="{% url 'reports:delete_report' kind=row.kind pk=row.report.pk %}" class="btn btn-sm btn-danger"><i class="fas fa-trash"></i> Approve deletion</a>
+          </td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div></div>
+  {% else %}
+  <div class="alert alert-light border">Nothing is waiting for your approval.</div>
+  {% endif %}
+</div>
+{% endblock %}

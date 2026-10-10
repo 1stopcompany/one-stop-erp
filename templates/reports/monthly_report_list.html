@@ -3,6 +3,9 @@
 {% block title %}Monthly Reports - Site Engineer Reports{% endblock %}
 
 {% block content %}
+{% load report_extras %}{% pending_deletions_count as pending_n %}{% if request.user.is_admin and pending_n %}
+<div class="alert alert-warning d-flex justify-content-between align-items-center"><span><i class="fas fa-trash-restore"></i> <strong>{{ pending_n }}</strong> deleted draft{{ pending_n|pluralize }} waiting for your approval.</span><a href="{% url 'reports:pending_deletions' %}" class="btn btn-sm btn-warning">Review</a></div>
+{% endif %}
 <div class="page-header">
     <div class="row align-items-center">
         <div class="col">
@@ -86,7 +89,7 @@
                     <a href="{% url 'reports:monthly_report_detail' report.pk %}" class="btn btn-sm btn-outline-primary">
                         <i class="bi bi-eye"></i> View
                     </a>
-                    {% if request.user.is_admin %}<a href="{% url 'reports:delete_report' kind='monthly' pk=report.pk %}" class="btn btn-sm btn-outline-danger" title="Delete (admin only)"><i class="fas fa-trash"></i></a>{% endif %}
+                    {% if request.user.is_admin %}<a href="{% url 'reports:delete_report' kind='monthly' pk=report.pk %}" class="btn btn-sm btn-outline-danger" title="Delete (admin only)"><i class="fas fa-trash"></i></a>{% elif report.status == 'draft' and request.user == report.site_engineer or report.status == 'draft' and request.user == report.project.manager or report.status == 'draft' and request.user == report.project.site_engineer %}<a href="{% url 'reports:request_delete_report' kind='monthly' pk=report.pk %}" class="btn btn-sm btn-outline-danger" title="Delete this draft"><i class="fas fa-trash"></i></a>{% endif %}
                     <a href="{% url 'reports:monthly_report_dashboard' report.pk %}" class="btn btn-sm btn-outline-info">
                         <i class="bi bi-graph-up-arrow"></i> Dashboard
                     </a>
