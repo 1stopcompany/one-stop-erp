@@ -1,0 +1,375 @@
+{
+"version": 1,
+"project": "TAB",
+"entries": [
+{
+"phase": "1",
+"item": "عمل التصاميم",
+"date": "2026-07-31",
+"percent": "100.00",
+"notes": "Seeded from owner financial report + EDGE monthly report, 07/2026 (reports.seed_tab_project_phases)"
+},
+{
+"phase": "1",
+"item": "تقديم التراخيص ودفع الرسوم",
+"date": "2026-07-31",
+"percent": "100.00",
+"notes": "Seeded from owner financial report + EDGE monthly report, 07/2026 (reports.seed_tab_project_phases)"
+},
+{
+"phase": "1",
+"item": "الفحص والموافقة",
+"date": "2026-07-31",
+"percent": "100.00",
+"notes": "Seeded from owner financial report + EDGE monthly report, 07/2026 (reports.seed_tab_project_phases)"
+},
+{
+"phase": "2",
+"item": "تسوية الموقع",
+"date": "2026-07-31",
+"percent": "100.00",
+"notes": "Seeded from owner financial report + EDGE monthly report, 07/2026 (reports.seed_tab_project_phases)"
+},
+{
+"phase": "2",
+"item": "الحفريات",
+"date": "2026-07-31",
+"percent": "100.00",
+"notes": "Seeded from owner financial report + EDGE monthly report, 07/2026 (reports.seed_tab_project_phases)"
+},
+{
+"phase": "2",
+"item": "الردميات",
+"date": "2026-07-31",
+"percent": "100.00",
+"notes": "Seeded from owner financial report + EDGE monthly report, 07/2026 (reports.seed_tab_project_phases)"
+},
+{
+"phase": "3",
+"item": "البئر",
+"date": "2026-07-31",
+"percent": "100.00",
+"notes": "Seeded from owner financial report + EDGE monthly report, 07/2026 (reports.seed_tab_project_phases)"
+},
+{
+"phase": "3",
+"item": "القواعد",
+"date": "2026-07-31",
+"percent": "100.00",
+"notes": "Seeded from owner financial report + EDGE monthly report, 07/2026 (reports.seed_tab_project_phases)"
+},
+{
+"phase": "3",
+"item": "جسور الربط",
+"date": "2026-07-31",
+"percent": "100.00",
+"notes": "Seeded from owner financial report + EDGE monthly report, 07/2026 (reports.seed_tab_project_phases)"
+},
+{
+"phase": "4",
+"item": "الحفرة الصماء",
+"date": "2026-07-31",
+"percent": "100.00",
+"notes": "Seeded from owner financial report + EDGE monthly report, 07/2026 (reports.seed_tab_project_phases)"
+},
+{
+"phase": "4",
+"item": "جدران الموقف",
+"date": "2026-07-31",
+"percent": "100.00",
+"notes": "Seeded from owner financial report + EDGE monthly report, 07/2026 (reports.seed_tab_project_phases)"
+},
+{
+"phase": "4",
+"item": "عقدة الموقف",
+"date": "2026-07-31",
+"percent": "100.00",
+"notes": "Seeded from owner financial report + EDGE monthly report, 07/2026 (reports.seed_tab_project_phases)"
+},
+{
+"phase": "4",
+"item": "جدران المخازن",
+"date": "2026-07-31",
+"percent": "100.00",
+"notes": "Seeded from owner financial report + EDGE monthly report, 07/2026 (reports.seed_tab_project_phases)"
+},
+{
+"phase": "4",
+"item": "عقدة المخازن",
+"date": "2026-07-31",
+"percent": "100.00",
+"notes": "Seeded from owner financial report + EDGE monthly report, 07/2026 (reports.seed_tab_project_phases)"
+},
+{
+"phase": "4",
+"item": "جدران السدة",
+"date": "2026-07-31",
+"percent": "100.00",
+"notes": "Seeded from owner financial report + EDGE monthly report, 07/2026 (reports.seed_tab_project_phases)"
+},
+{
+"phase": "4",
+"item": "عقدة السدة",
+"date": "2026-07-31",
+"percent": "0.00",
+"notes": "Seeded from owner financial report + EDGE monthly report, 07/2026 (reports.seed_tab_project_phases)"
+},
+{
+"phase": "4",
+"item": "عقدة السدة",
+"date": "2026-08-31",
+"percent": "100.00",
+"notes": "اكتمال عقدة السدة خلال شهر آب."
+},
+{
+"phase": "5",
+"item": "جدران الأول",
+"date": "2026-07-31",
+"percent": "0.00",
+"notes": "Seeded from owner financial report + EDGE monthly report, 07/2026 (reports.seed_tab_project_phases)"
+},
+{
+"phase": "5",
+"item": "جدران الأول",
+"date": "2026-09-30",
+"percent": "100.00",
+"notes": "From the owner schedule sheet dated 30-09-2026 (cumulative execution as of 30/09/2026)"
+},
+{
+"phase": "5",
+"item": "عقدة الأول",
+"date": "2026-07-31",
+"percent": "0.00",
+"notes": "Seeded from owner financial report + EDGE monthly report, 07/2026 (reports.seed_tab_project_phases)"
+},
+{
+"phase": "5",
+"item": "جدران الثاني",
+"date": "2026-07-31",
+"percent": "0.00",
+"notes": "Seeded from owner financial report + EDGE monthly report, 07/2026 (reports.seed_tab_project_phases)"
+},
+{
+"phase": "5",
+"item": "عقدة الثاني",
+"date": "2026-07-31",
+"percent": "0.00",
+"notes": "Seeded from owner financial report + EDGE monthly report, 07/2026 (reports.seed_tab_project_phases)"
+},
+{
+"phase": "5",
+"item": "جدران الثالث",
+"date": "2026-07-31",
+"percent": "0.00",
+"notes": "Seeded from owner financial report + EDGE monthly report, 07/2026 (reports.seed_tab_project_phases)"
+},
+{
+"phase": "5",
+"item": "عقدة الثالث",
+"date": "2026-07-31",
+"percent": "0.00",
+"notes": "Seeded from owner financial report + EDGE monthly report, 07/2026 (reports.seed_tab_project_phases)"
+},
+{
+"phase": "5",
+"item": "جدران الرابع",
+"date": "2026-07-31",
+"percent": "0.00",
+"notes": "Seeded from owner financial report + EDGE monthly report, 07/2026 (reports.seed_tab_project_phases)"
+},
+{
+"phase": "5",
+"item": "عقدة الرابع",
+"date": "2026-07-31",
+"percent": "0.00",
+"notes": "Seeded from owner financial report + EDGE monthly report, 07/2026 (reports.seed_tab_project_phases)"
+},
+{
+"phase": "6",
+"item": "الروف الأول",
+"date": "2026-07-31",
+"percent": "0.00",
+"notes": "Seeded from owner financial report + EDGE monthly report, 07/2026 (reports.seed_tab_project_phases)"
+},
+{
+"phase": "6",
+"item": "الروف الثاني",
+"date": "2026-07-31",
+"percent": "0.00",
+"notes": "Seeded from owner financial report + EDGE monthly report, 07/2026 (reports.seed_tab_project_phases)"
+},
+{
+"phase": "6",
+"item": "غرف السطح",
+"date": "2026-07-31",
+"percent": "0.00",
+"notes": "Seeded from owner financial report + EDGE monthly report, 07/2026 (reports.seed_tab_project_phases)"
+},
+{
+"phase": "7",
+"item": "تقسم الى 9 طوابق من القبو الى اخر روف",
+"date": "2026-07-31",
+"percent": "0.00",
+"notes": "Seeded from owner financial report + EDGE monthly report, 07/2026 (reports.seed_tab_project_phases)"
+},
+{
+"phase": "7",
+"item": "تقسم الى 9 طوابق من القبو الى اخر روف",
+"date": "2026-09-30",
+"percent": "5.56",
+"notes": "From the owner schedule sheet dated 30-09-2026, updated version (cumulative execution as of 30/09/2026)"
+},
+{
+"phase": "8",
+"item": "تقسيم الحجر على 9 طوابق",
+"date": "2026-07-31",
+"percent": "36.67",
+"notes": "Seeded from owner financial report + EDGE monthly report, 07/2026 (reports.seed_tab_project_phases)"
+},
+{
+"phase": "8",
+"item": "تقسيم الحجر على 9 طوابق",
+"date": "2026-08-31",
+"percent": "41.67",
+"notes": "استكمال جزء إضافي من تقسيم الحجر على الطوابق خلال الشهر."
+},
+{
+"phase": "8",
+"item": "تقسيم الحجر على 9 طوابق",
+"date": "2026-09-30",
+"percent": "44.47",
+"notes": "From the owner schedule sheet dated 30-09-2026, updated version (cumulative execution as of 30/09/2026)"
+},
+{
+"phase": "8",
+"item": "كحلة الحجر",
+"date": "2026-07-31",
+"percent": "0.00",
+"notes": "Seeded from owner financial report + EDGE monthly report, 07/2026 (reports.seed_tab_project_phases)"
+},
+{
+"phase": "8",
+"item": "قصارة ودهان",
+"date": "2026-07-31",
+"percent": "0.00",
+"notes": "Seeded from owner financial report + EDGE monthly report, 07/2026 (reports.seed_tab_project_phases)"
+},
+{
+"phase": "9",
+"item": "تقسيم على عشرة مراحل (الطوابق + السطح)",
+"date": "2026-07-31",
+"percent": "10.00",
+"notes": "Seeded from owner financial report + EDGE monthly report, 07/2026 (reports.seed_tab_project_phases)"
+},
+{
+"phase": "9",
+"item": "تقسيم على عشرة مراحل (الطوابق + السطح)",
+"date": "2026-09-07",
+"percent": "1.00",
+"notes": ""
+},
+{
+"phase": "9",
+"item": "تقسيم على عشرة مراحل (الطوابق + السطح)",
+"date": "2026-09-30",
+"percent": "10.00",
+"notes": "From the owner schedule sheet dated 30-09-2026 (cumulative execution as of 30/09/2026)"
+},
+{
+"phase": "10",
+"item": "القبو",
+"date": "2026-07-31",
+"percent": "0.00",
+"notes": "Seeded from owner financial report + EDGE monthly report, 07/2026 (reports.seed_tab_project_phases)"
+},
+{
+"phase": "10",
+"item": "المخازن+ السدة",
+"date": "2026-07-31",
+"percent": "0.00",
+"notes": "Seeded from owner financial report + EDGE monthly report, 07/2026 (reports.seed_tab_project_phases)"
+},
+{
+"phase": "10",
+"item": "الشقق خلف المخازن ×4",
+"date": "2026-07-31",
+"percent": "0.00",
+"notes": "Seeded from owner financial report + EDGE monthly report, 07/2026 (reports.seed_tab_project_phases)"
+},
+{
+"phase": "10",
+"item": "الأربع طوابق مكرر",
+"date": "2026-07-31",
+"percent": "0.00",
+"notes": "Seeded from owner financial report + EDGE monthly report, 07/2026 (reports.seed_tab_project_phases)"
+},
+{
+"phase": "10",
+"item": "الروف مكرر",
+"date": "2026-07-31",
+"percent": "0.00",
+"notes": "Seeded from owner financial report + EDGE monthly report, 07/2026 (reports.seed_tab_project_phases)"
+},
+{
+"phase": "11",
+"item": "تأسيس المصعد والأنظمة",
+"date": "2026-07-31",
+"percent": "0.00",
+"notes": "Seeded from owner financial report + EDGE monthly report, 07/2026 (reports.seed_tab_project_phases)"
+},
+{
+"phase": "11",
+"item": "تشغيل المصعد والأنظمة",
+"date": "2026-07-31",
+"percent": "0.00",
+"notes": "Seeded from owner financial report + EDGE monthly report, 07/2026 (reports.seed_tab_project_phases)"
+},
+{
+"phase": "12",
+"item": "الاسوار الخارجية",
+"date": "2026-07-31",
+"percent": "0.00",
+"notes": "Seeded from owner financial report + EDGE monthly report, 07/2026 (reports.seed_tab_project_phases)"
+},
+{
+"phase": "12",
+"item": "تأسيس الأنظمة",
+"date": "2026-07-31",
+"percent": "0.00",
+"notes": "Seeded from owner financial report + EDGE monthly report, 07/2026 (reports.seed_tab_project_phases)"
+},
+{
+"phase": "12",
+"item": "البلاط والزراعة",
+"date": "2026-07-31",
+"percent": "0.00",
+"notes": "Seeded from owner financial report + EDGE monthly report, 07/2026 (reports.seed_tab_project_phases)"
+},
+{
+"phase": "13",
+"item": "تقسم على اشهر المشروع 30 شهر",
+"date": "2026-07-31",
+"percent": "30.15",
+"notes": "Seeded from owner financial report + EDGE monthly report, 07/2026 (reports.seed_tab_project_phases)"
+},
+{
+"phase": "13",
+"item": "تقسم على اشهر المشروع 30 شهر",
+"date": "2026-08-31",
+"percent": "33.50",
+"notes": "تراكم نسبة الإشراف والإدارة حسب مدة المشروع المنقضية."
+},
+{
+"phase": "13",
+"item": "تقسم على اشهر المشروع 30 شهر",
+"date": "2026-09-30",
+"percent": "36.85",
+"notes": "From the owner schedule sheet dated 30-09-2026 (cumulative execution as of 30/09/2026)"
+}
+],
+"project_values": {
+"contract_value": "8200000.00",
+"advance_payment_value": "1500000.00",
+"performance_retention_rate": "10.00"
+}
+}
