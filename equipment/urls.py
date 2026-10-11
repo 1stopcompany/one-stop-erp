@@ -12,6 +12,7 @@ urlpatterns = [
     path('tools/<int:pk>/', views.tool_detail, name='tool_detail'),
     path('tools/<int:pk>/edit/', views.tool_edit, name='tool_edit'),
     path('tools/<int:pk>/sheet/', views.tool_sheet_pdf, name='tool_sheet_pdf'),
+    path('tools/<int:pk>/photo/', views.tool_photo, name='tool_photo'),
     path('tools/<int:pk>/request/', views.transfer_request, name='transfer_request'),
     path('tools/<int:pk>/maintenance/', views.maintenance_open, name='maintenance_open'),
     path('code/<str:code>/', views.tool_by_code, name='tool_by_code'),

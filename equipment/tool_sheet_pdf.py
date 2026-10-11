@@ -19,6 +19,7 @@ from reports.utils import MR_FONT_BOLD_NAME, MR_FONT_NAME, _t, rtl_paragraph
 
 PAGE_W = A4[0] - 24 * mm
 STEP_PHOTO = 44 * mm
+HEADER_PHOTO = 66 * mm   # the tool's current photo at the top of the sheet
 KIND_COLORS = {'opening': '#1b7f3b', 'issue': '#1f5fa8', 'return': '#c9740a', 'transfer': '#7b3fa0'}
 STATUS_COLORS = {'new': '#1b7f3b', 'working': '#1b7f3b', 'needs_maintenance': '#b26a00', 'in_maintenance': '#b26a00',
                  'broken': '#b3261e', 'scrapped': '#555555'}
@@ -153,12 +154,12 @@ def build_tool_sheet_pdf(tool, url):
             self.reader = _image(tool.photo)
 
         def wrap(self, avail_w, avail_h):
-            self.width, self.height = avail_w, 52 * mm
+            self.width, self.height = avail_w, HEADER_PHOTO + 4 * mm
             return self.width, self.height
 
         def draw(self):
             c = self.canv
-            _draw_photo(c, self.reader, 0, 2 * mm, 48 * mm)
+            _draw_photo(c, self.reader, 0, 2 * mm, HEADER_PHOTO)
             code = qr.QrCodeWidget(url, barLevel='M')
             x0, y0, x1, y1 = code.getBounds()
             size = 34 * mm
@@ -178,7 +179,7 @@ def build_tool_sheet_pdf(tool, url):
         ('Location now', tool.location_label), ('Held by', tool.holder),
         ('Last stock-take', f'{tool.last_inventory_date:%d/%m/%Y}' if tool.last_inventory_date else ''), ('Notes', tool.notes),
     ]
-    detail_w = PAGE_W - 48 * mm - 34 * mm - 8 * mm
+    detail_w = PAGE_W - HEADER_PHOTO - 34 * mm - 8 * mm
     rows = [[Paragraph(label, styles['label']), rtl_paragraph(value or '-', styles['cell'], detail_w - 32 * mm)] for label, value in details]
     details_table = Table(rows, colWidths=[30 * mm, detail_w - 30 * mm])
     details_table.setStyle(TableStyle([('VALIGN', (0, 0), (-1, -1), 'TOP'), ('TOPPADDING', (0, 0), (-1, -1), 1.5), ('BOTTOMPADDING', (0, 0), (-1, -1), 1.5),
@@ -201,7 +202,7 @@ def build_tool_sheet_pdf(tool, url):
             self.header.canv = self.canv
             self.header.draw()
             self.canv.restoreState()
-            details_table.drawOn(self.canv, 48 * mm + 6 * mm, self.height - self.details_h)
+            details_table.drawOn(self.canv, HEADER_PHOTO + 6 * mm, self.height - self.details_h)
 
     story = [Paragraph('Tool record', styles['title']), rtl_paragraph(tool.name, styles['title'], PAGE_W), Spacer(1, 3 * mm), HeaderWithDetails(), Spacer(1, 2 * mm)]
 

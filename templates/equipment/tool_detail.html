@@ -17,6 +17,20 @@
 
 <div class="row g-3">
   <div class="col-lg-5">
+    <div class="card mb-3">
+      <div class="card-header fw-bold d-flex justify-content-between align-items-center">Current photo{% if tool.photo %}<a href="{{ tool.photo.url }}" target="_blank" class="small fw-normal">Open full size</a>{% endif %}</div>
+      {% if tool.photo %}
+      <a href="{{ tool.photo.url }}" target="_blank" class="d-block bg-light text-center"><img src="{{ tool.photo.url }}" alt="{{ tool.code }}" style="width:100%;max-height:460px;object-fit:contain;display:block"></a>
+      {% else %}
+      <div class="bg-light text-center text-muted d-flex align-items-center justify-content-center" style="height:260px"><div><i class="bi bi-image" style="font-size:3rem"></i><div>No photo yet</div></div></div>
+      {% endif %}
+      {% if can_manage and tool.status != 'scrapped' %}
+      <form method="post" enctype="multipart/form-data" action="{% url 'equipment:tool_photo' tool.pk %}" class="card-body border-top py-2">{% csrf_token %}
+        <div class="input-group input-group-sm"><input type="file" name="photo" accept="image/*" capture="environment" class="form-control" required><button class="btn btn-outline-primary">{% if tool.photo %}Replace photo{% else %}Add photo{% endif %}</button></div>
+        <div class="form-text">The photo taken at each handover also becomes the current photo.</div>
+      </form>
+      {% endif %}
+    </div>
     <div class="card mb-3"><div class="card-header fw-bold">Details</div><table class="table table-sm mb-0">
       <tr><th class="w-50">Category</th><td>{{ tool.category|default:'-' }}</td></tr>
       <tr><th>Manufacturer</th><td>{{ tool.manufacturer|default:'-' }}</td></tr>
@@ -24,7 +38,7 @@
       <tr><th>Purchased</th><td>{{ tool.purchase_date|default:'-' }}{% if tool.purchase_cost %} &middot; {{ tool.purchase_cost }}{% endif %}</td></tr>
       <tr><th>Last stock-take</th><td>{{ tool.last_inventory_date|default:'-' }}</td></tr>
       <tr><th>Notes</th><td>{{ tool.notes|default:'-' }}</td></tr>
-    </table>{% if tool.photo %}<img src="{{ tool.photo.url }}" class="card-img-bottom" alt="">{% endif %}</div>
+    </table></div>
 
     {# ---- the one open request ---- #}
     {% if pending %}

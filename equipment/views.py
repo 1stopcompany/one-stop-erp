@@ -293,6 +293,27 @@ def catalog_pdf(request):
 
 
 @login_required
+@require_POST
+def tool_photo(request, pk):
+    """Replace the tool's current photo (outside a handover; the handover photos are kept in the history)."""
+    if not services.can_manage_tools(request.user):
+        raise PermissionDenied
+    tool = get_object_or_404(Tool, pk=pk)
+    photo = request.FILES.get('photo')
+    if not photo:
+        messages.error(request, 'Choose a photo.')
+    else:
+        try:
+            services.check_photo(photo)
+            tool.photo = photo
+            tool.save(update_fields=['photo'])
+            messages.success(request, f'The photo of {tool.code} was updated.')
+        except ValidationError as error:
+            messages.error(request, _error_text(error))
+    return redirect('equipment:tool_detail', pk=tool.pk)
+
+
+@login_required
 def tool_sheet_pdf(request, pk):
     """Record sheet of one tool: details, current photo, its movement path with the handover photos, maintenance history."""
     tool = get_object_or_404(Tool.objects.select_related('warehouse', 'project'), pk=pk)
