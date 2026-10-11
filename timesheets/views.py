@@ -20,6 +20,7 @@ from django.views.decorators.http import require_http_methods
 from django.views.generic import DetailView, TemplateView
 
 from .auth_views import hr_manager_required, hr_required, is_hr_manager, wages_access_required
+from .account_form import EmployeeAccountForm
 from .forms import (
     DepartmentForm, EmployeeDocumentForm, EmployeeForm, EmployeeNoteForm,
     EmployeeSearchForm, GeofenceForm, PositionForm,
@@ -303,18 +304,23 @@ def employee_add(request):
     """Add a new employee"""
     if request.method == 'POST':
         form = EmployeeForm(request.POST, request.FILES)
-        if form.is_valid():
-            employee = form.save(commit=False)
-            employee.created_by = request.user
-            employee.save()
-            messages.success(request, f'Employee {employee.full_name} has been added successfully.')
+        account_form = EmployeeAccountForm(request.POST, acting_user=request.user)
+        if form.is_valid() and account_form.is_valid():
+            with transaction.atomic():
+                employee = form.save(commit=False)
+                employee.created_by = request.user
+                employee.save()
+                account_text = account_form.save(employee)
+            messages.success(request, f'Employee {employee.full_name} has been added successfully. {account_text}'.strip())
             return redirect('timesheets:employee_detail', employee_id=employee.pk)
     else:
         # the next free code (last one + 1) is suggested; HR can still type another
         form = EmployeeForm(initial={'employee_id': Employee.next_employee_id()})
+        account_form = EmployeeAccountForm(acting_user=request.user)
 
     context = {
         'form': form,
+        'account_form': account_form,
         'title': 'Add New Employee',
         'submit_text': 'Add Employee',
         'suggested_employee_id': True,
@@ -330,15 +336,20 @@ def employee_edit(request, employee_id):
     
     if request.method == 'POST':
         form = EmployeeForm(request.POST, request.FILES, instance=employee)
-        if form.is_valid():
-            form.save()
-            messages.success(request, f'Employee {employee.full_name} has been updated successfully.')
+        account_form = EmployeeAccountForm(request.POST, employee=employee, acting_user=request.user)
+        if form.is_valid() and account_form.is_valid():
+            with transaction.atomic():
+                form.save()
+                account_text = account_form.save(employee)
+            messages.success(request, f'Employee {employee.full_name} has been updated successfully. {account_text}'.strip())
             return redirect('timesheets:employee_detail', employee_id=employee.pk)
     else:
         form = EmployeeForm(instance=employee)
+        account_form = EmployeeAccountForm(employee=employee, acting_user=request.user)
     
     context = {
         'form': form,
+        'account_form': account_form,
         'employee': employee,
         'title': f'Edit {employee.full_name}',
         'submit_text': 'Update Employee',

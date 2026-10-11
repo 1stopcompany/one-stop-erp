@@ -507,6 +507,44 @@
                 </div>
             </div>
 
+            <!-- Login account -->
+            <div class="card mb-4" id="accountCard">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="fas fa-user-lock me-2"></i>Login account (system &amp; mobile app)</h5>
+                </div>
+                <div class="card-body">
+                    {% if account_form.non_field_errors %}<div class="alert alert-danger">{{ account_form.non_field_errors.0 }}</div>{% endif %}
+                    {% if account_form.user %}
+                        {% if account_form.locked %}
+                        <div class="alert alert-secondary mb-0">This employee's account <strong>{{ account_form.user.username }}</strong> ({{ account_form.user.get_role_display }}) is administrator-level; only an administrator can change it.</div>
+                        {% else %}
+                        <div class="row g-3 align-items-end">
+                            <div class="col-md-3"><label class="form-label">Username</label><input class="form-control" value="{{ account_form.user.username }}" disabled></div>
+                            <div class="col-md-3"><label class="form-label">Role</label>{{ account_form.role }}{% for e in account_form.role.errors %}<div class="invalid-feedback d-block">{{ e }}</div>{% endfor %}</div>
+                            <div class="col-md-4"><label class="form-label">New password <span class="text-muted small">(leave empty to keep)</span></label>{{ account_form.password }}{% for e in account_form.password.errors %}<div class="invalid-feedback d-block">{{ e }}</div>{% endfor %}</div>
+                            <div class="col-md-2"><div class="form-check">{{ account_form.is_active }} <label class="form-check-label" for="{{ account_form.is_active.id_for_label }}">Active</label></div></div>
+                        </div>
+                        <div class="form-text mt-2">This account is what the employee uses to sign in. The role decides which screens the mobile app and the system show.</div>
+                        {% endif %}
+                    {% else %}
+                        <div class="mb-3">
+                            {% for value, label in account_form.fields.mode.choices %}
+                            <div class="form-check form-check-inline"><input class="form-check-input acct-mode" type="radio" name="{{ account_form.mode.html_name }}" id="acct_mode_{{ value }}" value="{{ value }}" {% if account_form.mode.value|default:'none' == value %}checked{% endif %}><label class="form-check-label" for="acct_mode_{{ value }}">{{ label }}</label></div>
+                            {% endfor %}
+                        </div>
+                        <div class="row g-3 acct-create">
+                            <div class="col-md-4"><label class="form-label">Username</label>{{ account_form.username }}{% for e in account_form.username.errors %}<div class="invalid-feedback d-block">{{ e }}</div>{% endfor %}</div>
+                            <div class="col-md-4"><label class="form-label">Password</label>{{ account_form.password }}{% for e in account_form.password.errors %}<div class="invalid-feedback d-block">{{ e }}</div>{% endfor %}</div>
+                            <div class="col-md-4"><label class="form-label">Role</label>{{ account_form.role }}{% for e in account_form.role.errors %}<div class="invalid-feedback d-block">{{ e }}</div>{% endfor %}</div>
+                        </div>
+                        <div class="row g-3 acct-link">
+                            <div class="col-md-6"><label class="form-label">Existing user (not linked to another employee)</label>{{ account_form.existing_user }}{% for e in account_form.existing_user.errors %}<div class="invalid-feedback d-block">{{ e }}</div>{% endfor %}</div>
+                        </div>
+                        <div class="form-text mt-2">A new employee with no account cannot sign in to the mobile app. Choose "Employee" as the role for attendance-only access.</div>
+                    {% endif %}
+                </div>
+            </div>
+
             <!-- Form Actions -->
             <div class="card">
                 <div class="card-body">
@@ -526,6 +564,20 @@
 {% endblock %}
 
 {% block extra_js %}
+<script>
+    // Login account card: show only the fields of the chosen mode
+    (function() {
+        var radios = document.querySelectorAll('.acct-mode');
+        if (!radios.length) return;
+        function sync() {
+            var mode = (document.querySelector('.acct-mode:checked') || {}).value || 'none';
+            document.querySelectorAll('.acct-create').forEach(function(el) { el.style.display = mode === 'create' ? '' : 'none'; });
+            document.querySelectorAll('.acct-link').forEach(function(el) { el.style.display = mode === 'link' ? '' : 'none'; });
+        }
+        radios.forEach(function(r) { r.addEventListener('change', sync); });
+        sync();
+    })();
+</script>
 <script>
     // Form validation
     (function() {
