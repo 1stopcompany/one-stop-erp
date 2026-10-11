@@ -81,6 +81,15 @@
                         </div>
 
                         <div class="row mb-3">
+                            <div class="col-md-12">
+                                <label for="{{ form.photos_dropbox_folder.id_for_label }}" class="form-label"><strong>Dropbox folder for Daily report photos</strong></label>
+                                {{ form.photos_dropbox_folder }}
+                                {% if form.photos_dropbox_folder.errors %}<div class="invalid-feedback d-block">{{ form.photos_dropbox_folder.errors.0 }}</div>{% endif %}
+                                <div class="form-text">The photos of each submitted Daily report are copied here, in a folder per day. Leave empty to use a "Photos" folder inside the reports folder. Videos and the photos of the Owner report phases are not copied.</div>
+                            </div>
+                        </div>
+
+                        <div class="row mb-3">
                             <div class="col-md-6">
                                 <label for="{{ form.report_dropbox_folder.id_for_label }}" class="form-label"><strong>Dropbox folder for Daily reports</strong></label>
                                 {{ form.report_dropbox_folder }}

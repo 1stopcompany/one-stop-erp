@@ -86,6 +86,53 @@ def save_to_dropbox(report, pdf, filename, client=None):
     return path
 
 
+def photos_folder_setting(project):
+    """The folder (path or link) the report photos go to: the project's own photos folder, else 'Photos' inside the reports folder."""
+    if (project.photos_dropbox_folder or '').strip():
+        return project.photos_dropbox_folder.strip(), False
+    if (project.report_dropbox_folder or '').strip():
+        return project.report_dropbox_folder.strip(), True     # True = add a "Photos" subfolder
+    return '', False
+
+
+def photo_filename(report, number, attachment):
+    import os
+    symbol = re.sub(r'[^A-Za-z0-9_-]+', '-', report.project.project_symbol or 'project')
+    ext = os.path.splitext(attachment.file.name)[1].lower() or '.jpg'
+    label = re.sub(r'[^\w]+', '-', attachment.description or '', flags=re.UNICODE).strip('-')[:40]
+    return f'{symbol}_{report.report_date:%Y-%m-%d}_{number:02d}' + (f'_{label}' if label else '') + ext
+
+
+def copy_photos(report, delivery, client):
+    """Copy the report's photo attachments (not videos, documents or others) to <photos folder>/<YYYY-MM-DD>/ . Records the outcome."""
+    import dropbox
+    from reports.models import ReportAttachment
+    setting, add_subfolder = photos_folder_setting(report.project)
+    if not setting:
+        return
+    photos = list(ReportAttachment.objects.filter(report_type='daily', report_id=report.pk, attachment_type='photo').order_by('order', 'created_at', 'pk'))
+    delivery.photos_total = len(photos)
+    if not photos:
+        return
+    try:
+        folder = resolve_folder(client, setting).rstrip('/') + ('/Photos' if add_subfolder else '') + f'/{report.report_date:%Y-%m-%d}'
+    except Exception as error:
+        delivery.photos_error = str(error)
+        return
+    problems = []
+    for number, photo in enumerate(photos, start=1):
+        name = photo_filename(report, number, photo)
+        try:
+            with photo.file.open('rb') as handle:
+                data = handle.read()
+            client.files_upload(data, f'{folder}/{name}', mode=dropbox.files.WriteMode.overwrite)
+            delivery.photos_copied += 1
+        except Exception as error:
+            logger.exception('Photo %s of report %s could not be copied to Dropbox', photo.pk, report.pk)
+            problems.append(f'{name}: {error}')
+    delivery.photos_error = '; '.join(problems)[:1500]
+
+
 # ------------------------------------------------------------------ e-mail
 def send_notification(report, pdf, filename, to):
     if settings.EMAIL_BACKEND.endswith('dummy.EmailBackend'):
@@ -110,18 +157,18 @@ def deliver(report_id, dropbox_factory=None):
 
     report = DailyReport.all_objects.select_related('project', 'project__manager', 'site_engineer').get(pk=report_id)
     delivery = ReportDelivery.objects.create(report=report, filename=pdf_filename(report))
+    pdf, pdf_error = None, ''
     try:
         pdf = generate_daily_report_pdf(report)
     except Exception as error:
         logger.exception('Daily report PDF failed for %s', report_id)
-        delivery.email_ok = delivery.dropbox_ok = False
-        delivery.email_error = delivery.dropbox_error = f'The PDF could not be generated: {error}'
-        delivery.save()
-        return delivery
+        pdf_error = f'The PDF could not be generated: {error}'
 
     to = recipients(report)
     delivery.email_to = ', '.join(to)
-    if to:
+    if pdf is None:
+        delivery.email_ok, delivery.email_error = False, pdf_error
+    elif to:
         try:
             send_notification(report, pdf, delivery.filename, to)
             delivery.email_ok = True
@@ -132,14 +179,29 @@ def deliver(report_id, dropbox_factory=None):
         delivery.email_ok = False
         delivery.email_error = 'No e-mail address to send to (set e-mails on the managers or on the project).'
 
-    if (report.project.report_dropbox_folder or '').strip():
+    client = None
+
+    def get_client():
+        nonlocal client
+        if client is None:
+            client = dropbox_factory() if dropbox_factory else dropbox_client()
+        return client
+
+    if pdf is None and (report.project.report_dropbox_folder or '').strip():
+        delivery.dropbox_ok, delivery.dropbox_error = False, pdf_error
+    elif (report.project.report_dropbox_folder or '').strip():
         try:
-            client = dropbox_factory() if dropbox_factory else None
-            delivery.dropbox_path = save_to_dropbox(report, pdf, delivery.filename, client=client)
+            delivery.dropbox_path = save_to_dropbox(report, pdf, delivery.filename, client=get_client())
             delivery.dropbox_ok = True
         except Exception as error:
             logger.exception('Daily report Dropbox upload failed for %s', report_id)
             delivery.dropbox_ok, delivery.dropbox_error = False, str(error)
+    if photos_folder_setting(report.project)[0]:
+        try:
+            copy_photos(report, delivery, get_client())
+        except Exception as error:
+            logger.exception('Daily report photo copy failed for %s', report_id)
+            delivery.photos_error = str(error)
     delivery.save()
     return delivery
 

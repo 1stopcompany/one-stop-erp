@@ -602,7 +602,7 @@ def redeliver_daily_report(request, pk):
     if delivery.all_ok:
         messages.success(request, 'Sent again: ' + ('e-mail sent' if delivery.email_ok else 'no e-mail') + (', saved to Dropbox.' if delivery.dropbox_ok else '.'))
     else:
-        messages.error(request, 'It could not be completed: ' + ' '.join(filter(None, [delivery.email_error, delivery.dropbox_error])))
+        messages.error(request, 'It could not be completed: ' + ' '.join(filter(None, [delivery.email_error, delivery.dropbox_error, delivery.photos_error])))
     return redirect('reports:daily_report_detail', pk=pk)
 
 

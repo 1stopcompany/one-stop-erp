@@ -7,7 +7,7 @@ class ProjectForm(forms.ModelForm):
     
     class Meta:
         model = Project
-        fields = ('name', 'project_symbol', 'contract_number', 'client_name', 'start_date', 'end_date', 'maintenance_type', 'status', 'description', 'location', 'manager', 'report_dropbox_folder', 'report_notify_emails')
+        fields = ('name', 'project_symbol', 'contract_number', 'client_name', 'start_date', 'end_date', 'maintenance_type', 'status', 'description', 'location', 'manager', 'report_dropbox_folder', 'photos_dropbox_folder', 'report_notify_emails')
         widgets = {
             'name': forms.TextInput(attrs={'class': 'form-control'}),
             'project_symbol': forms.TextInput(attrs={'class': 'form-control'}),
@@ -21,6 +21,7 @@ class ProjectForm(forms.ModelForm):
             'location': forms.TextInput(attrs={'class': 'form-control'}),
             'manager': forms.Select(attrs={'class': 'form-control'}),
             'report_dropbox_folder': forms.TextInput(attrs={'class': 'form-control', 'placeholder': '/Projects/TAB/Daily Reports   or   https://www.dropbox.com/scl/fo/...'}),
+            'photos_dropbox_folder': forms.TextInput(attrs={'class': 'form-control', 'placeholder': '/Projects/TAB/Photos   or   https://www.dropbox.com/scl/fo/...   (empty = Photos inside the reports folder)'}),
             'report_notify_emails': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'name@example.com, other@example.com'}),
         }
 

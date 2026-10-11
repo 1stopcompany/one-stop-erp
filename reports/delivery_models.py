@@ -15,6 +15,10 @@ class ReportDelivery(models.Model):
     dropbox_ok = models.BooleanField(null=True, help_text='True saved, False failed, empty = project has no Dropbox folder')
     dropbox_error = models.TextField(blank=True)
 
+    photos_total = models.PositiveIntegerField(null=True, blank=True, help_text='Photos of the report; empty = no photo folder to copy to')
+    photos_copied = models.PositiveIntegerField(default=0)
+    photos_error = models.TextField(blank=True)
+
     class Meta:
         ordering = ['-created_at', '-id']
 
@@ -23,4 +27,4 @@ class ReportDelivery(models.Model):
 
     @property
     def all_ok(self):
-        return self.email_ok is not False and self.dropbox_ok is not False
+        return self.email_ok is not False and self.dropbox_ok is not False and not self.photos_error

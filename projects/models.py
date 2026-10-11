@@ -131,6 +131,12 @@ class Project(models.Model):
         help_text=_('Dropbox folder where every submitted Daily report PDF is saved: a folder path in the company Dropbox (e.g. /Projects/TAB/Daily Reports) or a shared link to a folder of that account')
     )
 
+    photos_dropbox_folder = models.CharField(
+        max_length=500,
+        blank=True,
+        help_text=_('Dropbox folder for the photos of submitted Daily reports (a folder path or a shared link to a folder of the company account); empty = a "Photos" folder inside the Daily reports folder')
+    )
+
     report_notify_emails = models.CharField(
         max_length=500,
         blank=True,

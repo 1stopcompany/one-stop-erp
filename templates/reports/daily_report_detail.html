@@ -47,6 +47,8 @@
                 {% if d.email_ok %}Notification e-mailed to {{ d.email_to }}{% else %}E-mail not sent: {{ d.email_error|default:"-" }}{% endif %}
                 &nbsp;|&nbsp; <i class="fab fa-dropbox"></i>
                 {% if d.dropbox_ok %}PDF saved to Dropbox: {{ d.dropbox_path }}{% elif d.dropbox_ok == False %}Dropbox failed: {{ d.dropbox_error }}{% else %}No Dropbox folder set for this project{% endif %}
+                {% if d.photos_total != None %}&nbsp;|&nbsp; <i class="fas fa-images"></i>
+                {% if d.photos_error %}{{ d.photos_copied }} of {{ d.photos_total }} photos copied; problem: {{ d.photos_error }}{% else %}{{ d.photos_copied }} of {{ d.photos_total }} photos copied to Dropbox{% endif %}{% endif %}
                 <span class="text-muted">({{ d.created_at|date:"d/m/Y H:i" }})</span>
             {% else %}
                 Notification and Dropbox copy: not sent yet.

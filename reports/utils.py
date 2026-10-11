@@ -1379,6 +1379,8 @@ def generate_daily_report_pdf(report):
             try:
                 if att.attachment_type != 'photo' or not att.file or not os.path.exists(att.file.path):
                     raise ValueError('not a displayable image')
+                from PIL import Image as _PILImage
+                _PILImage.open(att.file.path).verify()   # a corrupt photo must not make the whole report PDF fail
                 cell = Image(att.file.path, width=box_w, height=box_h, kind='proportional')
             except Exception:
                 cell = Table([['']], colWidths=[box_w], rowHeights=[box_h])
