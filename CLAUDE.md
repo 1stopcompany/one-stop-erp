@@ -387,7 +387,7 @@ python manage.py send_reminders                # reports app (email reminder sys
   referencing a static file that doesn't literally exist on disk) -- chosen because shared hosting without
   root/sysadmin access (e.g. cPanel's "Setup Python App"/Passenger) often gives no separate way to point the
   web server straight at `STATIC_ROOT`. **Storage backend**: `config/settings.py`'s
-  `STORAGES["default"]` is local disk (`FileSystemStorage`) unless `DROPBOX_APP_KEY` is set in `.env`, in
+  `STORAGES["default"]` is local disk (`FileSystemStorage`) unless `DROPBOX_APP_KEY` **and** `DROPBOX_USE_AS_STORAGE=True` are set in `.env` (the Dropbox keys alone only enable the per-project report copy below), in
   which case every upload — insurance/tender documents, drawings, daily/monthly report attachments, project
   phase photos — goes to the company's own Dropbox instead (`storages.backends.dropbox.DropboxStorage`; see
   `.env.example` for how to get `DROPBOX_APP_KEY`/`DROPBOX_APP_SECRET`/`DROPBOX_OAUTH2_REFRESH_TOKEN` from
@@ -398,5 +398,20 @@ python manage.py send_reminders                # reports app (email reminder sys
   skipped. Note: `DropboxStorage.url()` calls the Dropbox API for a fresh temporary link on every access (no
   caching), so a page rendering many attachments at once — a report's photo list, the photo-log annex in
   `generate_daily_report_pdf` — makes one Dropbox API round-trip per file shown.
+- **Daily report delivery** (`reports/services/report_delivery.py`, `reports.ReportDelivery`): submitting a daily report (`submit_daily_report`)
+  starts a background job that (1) e-mails the project manager, every active engineering manager and `Project.report_notify_emails` with the
+  report PDF attached, (2) saves the PDF to `Project.report_dropbox_folder` and (3) copies the report's photo attachments (not videos, documents or
+  owner-report phase photos) to `Project.photos_dropbox_folder` (empty = a `Photos` folder inside the reports folder), one folder per report date.
+  A folder is a Dropbox path or a shared link to a folder of the company account (resolved with `sharing_get_shared_link_metadata`); the upload
+  uses the `DROPBOX_*` keys and overwrites a same-named file, so a resubmission never duplicates. Each part succeeds or fails alone and the outcome
+  is a `ReportDelivery` row shown on the report page, with a "Send again" button (`reports:daily_report_redeliver`, admin / project manager).
+  `EMAIL_HOST` in `.env` switches SMTP on by itself. Tests use a fake Dropbox client (`deliver(report_id, dropbox_factory=...)`); real Dropbox is unverified.
+- **Equipment & tools register** (`equipment/`): one `Tool` per physical unit (`EQ-0001`...), always received into a warehouse first
+  (`ToolTransfer` kind `opening`), then handed over by request -> manager approval -> storekeeper completion (a photo is required and becomes the
+  tool's current photo; a return records good / needs maintenance / scrap), `ToolMaintenance` jobs, QR label sheet, catalogue PDF and a per-tool
+  record PDF whose history is drawn as a path; `import_tools_inventory` loads the signed inventory sheet. The `storekeeper` role approves nothing.
+- **Roles in the mobile app**: `CustomUser.mobile_tabs()` decides which tabs the app shows (`employees/me/` returns `role` and `tabs`); the new
+  `employee` role (default for new users) sees only attendance. The procurement REST API is limited by `ProcurementAPIPermission`. The employee
+  page has a "Login account" card (`timesheets/account_form.py`) to create / link / change the user without the Django admin.
 - **Logging**: `config/settings.py` writes Django logs to `debug.log` at the project root (file handler)
   and to the console.

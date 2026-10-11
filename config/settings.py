@@ -245,6 +245,10 @@ DROPBOX_APP_KEY = os.getenv('DROPBOX_APP_KEY', '')
 DROPBOX_APP_SECRET = os.getenv('DROPBOX_APP_SECRET', '')
 DROPBOX_OAUTH2_REFRESH_TOKEN = os.getenv('DROPBOX_OAUTH2_REFRESH_TOKEN', '')
 DROPBOX_ROOT_PATH = os.getenv('DROPBOX_ROOT_PATH', '/one-stop-erp')
+# The same three Dropbox values are also used to copy each submitted Daily report (PDF + photos) into the project's own Dropbox folder
+# (reports/services/report_delivery.py). That does NOT move this server's uploads to Dropbox: they only switch to Dropbox storage when
+# DROPBOX_USE_AS_STORAGE=True is set as well.
+DROPBOX_USE_AS_STORAGE = env_bool('DROPBOX_USE_AS_STORAGE', False)
 
 STORAGES = {
     # Compressed (not manifest/fingerprinted) so a first production `collectstatic` can't fail over a
@@ -255,7 +259,7 @@ STORAGES = {
     "staticfiles": {"BACKEND": "whitenoise.storage.CompressedStaticFilesStorage"},
     "default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},
 }
-if DROPBOX_APP_KEY:
+if DROPBOX_APP_KEY and DROPBOX_USE_AS_STORAGE:
     STORAGES["default"] = {"BACKEND": "storages.backends.dropbox.DropboxStorage"}
 
 # -------------------------
@@ -265,11 +269,13 @@ if DROPBOX_APP_KEY:
 # set EMAIL_HOST/EMAIL_HOST_USER/EMAIL_HOST_PASSWORD (and EMAIL_BACKEND=django.core.mail.backends.smtp.EmailBackend)
 # to actually deliver them.
 # -------------------------
+EMAIL_HOST = os.getenv('EMAIL_HOST', '')
+# An EMAIL_HOST in .env is enough to switch real sending on; EMAIL_BACKEND is only needed to force something else.
 EMAIL_BACKEND = os.getenv(
     'EMAIL_BACKEND',
-    'django.core.mail.backends.console.EmailBackend' if DEBUG else 'django.core.mail.backends.dummy.EmailBackend'
+    'django.core.mail.backends.smtp.EmailBackend' if EMAIL_HOST
+    else ('django.core.mail.backends.console.EmailBackend' if DEBUG else 'django.core.mail.backends.dummy.EmailBackend')
 )
-EMAIL_HOST = os.getenv('EMAIL_HOST', '')
 EMAIL_PORT = int(os.getenv('EMAIL_PORT', '587'))
 EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER', '')
 EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD', '')
