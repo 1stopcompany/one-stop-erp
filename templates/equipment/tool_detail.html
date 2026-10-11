@@ -35,8 +35,10 @@
         <form method="post" action="{% url 'equipment:transfer_action' pending.pk 'approve' %}">{% csrf_token %}<button class="btn btn-success btn-sm">Approve</button></form>
       {% endif %}
       {% if pending.status == 'approved' and can_complete %}
-        <form method="post" action="{% url 'equipment:transfer_action' pending.pk 'complete' %}" class="w-100 border rounded p-2">{% csrf_token %}
+        <form method="post" enctype="multipart/form-data" action="{% url 'equipment:transfer_action' pending.pk 'complete' %}" class="w-100 border rounded p-2">{% csrf_token %}
           <div class="fw-bold mb-1">Complete the handover</div>
+          <label class="form-label small mb-0">Photo of the tool now *</label>
+          <input type="file" name="photo" accept="image/*" capture="environment" class="form-control form-control-sm mb-1" required>
           {% if pending.kind == 'return' %}
           <label class="form-label small mb-0">Condition of the tool coming back *</label>
           <select name="return_condition" class="form-select form-select-sm mb-1" required>
@@ -92,13 +94,13 @@
 
   <div class="col-lg-7">
     <div class="card mb-3"><div class="card-header fw-bold">Movement history</div><div class="table-responsive"><table class="table table-sm mb-0">
-      <thead><tr><th>Date</th><th>What</th><th>From &rarr; To</th><th>By</th><th>Status</th></tr></thead><tbody>
+      <thead><tr><th>Photo</th><th>Date</th><th>What</th><th>From &rarr; To</th><th>By</th><th>Status</th></tr></thead><tbody>
       {% for h in history %}
-        <tr><td class="text-nowrap">{{ h.completed_at|default:h.requested_at|date:'d/m/Y' }}</td><td>{{ h.get_kind_display }}{% if h.return_condition %}<div class="small text-muted">{{ h.get_return_condition_display }}{% if h.return_note %}: {{ h.return_note }}{% endif %}</div>{% endif %}{% if h.rejection_reason %}<div class="small text-danger">{{ h.rejection_reason }}</div>{% endif %}</td>
+        <tr><td style="width:64px">{% if h.photo %}<a href="{{ h.photo.url }}" target="_blank"><img src="{{ h.photo.url }}" alt="" style="width:56px;height:56px;object-fit:cover;border-radius:4px"></a>{% endif %}</td><td class="text-nowrap">{{ h.completed_at|default:h.requested_at|date:'d/m/Y' }}</td><td>{{ h.get_kind_display }}{% if h.return_condition %}<div class="small text-muted">{{ h.get_return_condition_display }}{% if h.return_note %}: {{ h.return_note }}{% endif %}</div>{% endif %}{% if h.rejection_reason %}<div class="small text-danger">{{ h.rejection_reason }}</div>{% endif %}</td>
           <td>{{ h.from_label }} &rarr; {{ h.to_label }}</td>
           <td class="small">{{ h.requested_by.get_full_name|default:h.requested_by.username }}{% if h.completed_by %}<br>handover: {{ h.completed_by.get_full_name|default:h.completed_by.username }}{% endif %}</td>
           <td><span class="badge {% if h.status == 'completed' %}bg-success{% elif h.status == 'rejected' %}bg-danger{% else %}bg-primary{% endif %}">{{ h.get_status_display }}</span></td></tr>
-      {% empty %}<tr><td colspan="5" class="text-muted text-center">No movements.</td></tr>{% endfor %}</tbody></table></div></div>
+      {% empty %}<tr><td colspan="6" class="text-muted text-center">No movements.</td></tr>{% endfor %}</tbody></table></div></div>
 
     <div class="card"><div class="card-header fw-bold">Maintenance history</div><div class="table-responsive"><table class="table table-sm mb-0">
       <thead><tr><th>Opened</th><th>Problem</th><th>Vendor / parts</th><th>Cost</th><th>Status</th></tr></thead><tbody>

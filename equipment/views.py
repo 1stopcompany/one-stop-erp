@@ -215,7 +215,7 @@ def transfer_action(request, pk, action):
             messages.info(request, 'The request was cancelled.')
     elif action == 'complete':
         done = _run(request, services.complete_transfer, transfer, request.user, return_condition=post.get('return_condition', ''),
-                    return_note=post.get('return_note', '').strip(), holder=post.get('holder'))
+                    return_note=post.get('return_note', '').strip(), holder=post.get('holder'), photo=request.FILES.get('photo'))
         if done:
             messages.success(request, f'Handover completed: {transfer.tool.code} is now at {done.to_label}.')
     else:

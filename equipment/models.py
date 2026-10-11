@@ -149,6 +149,9 @@ class ToolTransfer(models.Model):
     completed_at = models.DateTimeField(null=True, blank=True)
     rejection_reason = models.CharField(max_length=300, blank=True)
 
+    # the photo taken at the handover (the tool's condition at that moment); it also becomes the tool's current photo
+    photo = models.ImageField(upload_to='equipment/handovers/', null=True, blank=True)
+
     # filled by the storekeeper when the tool comes back from a project
     return_condition = models.CharField(max_length=20, choices=CONDITION_CHOICES, blank=True)
     return_note = models.CharField(max_length=300, blank=True)

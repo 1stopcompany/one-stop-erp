@@ -49,15 +49,33 @@ def _audit(user, tool, text):
     UserAuditLog.objects.create(user=user, action='update', content_type='equipment.Tool', object_id=tool.pk, description=f'{tool.code}: {text}')
 
 
+MAX_PHOTO_BYTES = 10 * 1024 * 1024
+
+
+def check_photo(photo):
+    """The uploaded handover photo must be a real picture of a sensible size."""
+    if photo is None:
+        return None
+    if photo.size > MAX_PHOTO_BYTES:
+        raise ValidationError('The photo is larger than 10 MB.')
+    try:
+        from PIL import Image
+        Image.open(photo).verify()
+        photo.seek(0)
+    except Exception:
+        raise ValidationError('The uploaded file is not a valid picture.')
+    return photo
+
+
 # ------------------------------------------------------------------ opening entry
 @transaction.atomic
-def receive_into_warehouse(tool, warehouse, user, note='', when=None):
+def receive_into_warehouse(tool, warehouse, user, note='', when=None):  # tool.photo (if any) is also kept on the receipt record
     """First entry of a tool into a warehouse; leaves a completed 'opening' record in its history."""
     when = when or timezone.now()
     tool.warehouse, tool.project = warehouse, None
     tool.save()
     ToolTransfer.objects.create(
-        tool=tool, kind=ToolTransfer.KIND_OPENING, status=ToolTransfer.COMPLETED, to_warehouse=warehouse, note=note,
+        tool=tool, kind=ToolTransfer.KIND_OPENING, status=ToolTransfer.COMPLETED, to_warehouse=warehouse, note=note, photo=tool.photo.name if tool.photo else None,
         requested_by=user, requested_at=when, approved_by=user, approved_at=when, completed_by=user, completed_at=when)
     _audit(user, tool, f'received into {warehouse.name}')
 
@@ -131,8 +149,9 @@ def cancel_transfer(transfer, user):
 
 
 @transaction.atomic
-def complete_transfer(transfer, user, return_condition='', return_note='', holder=None):
-    """The storekeeper hands the tool over. Coming back from a project, the condition must be recorded."""
+def complete_transfer(transfer, user, return_condition='', return_note='', holder=None, photo=None):
+    """The storekeeper hands the tool over with a photo of it (kept in the history, and it becomes the tool's current photo).
+    Coming back from a project, the condition must be recorded too."""
     transfer = ToolTransfer.objects.select_for_update().select_related('tool').get(pk=transfer.pk)
     tool = transfer.tool
     if transfer.status != ToolTransfer.APPROVED:
@@ -141,6 +160,9 @@ def complete_transfer(transfer, user, return_condition='', return_note='', holde
         raise PermissionDenied('Only the storekeeper completes a handover.')
     if tool.project_id != transfer.from_project_id or tool.warehouse_id != transfer.from_warehouse_id:
         raise ValidationError('The tool is no longer where the request said; cancel it and request again.')
+    if photo is None:
+        raise ValidationError('Attach a photo of the tool: it is kept in the handover history.')
+    check_photo(photo)
     comes_back = transfer.kind == ToolTransfer.KIND_RETURN
     if comes_back and return_condition not in dict(ToolTransfer.CONDITION_CHOICES):
         raise ValidationError('Record the condition of the tool coming back: good, needs maintenance or scrap.')
@@ -153,9 +175,11 @@ def complete_transfer(transfer, user, return_condition='', return_note='', holde
             ToolMaintenance.objects.create(tool=tool, problem=return_note or 'Returned from project needing maintenance', opened_by=user)
         elif return_condition == ToolTransfer.CONDITION_SCRAP:
             tool.status = Tool.STATUS_SCRAPPED
-    tool.save()
+    transfer.photo = photo
     transfer.status, transfer.completed_by, transfer.completed_at = ToolTransfer.COMPLETED, user, timezone.now()
-    transfer.save()
+    transfer.save()   # stores the file
+    tool.photo = transfer.photo.name   # the same stored file is the tool's current photo
+    tool.save()
     _audit(user, tool, f'handover completed {transfer.from_label} -> {transfer.to_label}' + (f' ({transfer.get_return_condition_display()})' if comes_back else ''))
     return transfer
 
