@@ -59,8 +59,8 @@ def equipment_dashboard(request):
 
 
 # ------------------------------------------------------------------ tools
-@login_required
-def tool_list(request):
+def _filtered_tools(request):
+    """The register as filtered by ?q= ?status= ?place= (shared by the list page and the printed catalogue)."""
     tools = Tool.objects.select_related('warehouse', 'project')
     q = request.GET.get('q', '').strip()
     status = request.GET.get('status', '')
@@ -75,6 +75,12 @@ def tool_list(request):
         tools = tools.filter(warehouse_id=place[1:])
     elif not status:
         tools = tools.exclude(status=Tool.STATUS_SCRAPPED)
+    return tools, q, status, place
+
+
+@login_required
+def tool_list(request):
+    tools, q, status, place = _filtered_tools(request)
     return render(request, 'equipment/tool_list.html', {
         'tools': tools, 'q': q, 'status': status, 'place': place, 'statuses': Tool.STATUS_CHOICES,
         'places': [(f'w{w.pk}', w.name) for w in Warehouse.objects.filter(is_active=True)]
@@ -260,6 +266,30 @@ def maintenance_update(request, pk):
             parts=post.get('parts', '').strip(), cost=cost, result_note=post.get('result_note', '').strip()):
         messages.success(request, 'Maintenance job updated.')
     return redirect('equipment:tool_detail', pk=job.tool_id)
+
+
+# ------------------------------------------------------------------ printed catalogue
+@login_required
+def catalog_pdf(request):
+    """Every tool of the current filter, one row each: photo, QR + code, name, maker, condition, location."""
+    tools, q, status, place = _filtered_tools(request)
+    from .catalog_pdf import build_catalog_pdf
+    parts = []
+    if place.startswith('w'):
+        warehouse = Warehouse.objects.filter(pk=place[1:]).first()
+        parts.append(warehouse.name if warehouse else '')
+    elif place.startswith('p'):
+        project = Project.objects.filter(pk=place[1:]).first()
+        parts.append(f'Project {project.project_symbol}' if project else '')
+    if status:
+        parts.append(dict(Tool.STATUS_CHOICES).get(status, ''))
+    if q:
+        parts.append(f'"{q}"')
+    pdf = build_catalog_pdf(tools.order_by('code'), lambda tool: request.build_absolute_uri(reverse('equipment:tool_by_code', args=[tool.code])),
+                            subtitle=' / '.join(p for p in parts if p))
+    response = HttpResponse(pdf, content_type='application/pdf')
+    response['Content-Disposition'] = 'inline; filename="tools-catalog.pdf"'
+    return response
 
 
 # ------------------------------------------------------------------ labels
