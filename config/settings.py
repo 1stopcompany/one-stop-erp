@@ -279,7 +279,10 @@ EMAIL_BACKEND = os.getenv(
 EMAIL_PORT = int(os.getenv('EMAIL_PORT', '587'))
 EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER', '')
 EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD', '')
-EMAIL_USE_TLS = env_bool('EMAIL_USE_TLS', True)
+# Port 465 means "SSL from the first byte" (what cPanel's Connect Devices page lists as the secure SMTP port); 587 is STARTTLS.
+# Django cannot use both, so port 465 turns SSL on and TLS off unless EMAIL_USE_SSL / EMAIL_USE_TLS say otherwise in .env.
+EMAIL_USE_SSL = env_bool('EMAIL_USE_SSL', EMAIL_PORT == 465)
+EMAIL_USE_TLS = False if EMAIL_USE_SSL else env_bool('EMAIL_USE_TLS', True)
 DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL', 'no-reply@one-stop-erp.local')
 COMPANY_NAME = os.getenv('COMPANY_NAME', 'One Stop Contracting and Services')
 SITE_URL = os.getenv('SITE_URL', 'http://127.0.0.1:8000').rstrip('/')
