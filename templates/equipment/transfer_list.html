@@ -12,7 +12,7 @@
     <tr><td class="text-nowrap">{{ t.requested_at|date:'d/m/Y' }}</td>
       <td><a href="{% url 'equipment:tool_detail' t.tool_id %}" class="fw-bold text-decoration-none">{{ t.tool.code }}</a> {{ t.tool.name }}</td>
       <td>{{ t.from_label }} &rarr; {{ t.to_label }}</td>
-      <td>{{ t.requested_by.get_full_name|default:t.requested_by.username }}</td>
+      <td>{% if t.requested_by %}{{ t.requested_by.get_full_name|default:t.requested_by.username }}{% else %}—{% endif %}</td>
       <td><span class="badge {% if t.status == 'completed' %}bg-success{% elif t.status == 'rejected' or t.status == 'cancelled' %}bg-secondary{% else %}bg-primary{% endif %}">{{ t.get_status_display }}</span></td>
       <td><a href="{% url 'equipment:tool_detail' t.tool_id %}" class="btn btn-sm btn-outline-primary">Open</a></td></tr>
   {% empty %}<tr><td colspan="6" class="text-center text-muted py-4">No transfers.</td></tr>{% endfor %}</tbody></table></div></div>

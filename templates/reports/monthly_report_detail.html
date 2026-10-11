@@ -85,7 +85,7 @@
 
         <div class="col-md-3">
           <div class="text-muted small">Prepared By</div>
-          <div class="fw-semibold">{{ report.site_engineer.get_full_name|default:report.site_engineer.username }}</div>
+          <div class="fw-semibold">{% if report.site_engineer %}{{ report.site_engineer.get_full_name|default:report.site_engineer.username }}{% else %}—{% endif %}</div>
           <div class="text-muted small">Created: {{ report.created_at|date:"M d, Y H:i" }}</div>
         </div>
       </div>
@@ -1019,14 +1019,14 @@
           <div class="row g-3">
             <div class="col-md-4">
               <div class="text-muted small">Prepared By</div>
-              <div class="fw-semibold">{{ report.site_engineer.get_full_name|default:report.site_engineer.username }}</div>
+              <div class="fw-semibold">{% if report.site_engineer %}{{ report.site_engineer.get_full_name|default:report.site_engineer.username }}{% else %}—{% endif %}</div>
               <div class="text-muted small">Submitted/Created: {{ report.created_at|date:"M d, Y H:i" }}</div>
             </div>
 
             <div class="col-md-4">
               <div class="text-muted small">Reviewed By</div>
               {% if report.reviewed_by %}
-                <div class="fw-semibold">{{ report.reviewed_by.get_full_name|default:report.reviewed_by.username }}</div>
+                <div class="fw-semibold">{% if report.reviewed_by %}{{ report.reviewed_by.get_full_name|default:report.reviewed_by.username }}{% else %}—{% endif %}</div>
                 <div class="text-muted small">Reviewed: {{ report.review_date|date:"M d, Y H:i" }}</div>
               {% else %}
                 <div class="text-muted">Pending review...</div>
@@ -1036,7 +1036,7 @@
             <div class="col-md-4">
               <div class="text-muted small">Approved By</div>
               {% if report.approved_by %}
-                <div class="fw-semibold">{{ report.approved_by.get_full_name|default:report.approved_by.username }}</div>
+                <div class="fw-semibold">{% if report.approved_by %}{{ report.approved_by.get_full_name|default:report.approved_by.username }}{% else %}—{% endif %}</div>
                 <div class="text-muted small">Approved: {{ report.approval_date|date:"M d, Y H:i" }}</div>
               {% else %}
                 <div class="text-muted">Pending approval...</div>

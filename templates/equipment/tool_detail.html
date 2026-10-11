@@ -44,7 +44,7 @@
     {% if pending %}
     <div class="card mb-3 border-primary"><div class="card-header fw-bold">Open request &mdash; {{ pending.get_status_display }}</div><div class="card-body">
       <div>{{ pending.from_label }} &rarr; <strong>{{ pending.to_label }}</strong>{% if pending.holder %} (to {{ pending.holder }}){% endif %}</div>
-      <div class="small text-muted mb-2">Requested by {{ pending.requested_by.get_full_name|default:pending.requested_by.username }}{% if pending.note %} &mdash; {{ pending.note }}{% endif %}</div>
+      <div class="small text-muted mb-2">Requested by {% if pending.requested_by %}{{ pending.requested_by.get_full_name|default:pending.requested_by.username }}{% else %}—{% endif %}{% if pending.note %} &mdash; {{ pending.note }}{% endif %}</div>
       <div class="d-flex flex-wrap gap-2">
       {% if pending.status == 'requested' and can_approve %}
         <form method="post" action="{% url 'equipment:transfer_action' pending.pk 'approve' %}">{% csrf_token %}<button class="btn btn-success btn-sm">Approve</button></form>
@@ -113,7 +113,7 @@
       {% for h in history %}
         <tr><td style="width:64px">{% if h.photo %}<a href="{{ h.photo.url }}" target="_blank"><img src="{{ h.photo.url }}" alt="" style="width:56px;height:56px;object-fit:cover;border-radius:4px"></a>{% endif %}</td><td class="text-nowrap">{{ h.completed_at|default:h.requested_at|date:'d/m/Y' }}</td><td>{{ h.get_kind_display }}{% if h.return_condition %}<div class="small text-muted">{{ h.get_return_condition_display }}{% if h.return_note %}: {{ h.return_note }}{% endif %}</div>{% endif %}{% if h.rejection_reason %}<div class="small text-danger">{{ h.rejection_reason }}</div>{% endif %}</td>
           <td>{{ h.from_label }} &rarr; {{ h.to_label }}</td>
-          <td class="small">{{ h.requested_by.get_full_name|default:h.requested_by.username }}{% if h.completed_by %}<br>handover: {{ h.completed_by.get_full_name|default:h.completed_by.username }}{% endif %}</td>
+          <td class="small">{% if h.requested_by %}{{ h.requested_by.get_full_name|default:h.requested_by.username }}{% else %}—{% endif %}{% if h.completed_by %}<br>handover: {% if h.completed_by %}{{ h.completed_by.get_full_name|default:h.completed_by.username }}{% else %}—{% endif %}{% endif %}</td>
           <td><span class="badge {% if h.status == 'completed' %}bg-success{% elif h.status == 'rejected' %}bg-danger{% else %}bg-primary{% endif %}">{{ h.get_status_display }}</span></td></tr>
       {% empty %}<tr><td colspan="6" class="text-muted text-center">No movements.</td></tr>{% endfor %}</tbody></table></div></div>
 

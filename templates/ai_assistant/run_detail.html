@@ -54,7 +54,7 @@
 
   {% if run.imported_at %}
   <div class="alert alert-success">
-    Imported {{ run.imported_at|date:"Y-m-d H:i" }}{% if run.imported_by %} by {{ run.imported_by.get_full_name|default:run.imported_by.username }}{% endif %}:
+    Imported {{ run.imported_at|date:"Y-m-d H:i" }}{% if run.imported_by %} by {% if run.imported_by %}{{ run.imported_by.get_full_name|default:run.imported_by.username }}{% else %}—{% endif %}{% endif %}:
     {{ run.import_summary.created_phases }} main item(s), {{ run.import_summary.created_sub_items }} line(s).
     {% if run.import_summary.skipped %}
     <details class="mt-1"><summary>{{ run.import_summary.skipped|length }} skipped</summary>
@@ -170,7 +170,7 @@
   {% endif %}
 
   <p class="text-muted small mt-3">
-    Started {{ run.created_at|date:"Y-m-d H:i" }}{% if run.created_by %} by {{ run.created_by.get_full_name|default:run.created_by.username }}{% endif %}
+    Started {{ run.created_at|date:"Y-m-d H:i" }}{% if run.created_by %} by {% if run.created_by %}{{ run.created_by.get_full_name|default:run.created_by.username }}{% else %}—{% endif %}{% endif %}
     {% if run.model_name %} · {{ run.model_name }}{% endif %}{% if run.input_tokens %} · {{ run.input_tokens }} tokens in / {{ run.output_tokens }} out{% endif %}
   </p>
 </div>

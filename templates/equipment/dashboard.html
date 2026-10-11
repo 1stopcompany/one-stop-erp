@@ -26,7 +26,7 @@
   <ul class="list-group list-group-flush">
   {% for t in waiting_approval %}
     <li class="list-group-item d-flex justify-content-between align-items-center flex-wrap gap-2">
-      <span><a href="{% url 'equipment:tool_detail' t.tool_id %}" class="fw-bold">{{ t.tool.code }}</a> {{ t.tool.name }} &mdash; {{ t.from_label }} &rarr; {{ t.to_label }} <span class="text-muted small">(by {{ t.requested_by.get_full_name|default:t.requested_by.username }})</span></span>
+      <span><a href="{% url 'equipment:tool_detail' t.tool_id %}" class="fw-bold">{{ t.tool.code }}</a> {{ t.tool.name }} &mdash; {{ t.from_label }} &rarr; {{ t.to_label }} <span class="text-muted small">(by {% if t.requested_by %}{{ t.requested_by.get_full_name|default:t.requested_by.username }}{% else %}—{% endif %})</span></span>
       <span class="d-flex gap-1">
         <form method="post" action="{% url 'equipment:transfer_action' t.pk 'approve' %}?">{% csrf_token %}<input type="hidden" name="next" value="{% url 'equipment:dashboard' %}"><button class="btn btn-sm btn-success">Approve</button></form>
         <form method="post" action="{% url 'equipment:transfer_action' t.pk 'reject' %}" onsubmit="this.reason.value = prompt('Reason for rejecting?') || ''; return this.reason.value !== '';">{% csrf_token %}<input type="hidden" name="reason"><input type="hidden" name="next" value="{% url 'equipment:dashboard' %}"><button class="btn btn-sm btn-outline-danger">Reject</button></form>

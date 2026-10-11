@@ -29,10 +29,10 @@
 
 <div class="card mb-3"><div class="card-body">
   <div class="row">
-    <div class="col-md-3"><strong>Requested By:</strong> {% if pr.requested_by %}{{ pr.requested_by.get_full_name|default:pr.requested_by.username }}{% else %}—{% endif %}</div>
+    <div class="col-md-3"><strong>Requested By:</strong> {% if pr.requested_by %}{% if pr.requested_by %}{{ pr.requested_by.get_full_name|default:pr.requested_by.username }}{% else %}—{% endif %}{% else %}—{% endif %}</div>
     <div class="col-md-3"><strong>Required Date:</strong> {{ pr.required_date }}</div>
-    <div class="col-md-3"><strong>Approved By:</strong> {% if pr.approved_by %}{{ pr.approved_by.get_full_name|default:pr.approved_by.username }}{% else %}—{% endif %}</div>
-    <div class="col-md-3"><strong>Assigned To:</strong> {% if pr.assigned_to %}{{ pr.assigned_to.get_full_name|default:pr.assigned_to.username }}{% else %}—{% endif %}</div>
+    <div class="col-md-3"><strong>Approved By:</strong> {% if pr.approved_by %}{% if pr.approved_by %}{{ pr.approved_by.get_full_name|default:pr.approved_by.username }}{% else %}—{% endif %}{% else %}—{% endif %}</div>
+    <div class="col-md-3"><strong>Assigned To:</strong> {% if pr.assigned_to %}{% if pr.assigned_to %}{{ pr.assigned_to.get_full_name|default:pr.assigned_to.username }}{% else %}—{% endif %}{% else %}—{% endif %}</div>
   </div>
   {% if pr.remarks %}<div class="mt-2"><strong>Remarks:</strong> {{ pr.remarks }}</div>{% endif %}
   {% if pr.rejected_reason %}<div class="mt-2 text-danger"><strong>Rejection Reason:</strong> {{ pr.rejected_reason }}</div>{% endif %}

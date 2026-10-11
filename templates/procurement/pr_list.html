@@ -12,7 +12,7 @@
       <td>{{ pr.project }}</td>
       <td>{{ pr.lines.count }} item(s)</td>
       <td>{{ pr.required_date }}</td>
-      <td>{% if pr.requested_by %}{{ pr.requested_by.get_full_name|default:pr.requested_by.username }}{% else %}—{% endif %}</td>
+      <td>{% if pr.requested_by %}{% if pr.requested_by %}{{ pr.requested_by.get_full_name|default:pr.requested_by.username }}{% else %}—{% endif %}{% else %}—{% endif %}</td>
       <td><span class="badge bg-{% if pr.status == 'approved' or pr.status == 'completed' %}success{% elif pr.status == 'rejected' or pr.status == 'cancelled' %}danger{% elif pr.status == 'submitted' %}warning text-dark{% else %}secondary{% endif %}">{{ pr.get_status_display }}</span></td>
       <td class="text-end"><a class="btn btn-sm btn-outline-primary" href="{% url 'procurement:pr_detail' pr.pk %}">View</a></td>
     </tr>

@@ -74,7 +74,7 @@
             <tr>
               <td><strong>{{ report.report_number }}</strong></td>
               <td><span class="badge bg-light text-dark border">{{ report.type_label }}</span></td>
-              <td>{{ report.author.get_full_name|default:report.author.username|default:"—" }}</td>
+              <td>{% if report.author %}{{ report.author.get_full_name|default:report.author.username }}{% else %}—{% endif %}</td>
               <td>{{ report.period }}</td>
               <td>
                 {% if report.status == 'draft' %}<span class="badge bg-secondary">Draft</span>

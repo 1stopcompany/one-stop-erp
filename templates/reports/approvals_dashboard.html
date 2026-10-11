@@ -40,7 +40,7 @@
                             </td>
                             <td>{{ row.report.report_number }}</td>
                             <td>{{ row.report.project.name }}</td>
-                            <td>{{ row.report.site_engineer.get_full_name|default:row.report.site_engineer.username }}</td>
+                            <td>{% if row.report.site_engineer %}{{ row.report.site_engineer.get_full_name|default:row.report.site_engineer.username }}{% else %}—{% endif %}</td>
                             <td>{{ row.report.created_at|date:"d M Y H:i" }}</td>
                             <td>
                                 <a href="{% url row.action_url row.report.pk %}" class="btn btn-sm btn-info">
@@ -93,8 +93,8 @@
                             </td>
                             <td>{{ row.report.report_number }}</td>
                             <td>{{ row.report.project.name }}</td>
-                            <td>{{ row.report.site_engineer.get_full_name|default:row.report.site_engineer.username }}</td>
-                            <td>{{ row.report.reviewed_by.get_full_name|default:row.report.reviewed_by.username }}</td>
+                            <td>{% if row.report.site_engineer %}{{ row.report.site_engineer.get_full_name|default:row.report.site_engineer.username }}{% else %}—{% endif %}</td>
+                            <td>{% if row.report.reviewed_by %}{{ row.report.reviewed_by.get_full_name|default:row.report.reviewed_by.username }}{% else %}—{% endif %}</td>
                             <td>{{ row.report.review_date|date:"d M Y H:i" }}</td>
                             <td>
                                 <a href="{% url row.action_url row.report.pk %}" class="btn btn-sm btn-success">

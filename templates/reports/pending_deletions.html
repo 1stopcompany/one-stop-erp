@@ -15,7 +15,7 @@
           <td><strong>{{ row.report.report_number }}</strong></td>
           <td>{{ row.report.project.name }} <span class="badge bg-primary">{{ row.report.project.project_symbol }}</span></td>
           <td>{{ row.report.report_date|date:"d/m/Y" }}</td>
-          <td>{{ row.report.deleted_by.get_full_name|default:row.report.deleted_by.username|default:"-" }}</td>
+          <td>{% if row.report.deleted_by %}{{ row.report.deleted_by.get_full_name|default:row.report.deleted_by.username }}{% else %}—{% endif %}</td>
           <td>{{ row.report.deleted_at|date:"d/m/Y H:i" }}</td>
           <td class="text-end text-nowrap">
             <form method="post" action="{% url 'reports:restore_report' kind=row.kind pk=row.report.pk %}" class="d-inline">{% csrf_token %}

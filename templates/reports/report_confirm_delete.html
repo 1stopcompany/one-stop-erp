@@ -9,7 +9,7 @@
         <tr><th style="width:140px;">Report</th><td>{{ report.report_number }}</td></tr>
         <tr><th>Project</th><td>{{ report.project.name }} <span class="badge bg-primary">{{ report.project.project_symbol }}</span></td></tr>
         <tr><th>Status</th><td>{{ report.get_status_display }}</td></tr>
-        <tr><th>Created by</th><td>{{ report.site_engineer.get_full_name|default:report.site_engineer.username }}</td></tr>
+        <tr><th>Created by</th><td>{% if report.site_engineer %}{{ report.site_engineer.get_full_name|default:report.site_engineer.username }}{% else %}—{% endif %}</td></tr>
       </table>
 
       {% if soft %}
@@ -18,7 +18,7 @@
         deletion (or can restore the draft).
       </div>
       {% else %}
-      {% if report.deleted_at %}<div class="alert alert-info">Deleted as a draft by {{ report.deleted_by.get_full_name|default:report.deleted_by.username }} on {{ report.deleted_at|date:"d/m/Y H:i" }}.</div>{% endif %}
+      {% if report.deleted_at %}<div class="alert alert-info">Deleted as a draft by {% if report.deleted_by %}{{ report.deleted_by.get_full_name|default:report.deleted_by.username }}{% else %}—{% endif %} on {{ report.deleted_at|date:"d/m/Y H:i" }}.</div>{% endif %}
       <div class="alert alert-danger">
         <strong>This cannot be undone.</strong> The report and everything entered inside it will be deleted:
         <ul class="mb-0 mt-2">

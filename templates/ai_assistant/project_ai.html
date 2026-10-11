@@ -124,7 +124,7 @@
                   {% elif run.status == 'failed' %}<span class="badge bg-danger">Failed</span>
                   {% else %}<span class="badge bg-secondary">{{ run.get_status_display }}</span>{% endif %}
                 </td>
-                <td>{{ run.created_by.get_full_name|default:run.created_by.username }}</td>
+                <td>{% if run.created_by %}{{ run.created_by.get_full_name|default:run.created_by.username }}{% else %}—{% endif %}</td>
                 <td><a href="{% url 'ai_assistant:run_detail' run.id %}" class="btn btn-sm btn-outline-primary">Open</a></td>
               </tr>
               {% empty %}
