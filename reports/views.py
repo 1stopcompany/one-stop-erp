@@ -576,8 +576,33 @@ def submit_daily_report(request, pk):
         description=f'Submitted daily report {report.report_number}',
         ip_address=get_client_ip(request),
     )
-    
-    messages.success(request, 'Daily report submitted for approval.')
+
+    # E-mail the managers and save the PDF in the project's Dropbox folder (in the background; see services/report_delivery.py)
+    from .services.report_delivery import deliver_in_background
+    from django.db import transaction as _tx
+    _tx.on_commit(lambda: deliver_in_background(report.pk))
+
+    messages.success(request, 'Daily report submitted for approval. The managers are being notified.')
+    return redirect('reports:daily_report_detail', pk=pk)
+
+
+@login_required
+@require_http_methods(["POST"])
+def redeliver_daily_report(request, pk):
+    """Send the notification and the Dropbox copy of a submitted daily report again (after fixing the e-mail / Dropbox setup)."""
+    report = get_object_or_404(DailyReport, pk=pk)
+    if not (request.user.is_admin() or report.project.manager_id == request.user.pk):
+        messages.error(request, 'Only an admin or the project manager can resend it.')
+        return redirect('reports:daily_report_detail', pk=pk)
+    if report.status == 'draft':
+        messages.error(request, 'A draft report has not been submitted yet.')
+        return redirect('reports:daily_report_detail', pk=pk)
+    from .services.report_delivery import deliver
+    delivery = deliver(report.pk)
+    if delivery.all_ok:
+        messages.success(request, 'Sent again: ' + ('e-mail sent' if delivery.email_ok else 'no e-mail') + (', saved to Dropbox.' if delivery.dropbox_ok else '.'))
+    else:
+        messages.error(request, 'It could not be completed: ' + ' '.join(filter(None, [delivery.email_error, delivery.dropbox_error])))
     return redirect('reports:daily_report_detail', pk=pk)
 
 

@@ -1181,6 +1181,7 @@ class ReportAttachment(models.Model):
 # database despite having full model/admin code. Wiring them in here
 # fixes that alongside adding the new progress-tracking models.
 
+from .delivery_models import ReportDelivery  # noqa: E402,F401
 from .master_data_models import (  # noqa: E402,F401
     WorkforceCategory,
     LaborClassification,

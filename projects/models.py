@@ -125,6 +125,18 @@ class Project(models.Model):
         help_text=_('Site engineer assigned to this project -- the only one who may create its Daily reports')
     )
 
+    report_dropbox_folder = models.CharField(
+        max_length=500,
+        blank=True,
+        help_text=_('Dropbox folder where every submitted Daily report PDF is saved: a folder path in the company Dropbox (e.g. /Projects/TAB/Daily Reports) or a shared link to a folder of that account')
+    )
+
+    report_notify_emails = models.CharField(
+        max_length=500,
+        blank=True,
+        help_text=_('Extra e-mail addresses (comma separated) that get the notification when a Daily report is submitted, besides the project manager and the engineering manager')
+    )
+
     created_by = models.ForeignKey(
         CustomUser,
         on_delete=models.SET_NULL,
