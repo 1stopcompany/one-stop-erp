@@ -58,6 +58,11 @@ def resolve_folder(client, value):
     value = (value or '').strip()
     if not value.lower().startswith('http'):
         return '/' + value.strip('/')
+    # The address bar of Dropbox's own web page (https://www.dropbox.com/home/<folder path>) carries the path itself
+    from urllib.parse import unquote, urlparse
+    parsed = urlparse(value)
+    if parsed.netloc.lower().endswith('dropbox.com') and (parsed.path == '/home' or parsed.path.startswith('/home/')):
+        return '/' + unquote(parsed.path[len('/home'):]).strip('/')
     try:
         meta = client.sharing_get_shared_link_metadata(value)
     except Exception as error:
@@ -157,6 +162,19 @@ def deliver(report_id, dropbox_factory=None):
 
     report = DailyReport.all_objects.select_related('project', 'project__manager', 'site_engineer').get(pk=report_id)
     delivery = ReportDelivery.objects.create(report=report, filename=pdf_filename(report))
+    try:
+        return _run_delivery(report, delivery, dropbox_factory, generate_daily_report_pdf)
+    except Exception as error:   # whatever goes wrong, the row must not stay "in progress" for ever
+        logger.exception('Daily report delivery crashed for %s', report_id)
+        delivery.email_error = delivery.email_error or f'Delivery failed: {error}'
+        delivery.email_ok = False if delivery.email_ok is None else delivery.email_ok
+        delivery.finished = True
+        delivery.save()
+        return delivery
+
+
+def _run_delivery(report, delivery, dropbox_factory, generate_daily_report_pdf):
+    report_id = report.pk
     pdf, pdf_error = None, ''
     try:
         pdf = generate_daily_report_pdf(report)
@@ -202,6 +220,7 @@ def deliver(report_id, dropbox_factory=None):
         except Exception as error:
             logger.exception('Daily report photo copy failed for %s', report_id)
             delivery.photos_error = str(error)
+    delivery.finished = True
     delivery.save()
     return delivery
 
