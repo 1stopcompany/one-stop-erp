@@ -9,6 +9,7 @@
   </div>
   <div class="d-flex gap-2">
     <a href="{% url 'equipment:tool_list' %}" class="btn btn-outline-secondary">Register</a>
+    <a href="{% url 'equipment:tool_sheet_pdf' tool.pk %}" target="_blank" class="btn btn-primary"><i class="bi bi-printer"></i> Print record</a>
     {% if can_manage %}<a href="{% url 'equipment:tool_edit' tool.pk %}" class="btn btn-outline-primary">Edit</a>
     <a href="{% url 'equipment:labels_pdf' %}?ids={{ tool.pk }}" target="_blank" class="btn btn-outline-secondary"><i class="bi bi-qr-code"></i> Label</a>{% endif %}
   </div>

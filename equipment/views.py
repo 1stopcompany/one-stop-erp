@@ -292,6 +292,17 @@ def catalog_pdf(request):
     return response
 
 
+@login_required
+def tool_sheet_pdf(request, pk):
+    """Record sheet of one tool: details, current photo, its movement path with the handover photos, maintenance history."""
+    tool = get_object_or_404(Tool.objects.select_related('warehouse', 'project'), pk=pk)
+    from .tool_sheet_pdf import build_tool_sheet_pdf
+    pdf = build_tool_sheet_pdf(tool, request.build_absolute_uri(reverse('equipment:tool_by_code', args=[tool.code])))
+    response = HttpResponse(pdf, content_type='application/pdf')
+    response['Content-Disposition'] = f'inline; filename="{tool.code}-record.pdf"'
+    return response
+
+
 # ------------------------------------------------------------------ labels
 @login_required
 def labels_pdf(request):
