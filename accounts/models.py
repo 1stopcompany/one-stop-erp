@@ -16,12 +16,13 @@ class CustomUser(AbstractUser):
         ('procurement_officer', _('Procurement Officer')),
         ('accountant', _('Accountant')),
         ('storekeeper', _('Storekeeper')),
+        ('employee', _('Employee (attendance only)')),
     )
     
     role = models.CharField(
         max_length=20,
         choices=USER_ROLES,
-        default='site_engineer',
+        default='employee',
         help_text=_('User role in the system')
     )
     
@@ -97,6 +98,25 @@ class CustomUser(AbstractUser):
 
     def is_storekeeper(self):
         return self.role == 'storekeeper'
+
+    # Tabs of the mobile app each role sees (the app builds its tab bar from this list; the server separately refuses
+    # the API calls behind a tab the role does not have, so hiding a tab is never the only protection).
+    MOBILE_TABS = {
+        'employee': ['index', 'attendance', 'profile'],
+        'site_engineer': ['index', 'attendance', 'requests', 'workers', 'profile'],
+        'project_manager': ['index', 'attendance', 'requests', 'profile'],
+        'storekeeper': ['index', 'attendance', 'receiving', 'profile'],
+        'procurement_officer': ['index', 'attendance', 'receiving', 'profile'],
+        'accountant': ['index', 'attendance', 'requests', 'profile'],
+        'engineering_manager': ['index', 'attendance', 'requests', 'profile'],
+        'general_manager': ['index', 'attendance', 'requests', 'profile'],
+        'admin': ['index', 'attendance', 'requests', 'workers', 'receiving', 'profile'],
+    }
+
+    def mobile_tabs(self):
+        if self.is_admin():
+            return list(self.MOBILE_TABS['admin'])
+        return list(self.MOBILE_TABS.get(self.role, self.MOBILE_TABS['employee']))
 
 
 class UserAuditLog(models.Model):

@@ -56,6 +56,8 @@ class MyEmployeeView(APIView):
             "emergency_contact_name": emp.emergency_contact_name,
             "emergency_contact_relationship": emp.emergency_contact_relationship,
             "emergency_contact_phone": emp.emergency_contact_phone,
+            "role": request.user.role,
+            "tabs": request.user.mobile_tabs(),
         }, status=status.HTTP_200_OK)
 
 logger = logging.getLogger(__name__)

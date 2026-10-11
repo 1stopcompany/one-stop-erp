@@ -933,10 +933,33 @@ class POReceiptUpdateView(LoginRequiredMixin, UpdateView):
 
 
 # ==================== DRF API ====================
+class ProcurementAPIPermission(permissions.BasePermission):
+    """
+    Used by the mobile app and any token client. Reading is open to the staff who work with procurement and sites;
+    writing (create / edit / delete) only to procurement, store and management roles. An ordinary employee's token
+    can do neither.
+    """
+    READ_ROLES = {"admin", "general_manager", "engineering_manager", "project_manager", "site_engineer",
+                  "procurement_officer", "storekeeper", "accountant"}
+    WRITE_ROLES = {"admin", "general_manager", "engineering_manager", "procurement_officer"}
+    # roles allowed to add to specific viewsets, on top of WRITE_ROLES (e.g. the storekeeper records receipts)
+    extra_write_roles = frozenset()
+
+    def has_permission(self, request, view):
+        user = request.user
+        if not (user and user.is_authenticated):
+            return False
+        if user.is_admin():
+            return True
+        if request.method in permissions.SAFE_METHODS:
+            return user.role in self.READ_ROLES
+        return user.role in self.WRITE_ROLES or user.role in getattr(view, "extra_write_roles", self.extra_write_roles)
+
+
 class ItemViewSet(viewsets.ModelViewSet):
     queryset = ItemMaster.objects.all()
     serializer_class = ItemMasterSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [ProcurementAPIPermission]
     search_fields = ["barcode_value", "full_code", "short_code", "source_code", "description"]
 
     @action(detail=True, methods=["get"], url_path="pending-lines")
@@ -976,25 +999,26 @@ class ItemViewSet(viewsets.ModelViewSet):
 class VendorViewSet(viewsets.ModelViewSet):
     queryset = Vendor.objects.all()
     serializer_class = VendorSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [ProcurementAPIPermission]
 
 
 class PRViewSet(viewsets.ModelViewSet):
     queryset = PurchaseRequisition.objects.select_related("project").prefetch_related("lines").all()
     serializer_class = PRSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [ProcurementAPIPermission]
 
 
 class POViewSet(viewsets.ModelViewSet):
     queryset = PurchaseOrder.objects.select_related("project", "vendor", "pr").prefetch_related("lines").all()
     serializer_class = POSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [ProcurementAPIPermission]
 
 
 class ReceiptViewSet(viewsets.ModelViewSet):
     queryset = POReceipt.objects.select_related("po_line").all()
     serializer_class = ReceiptSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [ProcurementAPIPermission]
+    extra_write_roles = frozenset({"storekeeper"})   # the storekeeper records goods received
 
     def perform_create(self, serializer):
         serializer.save(received_by=self.request.user)
