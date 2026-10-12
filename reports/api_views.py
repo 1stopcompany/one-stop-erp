@@ -80,15 +80,27 @@ def add_daily_equipment(request, report_id):
             return JsonResponse({'success': False, 'message': 'Not allowed'}, status=403)
 
         data = request.POST
-        if not data.get('equipment_master'):
-            return JsonResponse({'success': False, 'message': 'Equipment (from the list) is required.'}, status=400)
+        if not (data.get('tool') or data.get('equipment_master')):
+            return JsonResponse({'success': False, 'message': 'Choose the equipment: a tool of this project, or one from the general list.'}, status=400)
         if not data.get('activity'):
             return JsonResponse({'success': False, 'message': 'The activity this equipment was used for is required.'}, status=400)
-        equipment_master = get_object_or_404(EquipmentMaster, pk=data.get('equipment_master'), is_active=True)
         activity = get_object_or_404(DailyReportActivityProgress, pk=data.get('activity'), report=report)
+        tool, equipment_master = None, None
+        if data.get('tool'):
+            from equipment.models import Tool
+            tool = get_object_or_404(Tool, pk=data.get('tool'))
+            if tool.project_id != report.project_id:
+                return JsonResponse({'success': False, 'message': f'{tool.code} is not at this project (it is at {tool.location_label}); only the tools handed over to the project can be used here.'}, status=400)
+            if tool.status == 'scrapped':
+                return JsonResponse({'success': False, 'message': f'{tool.code} is scrapped.'}, status=400)
+            if DailyEquipment.objects.filter(report=report, tool=tool).exists():
+                return JsonResponse({'success': False, 'message': f'{tool.code} is already on this report.'}, status=400)
+        else:
+            equipment_master = get_object_or_404(EquipmentMaster, pk=data.get('equipment_master'), is_active=True)
 
         equipment = DailyEquipment.objects.create(
             report=report,
+            tool=tool,
             equipment_master=equipment_master,
             activity=activity,
             hours_worked=float(data.get('hours_worked', 0)),

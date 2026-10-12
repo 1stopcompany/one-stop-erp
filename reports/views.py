@@ -378,6 +378,10 @@ class DailyReportDetailView(LoginRequiredMixin, DetailView):
         # activities (DailyReportActivityProgress, the BOQ-linked "Daily Works / Progress"
         # entries), and to a real equipment master record instead of a free-text name.
         context['equipment_master_list'] = EquipmentMaster.objects.filter(is_active=True).order_by('name')
+        # the tools of the equipment register that are at this report's project right now (handed over to it by the storekeeper)
+        from equipment.models import Tool
+        context['project_tools'] = Tool.objects.filter(project=report.project).exclude(status='scrapped').order_by('code')
+        context['tools_on_report'] = set(report.equipment.exclude(tool__isnull=True).values_list('tool_id', flat=True))
         context['equipment_categories'] = sorted({c for c in EquipmentMaster.objects.exclude(category='').values_list('category', flat=True)})
         context['activity_progress_entries'] = report.activity_progress_entries.all()
         # ReportAttachment isn't a direct FK on DailyReport (it supports

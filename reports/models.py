@@ -463,6 +463,15 @@ class DailyEquipment(models.Model):
         help_text=_('Chosen from the equipment list; required going forward, nullable only so historical rows recorded before this list existed still load')
     )
 
+    tool = models.ForeignKey(
+        'equipment.Tool',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='daily_usage',
+        help_text=_('The tool of the equipment register (EQ-0001 ...) used on this day; its code and name are copied into equipment_name')
+    )
+
     activity = models.ForeignKey(
         'DailyReportActivityProgress',
         on_delete=models.SET_NULL,
@@ -501,7 +510,9 @@ class DailyEquipment(models.Model):
         ]
 
     def save(self, *args, **kwargs):
-        if self.equipment_master_id:
+        if self.tool_id:
+            self.equipment_name = f'{self.tool.code} - {self.tool.name}' + (f' ({self.tool.manufacturer})' if self.tool.manufacturer else '')
+        elif self.equipment_master_id:
             self.equipment_name = self.equipment_master.name
         super().save(*args, **kwargs)
 

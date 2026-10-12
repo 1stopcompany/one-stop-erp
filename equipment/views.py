@@ -164,6 +164,8 @@ def tool_detail(request, pk):
         'tool': tool, 'pending': pending, 'open_job': tool.open_maintenance(),
         'history': tool.transfers.exclude(status__in=(ToolTransfer.CANCELLED,)).select_related('from_project', 'from_warehouse', 'to_project', 'to_warehouse', 'requested_by', 'approved_by', 'completed_by'),
         'jobs': tool.maintenance_jobs.all(),
+        'usage': tool.daily_usage.select_related('report', 'report__project', 'activity').order_by('-report__report_date')[:60],
+        'usage_hours': sum(u.hours_worked for u in tool.daily_usage.all()),
         'projects': _usable_projects(user), 'warehouses': Warehouse.objects.filter(is_active=True),
         'can_request': services.can_request(user) and tool.status != Tool.STATUS_SCRAPPED and not pending,
         'can_manage': services.can_manage_tools(user), 'can_approve': bool(pending) and services.can_approve(user, pending),

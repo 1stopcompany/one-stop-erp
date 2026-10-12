@@ -117,6 +117,11 @@
           <td><span class="badge {% if h.status == 'completed' %}bg-success{% elif h.status == 'rejected' %}bg-danger{% else %}bg-primary{% endif %}">{{ h.get_status_display }}</span></td></tr>
       {% empty %}<tr><td colspan="6" class="text-muted text-center">No movements.</td></tr>{% endfor %}</tbody></table></div></div>
 
+    <div class="card mb-3"><div class="card-header fw-bold d-flex justify-content-between">Used in daily reports <span class="text-muted fw-normal">{{ usage_hours }} hrs in total</span></div><div class="table-responsive"><table class="table table-sm mb-0">
+      <thead><tr><th>Date</th><th>Project</th><th>Activity</th><th>Hours</th><th>Report</th></tr></thead><tbody>
+      {% for u in usage %}<tr><td class="text-nowrap">{{ u.report.report_date|date:'d/m/Y' }}</td><td>{{ u.report.project.project_symbol }}</td><td>{{ u.activity.activity_description|default:'-' }}</td><td>{{ u.hours_worked }}</td><td><a href="{% url 'reports:daily_report_detail' u.report_id %}" class="text-decoration-none">{{ u.report.report_number|truncatechars:22 }}</a></td></tr>
+      {% empty %}<tr><td colspan="5" class="text-muted text-center">Not used in any daily report yet.</td></tr>{% endfor %}</tbody></table></div></div>
+
     <div class="card"><div class="card-header fw-bold">Maintenance history</div><div class="table-responsive"><table class="table table-sm mb-0">
       <thead><tr><th>Opened</th><th>Problem</th><th>Vendor / parts</th><th>Cost</th><th>Status</th></tr></thead><tbody>
       {% for j in jobs %}<tr><td class="text-nowrap">{{ j.opened_at|date:'d/m/Y' }}</td><td>{{ j.problem }}{% if j.result_note %}<div class="small text-muted">{{ j.result_note }}</div>{% endif %}</td><td>{{ j.vendor }} {{ j.parts }}</td><td>{{ j.cost|default_if_none:'' }}</td><td>{{ j.get_status_display }}{% if j.finished_date %}<div class="small text-muted">{{ j.finished_date|date:'d/m/Y' }}</div>{% endif %}</td></tr>

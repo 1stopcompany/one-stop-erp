@@ -451,7 +451,7 @@
                                     <tbody id="equipmentTable">
                                         {% for item in equipment %}
                                         <tr id="equipment-{{ item.id }}">
-                                            <td><strong>{{ item.equipment_name }}</strong></td>
+                                            <td><strong>{% if item.tool_id %}<a href="{% url 'equipment:tool_detail' item.tool_id %}" class="text-decoration-none">{{ item.equipment_name }}</a>{% else %}{{ item.equipment_name }}{% endif %}</strong></td>
                                             <td>{{ item.activity.activity_description|default:"—" }}</td>
                                             <td>{{ item.hours_worked }} hrs</td>
                                             <td>{{ item.quantity_idle }}</td>
@@ -863,10 +863,20 @@
                 {% csrf_token %}
                 <div class="modal-body">
                     <div class="mb-3">
-                        <label for="equipmentMaster" class="form-label">Equipment *</label>
+                        <label for="equipmentTool" class="form-label">Tool of this project (equipment register) *</label>
+                        <select class="form-select" id="equipmentTool" name="tool">
+                            <option value="" selected>— Choose a tool handed over to this project —</option>
+                            {% for tool in project_tools %}{% if tool.pk not in tools_on_report %}
+                            <option value="{{ tool.pk }}">{{ tool.code }} — {{ tool.name }}{% if tool.manufacturer %} ({{ tool.manufacturer }}){% endif %}{% if tool.status != 'working' and tool.status != 'new' %} — {{ tool.get_status_display }}{% endif %}</option>
+                            {% endif %}{% endfor %}
+                        </select>
+                        <div class="form-text">{% if project_tools %}These are the tools the storekeeper handed over to this project. Equipment that is not in the register can be chosen from the general list below.{% else %}No tool is registered at this project yet (the storekeeper hands tools over from <em>Equipment</em>). You can still choose equipment from the general list below.{% endif %}</div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="equipmentMaster" class="form-label">Or equipment from the general list</label>
                         <div class="input-group">
-                            <select class="form-select" id="equipmentMaster" name="equipment_master" required>
-                                <option value="" disabled selected>— Select equipment —</option>
+                            <select class="form-select" id="equipmentMaster" name="equipment_master">
+                                <option value="" selected>— Select equipment —</option>
                                 {% for eq in equipment_master_list %}
                                 <option value="{{ eq.id }}">{{ eq.name }}</option>
                                 {% endfor %}
@@ -1954,22 +1964,34 @@ function showAlert(message, type = 'success') {
     setTimeout(() => alertDiv.remove(), 5000);
 }
 
-// Add Equipment
+// Add Equipment: a register tool OR an item of the general list, never both
+(function () {
+    const toolSelect = document.getElementById('equipmentTool'), masterSelect = document.getElementById('equipmentMaster');
+    if (!toolSelect || !masterSelect) return;
+    toolSelect.addEventListener('change', () => { if (toolSelect.value) masterSelect.value = ''; });
+    masterSelect.addEventListener('change', () => { if (masterSelect.value) toolSelect.value = ''; });
+})();
 document.getElementById('equipmentForm').addEventListener('submit', async (e) => {
     e.preventDefault();
     const formData = new FormData(e.target);
-    
+    if (!formData.get('tool') && !formData.get('equipment_master')) {
+        showAlert('Choose a tool of this project, or an item from the general list.', 'danger');
+        return;
+    }
+
     try {
         const response = await fetch(`/reports/api/daily/${reportId}/equipment/`, {
             method: 'POST',
             headers: {'X-CSRFToken': csrfToken},
             body: formData
         });
-        
+
         if (response.ok) {
             location.reload();
         } else {
-            showAlert('Error adding equipment', 'danger');
+            let message = 'Error adding equipment';
+            try { message = (await response.json()).message || message; } catch (err) { /* not JSON */ }
+            showAlert(message, 'danger');
         }
     } catch (error) {
         showAlert('Error: ' + error.message, 'danger');
