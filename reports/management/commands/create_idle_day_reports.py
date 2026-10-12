@@ -26,7 +26,8 @@ class Command(BaseCommand):
         parser.add_argument('--dry-run', action='store_true', help='Only show what would be created')
 
     def handle(self, *args, **options):
-        projects = readiness.ready_projects().filter(site_engineer__isnull=False)
+        from django.db.models import Q
+        projects = readiness.ready_projects().filter(Q(site_engineer__isnull=False) | Q(manager__isnull=False))
         if options['project']:
             projects = projects.filter(project_symbol=options['project'])
         start = datetime.date.fromisoformat(options['start']) if options['start'] else None

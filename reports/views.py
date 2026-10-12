@@ -487,6 +487,20 @@ def _redirect_if_requested_project_unusable(request, assigned_queryset):
     return None
 
 
+def daily_report_projects(user):
+    """
+    The projects this user may write a daily report for: an administrator any project; a site engineer the projects he is assigned to; a
+    project manager his own projects that have NO site engineer (so the missing engineer never stops the reports -- the manager writes them).
+    """
+    if user.is_admin():
+        return Project.objects.all()
+    if user.is_site_engineer():
+        return Project.objects.filter(site_engineer=user)
+    if user.is_project_manager():
+        return Project.objects.filter(manager=user, site_engineer__isnull=True)
+    return Project.objects.none()
+
+
 class DailyReportCreateView(LoginRequiredMixin, CreateView):
     """Create a new daily report"""
     model = DailyReport
@@ -494,13 +508,13 @@ class DailyReportCreateView(LoginRequiredMixin, CreateView):
     template_name = 'reports/daily_report_form.html'
 
     def dispatch(self, request, *args, **kwargs):
-        if not (request.user.is_site_engineer() or request.user.is_admin()):
-            messages.error(request, 'Only site engineers can create daily reports.')
+        if not (request.user.is_site_engineer() or request.user.is_admin() or request.user.is_project_manager()):
+            messages.error(request, 'Only site engineers (or the project manager of a project without one) can create daily reports.')
             return redirect('dashboard')
         return super().dispatch(request, *args, **kwargs)
 
     def get(self, request, *args, **kwargs):
-        redirected = _redirect_if_requested_project_unusable(request, Project.objects.filter(site_engineer=request.user))
+        redirected = _redirect_if_requested_project_unusable(request, daily_report_projects(request.user))
         if redirected:
             return redirected
         return super().get(request, *args, **kwargs)
@@ -511,7 +525,7 @@ class DailyReportCreateView(LoginRequiredMixin, CreateView):
         # form's own project field so a submitted project_id for a
         # project this engineer isn't assigned to is rejected server-side.
         if not self.request.user.is_admin():
-            form.fields['project'].queryset = Project.objects.filter(site_engineer=self.request.user)
+            form.fields['project'].queryset = daily_report_projects(self.request.user)
         form.fields['project'].queryset = form.fields['project'].queryset.filter(pk__in=readiness.ready_projects().values('pk'))
         return form
 
@@ -1652,7 +1666,8 @@ def create_idle_day_reports_view(request):
     from .services.idle_days import create_idle_reports
 
     user = request.user
-    projects = Project.objects.filter(site_engineer__isnull=False)
+    from django.db.models import Q as _Q
+    projects = Project.objects.filter(_Q(site_engineer__isnull=False) | _Q(manager__isnull=False))   # a project without an engineer is covered by its manager
     if user.is_admin():
         pass
     elif user.is_site_engineer():

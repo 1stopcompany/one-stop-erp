@@ -31,7 +31,8 @@ def create_idle_reports(project, start=None, end=None, days=14, dry_run=False):
     """Creates the missing Friday / holiday idle-day drafts. Returns the list of (date, reason) created (or that would be)."""
     end = end or date.today()
     start = start or (end - timedelta(days=days - 1))
-    if not project.site_engineer_id:
+    author = project.site_engineer or project.manager   # no site engineer: the project manager is the author
+    if not author:
         return []
     todo = missing_idle_days(project, start, end)
     if dry_run:
@@ -39,7 +40,7 @@ def create_idle_reports(project, start=None, end=None, days=14, dry_run=False):
     created = []
     for day, reason, holiday_name in todo:
         DailyReport.objects.create(
-            project=project, site_engineer=project.site_engineer, report_date=day, status='draft', weather_conditions='',
+            project=project, site_engineer=author, report_date=day, status='draft', weather_conditions='',
             site_status='idle', idle_reason=reason,
             remarks=('Created automatically: ' + (f'public holiday - {holiday_name}' if reason == 'public_holiday' else 'weekly rest day (Friday)')),
         )
