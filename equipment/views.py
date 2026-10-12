@@ -45,7 +45,8 @@ def equipment_dashboard(request):
     waiting_approval = ToolTransfer.objects.filter(status=ToolTransfer.REQUESTED).select_related('tool', 'to_project', 'to_warehouse', 'from_project', 'from_warehouse', 'requested_by')
     waiting_handover = ToolTransfer.objects.filter(status=ToolTransfer.APPROVED).select_related('tool', 'to_project', 'to_warehouse', 'from_project', 'from_warehouse', 'requested_by')
     context = {
-        'tool_count': Tool.objects.exclude(status=Tool.STATUS_SCRAPPED).count(),
+        'tool_count': Tool.objects.exclude(status=Tool.STATUS_SCRAPPED).filter(kind=Tool.KIND_TOOL).count(),
+        'heavy_count': Tool.objects.exclude(status=Tool.STATUS_SCRAPPED).filter(kind=Tool.KIND_HEAVY).count(),
         'by_status': {row['status']: row['n'] for row in Tool.objects.values('status').annotate(n=Count('id'))},
         'by_place': (Tool.objects.exclude(status=Tool.STATUS_SCRAPPED).values('project__project_symbol', 'warehouse__name').annotate(n=Count('id')).order_by('-n')),
         'waiting_approval': [t for t in waiting_approval if services.can_approve(user, t)],
@@ -65,6 +66,9 @@ def _filtered_tools(request):
     q = request.GET.get('q', '').strip()
     status = request.GET.get('status', '')
     place = request.GET.get('place', '')
+    kind = request.GET.get('kind', '')
+    if kind in dict(Tool.KIND_CHOICES):
+        tools = tools.filter(kind=kind)
     if q:
         tools = tools.filter(Q(code__icontains=q) | Q(name__icontains=q) | Q(manufacturer__icontains=q) | Q(serial_no__icontains=q) | Q(category__icontains=q))
     if status:
@@ -82,7 +86,7 @@ def _filtered_tools(request):
 def tool_list(request):
     tools, q, status, place = _filtered_tools(request)
     return render(request, 'equipment/tool_list.html', {
-        'tools': tools, 'q': q, 'status': status, 'place': place, 'statuses': Tool.STATUS_CHOICES,
+        'tools': tools, 'q': q, 'status': status, 'place': place, 'statuses': Tool.STATUS_CHOICES, 'kind': request.GET.get('kind', ''), 'kinds': Tool.KIND_CHOICES,
         'places': [(f'w{w.pk}', w.name) for w in Warehouse.objects.filter(is_active=True)]
                   + [(f'p{p.pk}', f'Project {p.project_symbol}') for p in Project.objects.filter(tools__isnull=False).distinct().order_by('project_symbol')],
         'can_manage': services.can_manage_tools(request.user),
@@ -97,6 +101,19 @@ def _tool_from_post(request, tool=None):
         raise ValidationError('The tool name is required.')
     tool.category, tool.manufacturer = post.get('category', '').strip(), post.get('manufacturer', '').strip()
     tool.model_no, tool.serial_no = post.get('model_no', '').strip(), post.get('serial_no', '').strip()
+    if post.get('kind') in dict(Tool.KIND_CHOICES) and not tool.pk:
+        tool.kind = post['kind']   # the kind is fixed when the record is created
+    if tool.kind == Tool.KIND_HEAVY:
+        tool.plate_no, tool.operator = post.get('plate_no', '').strip(), post.get('operator', '').strip()
+        tool.ownership = post.get('ownership') if post.get('ownership') in dict(Tool.OWNERSHIP_CHOICES) else Tool.OWNED
+        from procurement.models import Vendor
+        tool.rental_vendor = Vendor.objects.filter(pk=post.get('rental_vendor')).first() if tool.ownership == Tool.RENTED and post.get('rental_vendor') else None
+        tool.rental_rate_unit = post.get('rental_rate_unit') if post.get('rental_rate_unit') in dict(Tool.RATE_UNIT_CHOICES) else 'day'
+        try:
+            tool.rental_rate = Decimal(post['rental_rate']) if post.get('rental_rate') and tool.ownership == Tool.RENTED else None
+            tool.hour_meter = Decimal(post['hour_meter']) if post.get('hour_meter') else Decimal('0')
+        except InvalidOperation:
+            raise ValidationError('The rental rate / hour meter is not a number.')
     tool.notes = post.get('notes', '').strip()
     tool.purchase_date = post.get('purchase_date') or None
     try:
@@ -110,7 +127,8 @@ def _tool_from_post(request, tool=None):
     return tool
 
 
-FORM_FIELDS = ('name', 'category', 'manufacturer', 'model_no', 'serial_no', 'purchase_date', 'purchase_cost', 'status', 'notes')
+FORM_FIELDS = ('name', 'category', 'manufacturer', 'model_no', 'serial_no', 'purchase_date', 'purchase_cost', 'status', 'notes', 'kind', 'plate_no',
+               'operator', 'ownership', 'rental_vendor', 'rental_rate', 'rental_rate_unit', 'hour_meter')
 
 
 def _form_values(request, tool):
@@ -119,7 +137,16 @@ def _form_values(request, tool):
         return {name: request.POST.get(name, '') for name in FORM_FIELDS}
     values = {name: ('' if getattr(tool, name, None) is None else getattr(tool, name)) for name in FORM_FIELDS} if tool else {name: '' for name in FORM_FIELDS}
     values['status'] = values['status'] or Tool.STATUS_WORKING
+    values['kind'] = values['kind'] or Tool.KIND_TOOL
+    values['ownership'] = values['ownership'] or Tool.OWNED
+    values['rental_rate_unit'] = values['rental_rate_unit'] or 'day'
+    values['rental_vendor'] = request.POST.get('rental_vendor', '') if request.method == 'POST' else (tool.rental_vendor_id or '' if tool else '')
     return values
+
+
+def _vendors():
+    from procurement.models import Vendor
+    return Vendor.objects.filter(is_active=True).order_by('name')
 
 
 @login_required
@@ -130,14 +157,23 @@ def tool_add(request):
     if request.method == 'POST':
         try:
             tool = _tool_from_post(request)
-            warehouse = get_object_or_404(Warehouse, pk=request.POST.get('warehouse'), is_active=True)
+            location = request.POST.get('location') or f"w{request.POST.get('warehouse', '')}"
+            warehouse = project = None
+            if location.startswith('p'):
+                project = get_object_or_404(Project, pk=location[1:])
+            else:
+                warehouse = get_object_or_404(Warehouse, pk=location[1:], is_active=True)
+            if project and tool.kind != Tool.KIND_HEAVY:
+                raise ValidationError('A tool is received into a warehouse first; only heavy equipment can be registered straight on a project.')
             tool.save()
-            services.receive_into_warehouse(tool, warehouse, request.user, note=request.POST.get('receive_note', '').strip())
-            messages.success(request, f'{tool.code} was added and received into {warehouse.name}.')
+            services.receive_at(tool, request.user, warehouse=warehouse, project=project, note=request.POST.get('receive_note', '').strip())
+            messages.success(request, f'{tool.code} was added and received {"into " + warehouse.name if warehouse else "on project " + project.project_symbol}.')
             return redirect('equipment:tool_detail', pk=tool.pk)
         except ValidationError as error:
             messages.error(request, _error_text(error))
-    return render(request, 'equipment/tool_form.html', {'tool': None, 'warehouses': warehouses, 'statuses': Tool.STATUS_CHOICES, 'f': _form_values(request, None)})
+    return render(request, 'equipment/tool_form.html', {'tool': None, 'warehouses': warehouses, 'statuses': Tool.STATUS_CHOICES, 'f': _form_values(request, None),
+                                                         'projects': Project.objects.exclude(status__in=('completed', 'archived')).order_by('project_symbol'), 'kinds': Tool.KIND_CHOICES,
+                                                         'ownerships': Tool.OWNERSHIP_CHOICES, 'rate_units': Tool.RATE_UNIT_CHOICES, 'vendors': _vendors()})
 
 
 @login_required
@@ -152,7 +188,8 @@ def tool_edit(request, pk):
             return redirect('equipment:tool_detail', pk=tool.pk)
         except ValidationError as error:
             messages.error(request, _error_text(error))
-    return render(request, 'equipment/tool_form.html', {'tool': tool, 'statuses': Tool.STATUS_CHOICES, 'f': _form_values(request, tool)})
+    return render(request, 'equipment/tool_form.html', {'tool': tool, 'statuses': Tool.STATUS_CHOICES, 'f': _form_values(request, tool), 'kinds': Tool.KIND_CHOICES,
+                                                         'ownerships': Tool.OWNERSHIP_CHOICES, 'rate_units': Tool.RATE_UNIT_CHOICES, 'vendors': _vendors()})
 
 
 @login_required

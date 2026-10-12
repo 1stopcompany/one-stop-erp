@@ -55,7 +55,7 @@ def build_labels_pdf(tools, url_for_tool):
         name = _t(tool.name)
         c.setFont(MR_FONT_NAME, _fit(c, name, MR_FONT_NAME, 10, text_w))
         c.drawRightString(text_x + text_w, y + LABEL_H - 17 * mm, name)
-        maker = ' '.join(filter(None, [tool.manufacturer, tool.serial_no]))
+        maker = ' '.join(filter(None, [tool.manufacturer, tool.plate_no if tool.is_heavy else tool.serial_no]))
         if maker:
             c.setFont(MR_FONT_NAME, _fit(c, maker, MR_FONT_NAME, 8, text_w))
             c.drawString(text_x, y + LABEL_H - 22 * mm, maker)

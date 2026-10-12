@@ -69,15 +69,28 @@ def check_photo(photo):
 
 # ------------------------------------------------------------------ opening entry
 @transaction.atomic
-def receive_into_warehouse(tool, warehouse, user, note='', when=None):  # tool.photo (if any) is also kept on the receipt record
-    """First entry of a tool into a warehouse; leaves a completed 'opening' record in its history."""
+def receive_at(tool, user, warehouse=None, project=None, note='', when=None):
+    """
+    First entry of a tool into a warehouse -- or, for heavy equipment only, straight onto a project (it never passes through a store);
+    leaves a completed 'opening' record in its history (tool.photo, if any, is kept on it too).
+    """
+    if bool(warehouse) == bool(project):
+        raise ValidationError('Choose either a warehouse or a project.')
+    if project and tool.kind != Tool.KIND_HEAVY:
+        raise ValidationError('A tool is received into a warehouse first; only heavy equipment can be registered straight on a project.')
     when = when or timezone.now()
-    tool.warehouse, tool.project = warehouse, None
+    tool.warehouse, tool.project = warehouse, project
     tool.save()
     ToolTransfer.objects.create(
-        tool=tool, kind=ToolTransfer.KIND_OPENING, status=ToolTransfer.COMPLETED, to_warehouse=warehouse, note=note, photo=tool.photo.name if tool.photo else None,
-        requested_by=user, requested_at=when, approved_by=user, approved_at=when, completed_by=user, completed_at=when)
-    _audit(user, tool, f'received into {warehouse.name}')
+        tool=tool, kind=ToolTransfer.KIND_OPENING, status=ToolTransfer.COMPLETED, to_warehouse=warehouse, to_project=project, note=note,
+        photo=tool.photo.name if tool.photo else None, requested_by=user, requested_at=when, approved_by=user, approved_at=when,
+        completed_by=user, completed_at=when)
+    _audit(user, tool, f'received into {warehouse.name if warehouse else "project " + project.project_symbol}')
+
+
+def receive_into_warehouse(tool, warehouse, user, note='', when=None):
+    """First entry of a tool into a warehouse (see receive_at)."""
+    return receive_at(tool, user, warehouse=warehouse, note=note, when=when)
 
 
 # ------------------------------------------------------------------ request -> approve -> complete

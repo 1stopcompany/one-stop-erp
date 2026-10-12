@@ -5,7 +5,11 @@
   {% if not tool %}<p class="text-muted">A new tool is received into a warehouse first and gets its code automatically (EQ-0001 ...). Add each physical unit separately.</p>{% endif %}</div>
 <form method="post" enctype="multipart/form-data" class="card card-body" style="max-width: 760px;">{% csrf_token %}
   <div class="row g-3">
-    <div class="col-md-8"><label class="form-label">Tool name *</label><input name="name" class="form-control" required value="{{ f.name }}"></div>
+    {% if not tool %}
+    <div class="col-12"><label class="form-label">Type *</label>
+      <div class="btn-group w-100" role="group">{% for value, label in kinds %}<input type="radio" class="btn-check" name="kind" id="kind_{{ value }}" value="{{ value }}" {% if f.kind == value %}checked{% endif %}><label class="btn btn-outline-primary" for="kind_{{ value }}">{{ label }}{% if value == 'heavy' %} (HV-){% else %} (EQ-){% endif %}</label>{% endfor %}</div></div>
+    {% endif %}
+    <div class="col-md-8"><label class="form-label">Name *</label><input name="name" class="form-control" required value="{{ f.name }}"></div>
     <div class="col-md-4"><label class="form-label">Category</label><input name="category" class="form-control" value="{{ f.category }}" placeholder="Grinder, Drill, Ladder..."></div>
     <div class="col-md-4"><label class="form-label">Manufacturer</label><input name="manufacturer" class="form-control" value="{{ f.manufacturer }}"></div>
     <div class="col-md-4"><label class="form-label">Model</label><input name="model_no" class="form-control" value="{{ f.model_no }}"></div>
@@ -13,13 +17,47 @@
     <div class="col-md-4"><label class="form-label">Purchase date</label><input type="date" name="purchase_date" class="form-control" value="{{ f.purchase_date }}"></div>
     <div class="col-md-4"><label class="form-label">Purchase cost</label><input name="purchase_cost" class="form-control" value="{{ f.purchase_cost }}"></div>
     <div class="col-md-4"><label class="form-label">Condition</label><select name="status" class="form-select">{% for value, label in statuses %}<option value="{{ value }}" {% if value == f.status %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></div>
+    <div class="col-12 heavy-only" style="display:none"><hr class="my-1"><div class="fw-bold">Heavy equipment</div></div>
+    <div class="col-md-4 heavy-only" style="display:none"><label class="form-label">Plate number</label><input name="plate_no" class="form-control" value="{{ f.plate_no }}"></div>
+    <div class="col-md-4 heavy-only" style="display:none"><label class="form-label">Usual operator / driver</label><input name="operator" class="form-control" value="{{ f.operator }}"></div>
+    <div class="col-md-4 heavy-only" style="display:none"><label class="form-label">Hour meter (hours so far)</label><input name="hour_meter" class="form-control" inputmode="decimal" value="{{ f.hour_meter }}"></div>
+    <div class="col-md-3 heavy-only" style="display:none"><label class="form-label">Ownership</label><select name="ownership" id="ownershipSelect" class="form-select">{% for value, label in ownerships %}<option value="{{ value }}" {% if f.ownership == value %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></div>
+    <div class="col-md-3 heavy-only rented-only" style="display:none"><label class="form-label">Rented from (vendor)</label><select name="rental_vendor" class="form-select"><option value="">— choose —</option>{% for v in vendors %}<option value="{{ v.pk }}" {% if f.rental_vendor|stringformat:'s' == v.pk|stringformat:'s' %}selected{% endif %}>{{ v.name }}</option>{% endfor %}</select></div>
+    <div class="col-md-3 heavy-only rented-only" style="display:none"><label class="form-label">Rental rate</label><input name="rental_rate" class="form-control" inputmode="decimal" value="{{ f.rental_rate }}"></div>
+    <div class="col-md-3 heavy-only rented-only" style="display:none"><label class="form-label">Rate is</label><select name="rental_rate_unit" class="form-select">{% for value, label in rate_units %}<option value="{{ value }}" {% if f.rental_rate_unit == value %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></div>
     {% if not tool %}
-    <div class="col-md-6"><label class="form-label">Receive into warehouse *</label><select name="warehouse" class="form-select" required>{% for w in warehouses %}<option value="{{ w.pk }}" {% if w.name == 'Main Warehouse' %}selected{% endif %}>{{ w.name }}</option>{% endfor %}</select></div>
-    <div class="col-md-6"><label class="form-label">Receiving note</label><input name="receive_note" class="form-control" placeholder="e.g. supplier / invoice"></div>
+    <div class="col-md-6"><label class="form-label" id="locationLabel">Receive into warehouse *</label><select name="location" id="locationSelect" class="form-select" required>
+      <optgroup label="Warehouses">{% for w in warehouses %}<option value="w{{ w.pk }}" {% if w.name == 'Main Warehouse' %}selected{% endif %}>{{ w.name }}</option>{% endfor %}</optgroup>
+      <optgroup label="Projects (heavy equipment only)" class="heavy-only" id="projectGroup" style="display:none">{% for p in projects %}<option value="p{{ p.pk }}">{{ p.project_symbol }} — {{ p.name }}</option>{% endfor %}</optgroup></select></div>
+    <div class="col-md-6"><label class="form-label">Receiving note</label><input name="receive_note" class="form-control" placeholder="e.g. supplier / invoice / rental contract"></div>
     {% endif %}
     <div class="col-md-6"><label class="form-label">Photo</label><input type="file" name="photo" accept="image/*" class="form-control"></div>
     <div class="col-12"><label class="form-label">Notes</label><textarea name="notes" rows="2" class="form-control">{{ f.notes }}</textarea></div>
   </div>
   <div class="mt-3 d-flex gap-2"><button class="btn btn-primary">Save</button><a class="btn btn-outline-secondary" href="{% if tool %}{% url 'equipment:tool_detail' tool.pk %}{% else %}{% url 'equipment:tool_list' %}{% endif %}">Cancel</a></div>
 </form>
+{% endblock %}
+{% block extra_js %}
+<script>
+(function () {
+    function isHeavy() {
+        var checked = document.querySelector('input[name="kind"]:checked');
+        return checked ? checked.value === 'heavy' : {{ tool.is_heavy|yesno:"true,false" }};
+    }
+    function sync() {
+        var heavy = isHeavy(), rented = (document.getElementById('ownershipSelect') || {}).value === 'rented';
+        document.querySelectorAll('.heavy-only').forEach(function (el) { el.style.display = heavy ? '' : 'none'; });
+        document.querySelectorAll('.rented-only').forEach(function (el) { if (heavy) el.style.display = rented ? '' : 'none'; });
+        var group = document.getElementById('projectGroup');
+        if (group) { Array.prototype.forEach.call(group.querySelectorAll('option'), function (o) { o.disabled = !heavy; }); }
+        var select = document.getElementById('locationSelect');
+        if (select && !heavy && select.value.charAt(0) === 'p') { select.selectedIndex = 0; }
+        var label = document.getElementById('locationLabel');
+        if (label) label.textContent = heavy ? 'Where is it now? *' : 'Receive into warehouse *';
+    }
+    document.querySelectorAll('input[name="kind"]').forEach(function (r) { r.addEventListener('change', sync); });
+    var own = document.getElementById('ownershipSelect'); if (own) own.addEventListener('change', sync);
+    sync();
+})();
+</script>
 {% endblock %}

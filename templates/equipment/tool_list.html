@@ -5,14 +5,15 @@
   <h1 class="h3 mb-0"><i class="bi bi-list-ul"></i> Tools register <span class="text-muted fs-6">({{ tools|length }})</span></h1>
   <div class="d-flex gap-2">
     <a href="{% url 'equipment:dashboard' %}" class="btn btn-outline-secondary">Overview</a>
-    <a href="{% url 'equipment:catalog_pdf' %}?q={{ q|urlencode }}&status={{ status }}&place={{ place }}" target="_blank" class="btn btn-primary"><i class="bi bi-printer"></i> Print catalogue</a>
+    <a href="{% url 'equipment:catalog_pdf' %}?q={{ q|urlencode }}&status={{ status }}&place={{ place }}&kind={{ kind }}" target="_blank" class="btn btn-primary"><i class="bi bi-printer"></i> Print catalogue</a>
     {% if can_manage %}<a href="{% url 'equipment:tool_add' %}" class="btn btn-success"><i class="bi bi-plus-circle"></i> Add tool</a>{% endif %}
   </div>
 </div>
 
 <form method="get" class="row g-2 mb-3">
-  <div class="col-md-4"><input name="q" value="{{ q }}" class="form-control" placeholder="Search code, name, maker, serial..."></div>
-  <div class="col-md-3"><select name="status" class="form-select"><option value="">All (except scrapped)</option>{% for value, label in statuses %}<option value="{{ value }}" {% if status == value %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></div>
+  <div class="col-md-2"><select name="kind" class="form-select"><option value="">Tools &amp; heavy</option>{% for value, label in kinds %}<option value="{{ value }}" {% if kind == value %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></div>
+  <div class="col-md-3"><input name="q" value="{{ q }}" class="form-control" placeholder="Search code, name, plate, maker..."></div>
+  <div class="col-md-2"><select name="status" class="form-select"><option value="">All (except scrapped)</option>{% for value, label in statuses %}<option value="{{ value }}" {% if status == value %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></div>
   <div class="col-md-3"><select name="place" class="form-select"><option value="">Anywhere</option>
     {% for value, label in places %}<option value="{{ value }}" {% if place == value %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></div>
   <div class="col-md-2 d-flex gap-1"><button class="btn btn-primary flex-grow-1">Filter</button>

@@ -18,6 +18,7 @@ from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 
 CODE_PREFIX = 'EQ-'
+CODE_PREFIXES = {'tool': 'EQ-', 'heavy': 'HV-'}   # tools EQ-0001..., heavy equipment HV-0001...
 
 
 class Tool(models.Model):
@@ -37,6 +38,24 @@ class Tool(models.Model):
     )
     # statuses in which the tool can be handed to a project
     AVAILABLE_STATUSES = (STATUS_NEW, STATUS_WORKING)
+
+    KIND_TOOL = 'tool'
+    KIND_HEAVY = 'heavy'
+    KIND_CHOICES = ((KIND_TOOL, _('Tool')), (KIND_HEAVY, _('Heavy equipment')))
+    OWNED = 'owned'
+    RENTED = 'rented'
+    OWNERSHIP_CHOICES = ((OWNED, _('Owned by the company')), (RENTED, _('Rented')))
+    RATE_UNIT_CHOICES = (('hour', _('per hour')), ('day', _('per day')), ('month', _('per month')))
+
+    kind = models.CharField(max_length=10, choices=KIND_CHOICES, default=KIND_TOOL, db_index=True)
+    # heavy equipment (excavator, loader, truck, crane ...)
+    plate_no = models.CharField(max_length=60, blank=True, help_text=_('Plate number (heavy equipment)'))
+    operator = models.CharField(max_length=100, blank=True, help_text=_('Usual operator / driver'))
+    ownership = models.CharField(max_length=10, choices=OWNERSHIP_CHOICES, default=OWNED)
+    rental_vendor = models.ForeignKey('procurement.Vendor', on_delete=models.SET_NULL, null=True, blank=True, related_name='rented_equipment', help_text=_('Who it is rented from (the vendor the monthly claim is paid to)'))
+    rental_rate = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
+    rental_rate_unit = models.CharField(max_length=10, choices=RATE_UNIT_CHOICES, default='day')
+    hour_meter = models.DecimalField(max_digits=10, decimal_places=1, default=0, help_text=_('Hour-meter reading (hours worked so far)'))
 
     code = models.CharField(max_length=20, unique=True, blank=True, editable=False, help_text=_('Printed on the tool label, e.g. EQ-0001 (assigned automatically)'))
     name = models.CharField(max_length=150, help_text=_('Tool name'))
@@ -64,20 +83,25 @@ class Tool(models.Model):
 
     # ---------------------------------------------------------------- code
     @classmethod
-    def next_code(cls):
-        last = cls.objects.order_by('-id').values_list('code', flat=True).first()
+    def next_code(cls, kind='tool'):
+        """The next free code of this kind: EQ-0001... for tools, HV-0001... for heavy equipment (each kind counts on its own)."""
+        prefix = CODE_PREFIXES.get(kind, CODE_PREFIX)
         number = 0
-        if last and last.startswith(CODE_PREFIX):
+        for code in cls.objects.filter(code__startswith=prefix).values_list('code', flat=True):
             try:
-                number = int(last[len(CODE_PREFIX):])
+                number = max(number, int(code[len(prefix):]))
             except ValueError:
-                number = cls.objects.count()
-        return f'{CODE_PREFIX}{number + 1:04d}'
+                continue
+        return f'{prefix}{number + 1:04d}'
+
+    @property
+    def is_heavy(self):
+        return self.kind == self.KIND_HEAVY
 
     def save(self, *args, **kwargs):
         if not self.code:
             with transaction.atomic():
-                self.code = self.next_code()
+                self.code = self.next_code(self.kind)
                 return super().save(*args, **kwargs)
         return super().save(*args, **kwargs)
 

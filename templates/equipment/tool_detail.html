@@ -32,7 +32,14 @@
       {% endif %}
     </div>
     <div class="card mb-3"><div class="card-header fw-bold">Details</div><table class="table table-sm mb-0">
-      <tr><th class="w-50">Category</th><td>{{ tool.category|default:'-' }}</td></tr>
+      <tr><th class="w-50">Type</th><td>{{ tool.get_kind_display }}</td></tr>
+      {% if tool.is_heavy %}
+      <tr><th>Plate number</th><td>{{ tool.plate_no|default:'-' }}</td></tr>
+      <tr><th>Operator</th><td>{{ tool.operator|default:'-' }}</td></tr>
+      <tr><th>Hour meter</th><td>{{ tool.hour_meter }} hrs</td></tr>
+      <tr><th>Ownership</th><td>{{ tool.get_ownership_display }}{% if tool.ownership == 'rented' %}<div class="small text-muted">{{ tool.rental_vendor.name|default:'-' }}{% if tool.rental_rate %} &middot; {{ tool.rental_rate }} {{ tool.get_rental_rate_unit_display }}{% endif %}</div>{% endif %}</td></tr>
+      {% endif %}
+      <tr><th>Category</th><td>{{ tool.category|default:'-' }}</td></tr>
       <tr><th>Manufacturer</th><td>{{ tool.manufacturer|default:'-' }}</td></tr>
       <tr><th>Model / serial</th><td>{{ tool.model_no|default:'-' }} / {{ tool.serial_no|default:'-' }}</td></tr>
       <tr><th>Purchased</th><td>{{ tool.purchase_date|default:'-' }}{% if tool.purchase_cost %} &middot; {{ tool.purchase_cost }}{% endif %}</td></tr>
