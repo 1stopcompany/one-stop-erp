@@ -38,6 +38,13 @@ def _usable_projects(user):
     return projects
 
 
+def _claims_waiting(user):
+    """How many rental claims of the user's projects still wait for the engineer's review."""
+    from .views_claims import _visible
+    from .models import EquipmentClaim
+    return _visible(user).filter(status=EquipmentClaim.POSTED, reviewed_at__isnull=True).count()
+
+
 # ------------------------------------------------------------------ dashboard
 @login_required
 def equipment_dashboard(request):
@@ -45,6 +52,7 @@ def equipment_dashboard(request):
     waiting_approval = ToolTransfer.objects.filter(status=ToolTransfer.REQUESTED).select_related('tool', 'to_project', 'to_warehouse', 'from_project', 'from_warehouse', 'requested_by')
     waiting_handover = ToolTransfer.objects.filter(status=ToolTransfer.APPROVED).select_related('tool', 'to_project', 'to_warehouse', 'from_project', 'from_warehouse', 'requested_by')
     context = {
+        'claims_waiting': _claims_waiting(user),
         'tool_count': Tool.objects.exclude(status=Tool.STATUS_SCRAPPED).filter(kind=Tool.KIND_TOOL).count(),
         'heavy_count': Tool.objects.exclude(status=Tool.STATUS_SCRAPPED).filter(kind=Tool.KIND_HEAVY).count(),
         'by_status': {row['status']: row['n'] for row in Tool.objects.values('status').annotate(n=Count('id'))},

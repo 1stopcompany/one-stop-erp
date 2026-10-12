@@ -410,6 +410,15 @@ python manage.py send_reminders                # reports app (email reminder sys
   (`ToolTransfer` kind `opening`), then handed over by request -> manager approval -> storekeeper completion (a photo is required and becomes the
   tool's current photo; a return records good / needs maintenance / scrap), `ToolMaintenance` jobs, QR label sheet, catalogue PDF and a per-tool
   record PDF whose history is drawn as a path; `import_tools_inventory` loads the signed inventory sheet. The `storekeeper` role approves nothing.
+  **Heavy equipment** is the same register with `Tool.kind='heavy'` (code `HV-0001`): plate number, operator, hour meter, owned or rented (vendor =
+  a real `procurement.Vendor`, rate per hour/day/month), registered straight on a project and moved project-to-project through the same request ->
+  approval -> handover flow. A daily report's equipment row (`DailyEquipment.tool`) is chosen from the tools handed over to that report's project
+  (decimal hours, idle hours, operator, meter reading; the general `EquipmentMaster` list remains for anything not in the register).
+  **Rental claims** (`equipment/claims.py`, `EquipmentClaim`): the payment cycle is the 26th .. 25th; `generate_equipment_claims` (run it daily
+  from cron, it only acts on the 26th for the cycle that just closed) makes one claim per rented heavy equipment per project from the cycle's
+  submitted/approved daily reports (not drafts or rejected ones) and posts it to the Accounting "Payables" page (`accounting:payables`). The project's
+  engineer (or a manager) reviews it on `equipment:claim_detail` and may change the amount (a reason is required and kept next to the calculated
+  amount); the accountant can pay only a reviewed claim, and a paid claim is locked (admin can reopen).
 - **Roles in the mobile app**: `CustomUser.mobile_tabs()` decides which tabs the app shows (`employees/me/` returns `role` and `tabs`); the new
   `employee` role (default for new users) sees only attendance. The procurement REST API is limited by `ProcurementAPIPermission`. The employee
   page has a "Login account" card (`timesheets/account_form.py`) to create / link / change the user without the Django admin.

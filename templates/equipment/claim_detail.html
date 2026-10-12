@@ -1,0 +1,48 @@
+{% extends 'base.html' %}
+{% block title %}Claim {{ claim.tool.code }} {{ claim.cycle_end|date:"m/Y" }}{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-start flex-wrap gap-2 my-4">
+  <div>
+    <h1 class="h3 mb-1">Rental claim &mdash; {{ claim.tool.code }} {{ claim.tool.name }}</h1>
+    <div class="text-muted">{{ claim.project.project_symbol }} &middot; cycle {{ claim.cycle_label }} &middot; {{ claim.vendor.name|default:'no vendor set' }}</div>
+  </div>
+  <a href="{% url 'equipment:claim_list' %}" class="btn btn-outline-secondary">Back to claims</a>
+</div>
+
+<div class="row g-3">
+  <div class="col-lg-4">
+    <div class="card mb-3"><div class="card-header fw-bold">The claim</div><table class="table table-sm mb-0">
+      <tr><th class="w-50">Days worked</th><td>{{ claim.days_worked }}</td></tr>
+      <tr><th>Hours worked</th><td>{{ claim.hours_worked|floatformat:"-1" }}</td></tr>
+      <tr><th>Idle hours</th><td>{{ claim.idle_hours|floatformat:"-1" }}</td></tr>
+      <tr><th>Rate</th><td>{{ claim.rate }} / {{ claim.rate_unit }}</td></tr>
+      <tr><th>Calculated</th><td>{{ claim.calculated_amount }}</td></tr>
+      <tr class="table-light"><th>Amount to pay</th><td class="fw-bold fs-5">{{ claim.amount }}</td></tr>
+      {% if claim.is_adjusted %}<tr><th>Changed by</th><td>{{ claim.adjusted_by.get_full_name|default:claim.adjusted_by.username }} &middot; {{ claim.adjusted_at|date:"d/m/Y" }}<div class="small text-muted">{{ claim.adjustment_reason }}</div></td></tr>{% endif %}
+      <tr><th>Review</th><td>{% if claim.reviewed_at %}{{ claim.reviewed_by.get_full_name|default:claim.reviewed_by.username }} &middot; {{ claim.reviewed_at|date:"d/m/Y" }}{% else %}<span class="text-warning">waiting</span>{% endif %}</td></tr>
+      <tr><th>Payment</th><td>{% if claim.status == 'paid' %}Paid {{ claim.payment_date|date:"d/m/Y" }}{% if claim.payment_reference %} &middot; {{ claim.payment_reference }}{% endif %}{% else %}not paid yet{% endif %}</td></tr>
+    </table></div>
+
+    {% if can_review %}
+    <div class="card border-primary"><div class="card-header fw-bold">Your review</div><div class="card-body">
+      <p class="small text-muted mb-2">Check the days and hours on the right against what really happened. Confirm the amount, or change it and write why. Once the accounting has paid it, it cannot be changed.</p>
+      <form method="post" action="{% url 'equipment:claim_review' claim.pk %}">{% csrf_token %}
+        <label class="form-label small mb-0">Amount to pay</label>
+        <input name="amount" class="form-control mb-2" inputmode="decimal" value="{{ claim.amount }}">
+        <label class="form-label small mb-0">Reason (required if you change the amount)</label>
+        <input name="reason" class="form-control mb-2" maxlength="300" placeholder="e.g. 2 days stood idle because of rain, agreed with the vendor">
+        <button class="btn btn-primary">{% if claim.reviewed_at %}Save{% else %}Confirm / save{% endif %}</button>
+      </form></div></div>
+    {% endif %}
+  </div>
+
+  <div class="col-lg-8">
+    <div class="card"><div class="card-header fw-bold">Daily reports of the cycle</div><div class="table-responsive"><table class="table table-sm mb-0">
+      <thead><tr><th>Date</th><th>Activity</th><th>Operator</th><th class="text-end">Hours</th><th class="text-end">Idle</th><th>Report</th></tr></thead><tbody>
+      {% for r in rows %}<tr><td class="text-nowrap">{{ r.report.report_date|date:"d/m/Y" }}</td><td>{{ r.activity.activity_description|default:'—' }}</td><td>{{ r.operator_name|default:'—' }}</td>
+        <td class="text-end">{{ r.hours_worked|floatformat:"-1" }}</td><td class="text-end">{{ r.idle_hours|floatformat:"-1" }}</td>
+        <td><a href="{% url 'reports:daily_report_detail' r.report_id %}" class="text-decoration-none">{{ r.report.report_number|truncatechars:24 }}</a></td></tr>
+      {% empty %}<tr><td colspan="6" class="text-center text-muted">No daily report rows (they may have been deleted or rejected since).</td></tr>{% endfor %}</tbody></table></div></div>
+  </div>
+</div>
+{% endblock %}

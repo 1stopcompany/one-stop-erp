@@ -32,7 +32,7 @@ EXEMPT = {
     # HR cost distribution of an employee's salary over projects (typed in the DTR); not a site record.
     "timesheets.EmployeeProjectHours",
     # Tools register: where a tool is / was; moving a tool never depends on the project being ready.
-    "equipment.Tool", "equipment.ToolTransfer",
+    "equipment.Tool", "equipment.ToolTransfer", "equipment.EquipmentClaim",
 }
 
 # model -> path to its project

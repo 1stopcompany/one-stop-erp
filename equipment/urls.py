@@ -1,5 +1,5 @@
 from django.urls import path
-from . import views
+from . import views, views_claims
 
 app_name = 'equipment'
 
@@ -19,4 +19,7 @@ urlpatterns = [
     path('transfers/', views.transfer_list, name='transfer_list'),
     path('transfers/<int:pk>/<str:action>/', views.transfer_action, name='transfer_action'),
     path('maintenance/<int:pk>/update/', views.maintenance_update, name='maintenance_update'),
+    path('claims/', views_claims.claim_list, name='claim_list'),
+    path('claims/<int:pk>/', views_claims.claim_detail, name='claim_detail'),
+    path('claims/<int:pk>/review/', views_claims.claim_review, name='claim_review'),
 ]

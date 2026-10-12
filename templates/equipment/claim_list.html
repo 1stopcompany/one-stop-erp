@@ -1,0 +1,25 @@
+{% extends 'base.html' %}
+{% block title %}Rental claims{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center flex-wrap gap-2 my-4">
+  <div>
+    <h1 class="h3 mb-0"><i class="bi bi-cash-coin"></i> Equipment rental claims</h1>
+    <p class="text-muted mb-0">Each rented heavy equipment is claimed once per project for the payment cycle 26th &rarr; 25th. Review the hours, change the amount if it is wrong, and it goes to the accounting for payment.</p>
+  </div>
+  <a href="{% url 'equipment:dashboard' %}" class="btn btn-outline-secondary">Equipment</a>
+</div>
+{% if waiting %}<div class="alert alert-warning">{{ waiting }} claim(s) are waiting for your review.</div>{% endif %}
+<form method="get" class="mb-3"><select name="status" class="form-select w-auto d-inline" onchange="this.form.submit()">
+  <option value="">All</option><option value="review" {% if status == 'review' %}selected{% endif %}>Waiting for review</option><option value="posted" {% if status == 'posted' %}selected{% endif %}>Posted for payment</option><option value="paid" {% if status == 'paid' %}selected{% endif %}>Paid</option></select></form>
+<div class="card"><div class="table-responsive"><table class="table table-hover align-middle mb-0">
+  <thead><tr><th>Cycle</th><th>Equipment</th><th>Project</th><th>Vendor</th><th class="text-end">Days / hours</th><th class="text-end">Amount</th><th>Status</th><th></th></tr></thead><tbody>
+  {% for c in claims %}
+    <tr><td class="text-nowrap">{{ c.cycle_label }}</td>
+      <td><a href="{% url 'equipment:tool_detail' c.tool_id %}" class="fw-bold text-decoration-none">{{ c.tool.code }}</a> {{ c.tool.name }}</td>
+      <td>{{ c.project.project_symbol }}</td><td>{{ c.vendor.name|default:'—' }}</td>
+      <td class="text-end">{{ c.days_worked }} d / {{ c.hours_worked|floatformat:"-1" }} h</td>
+      <td class="text-end fw-bold">{{ c.amount }}{% if c.is_adjusted %}<div class="small text-warning">changed (was {{ c.calculated_amount }})</div>{% endif %}</td>
+      <td>{% if c.status == 'paid' %}<span class="badge bg-success">Paid</span>{% elif c.reviewed_at %}<span class="badge bg-primary">Reviewed &middot; with the accounting</span>{% elif c.status == 'cancelled' %}<span class="badge bg-secondary">Cancelled</span>{% else %}<span class="badge bg-warning text-dark">Waiting for review</span>{% endif %}</td>
+      <td><a href="{% url 'equipment:claim_detail' c.pk %}" class="btn btn-sm btn-outline-primary">Open</a></td></tr>
+  {% empty %}<tr><td colspan="8" class="text-center text-muted py-4">No claims yet. They are created on the 26th of each month for the cycle that just closed.</td></tr>{% endfor %}</tbody></table></div></div>
+{% endblock %}

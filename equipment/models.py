@@ -229,3 +229,53 @@ class ToolMaintenance(models.Model):
 
     def __str__(self):
         return f'{self.tool.code} maintenance ({self.get_status_display()})'
+
+
+class EquipmentClaim(models.Model):
+    """The monthly rental claim of one rented heavy equipment on one project for one payment cycle (26th .. 25th); see equipment.claims."""
+
+    POSTED = 'posted'        # sent to the accounting page, waiting for the engineer's review and the payment
+    PAID = 'paid'
+    CANCELLED = 'cancelled'
+    STATUS_CHOICES = ((POSTED, _('Posted for payment')), (PAID, _('Paid')), (CANCELLED, _('Cancelled')))
+
+    tool = models.ForeignKey(Tool, on_delete=models.PROTECT, related_name='claims')
+    project = models.ForeignKey('projects.Project', on_delete=models.PROTECT, related_name='equipment_claims')
+    vendor = models.ForeignKey('procurement.Vendor', on_delete=models.PROTECT, null=True, blank=True, related_name='equipment_claims')
+    cycle_start = models.DateField()
+    cycle_end = models.DateField(db_index=True)
+    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default=POSTED, db_index=True)
+
+    days_worked = models.PositiveIntegerField(default=0)
+    hours_worked = models.DecimalField(max_digits=8, decimal_places=1, default=0)
+    idle_hours = models.DecimalField(max_digits=8, decimal_places=1, default=0)
+    rate = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    rate_unit = models.CharField(max_length=10, default='day')
+    calculated_amount = models.DecimalField(max_digits=12, decimal_places=2, default=0, help_text=_('What the system worked out from the daily reports'))
+    amount = models.DecimalField(max_digits=12, decimal_places=2, default=0, help_text=_('The amount claimed: the calculated one unless the engineer changed it'))
+    adjustment_reason = models.CharField(max_length=300, blank=True)
+    adjusted_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='+')
+    adjusted_at = models.DateTimeField(null=True, blank=True)
+
+    reviewed_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='+')
+    reviewed_at = models.DateTimeField(null=True, blank=True)
+    paid_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='+')
+    paid_at = models.DateTimeField(null=True, blank=True)
+    payment_date = models.DateField(null=True, blank=True)
+    payment_reference = models.CharField(max_length=100, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-cycle_end', 'vendor__name', 'tool__code']
+        unique_together = [('tool', 'project', 'cycle_end')]
+
+    def __str__(self):
+        return f'{self.tool.code} {self.project.project_symbol} {self.cycle_end:%m/%Y}'
+
+    @property
+    def is_adjusted(self):
+        return self.amount != self.calculated_amount
+
+    @property
+    def cycle_label(self):
+        return f'{self.cycle_start:%d/%m} - {self.cycle_end:%d/%m/%Y}'

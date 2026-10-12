@@ -9,6 +9,7 @@
   <div class="d-flex gap-2">
     <a href="{% url 'equipment:tool_list' %}" class="btn btn-primary"><i class="bi bi-list-ul"></i> Tools register</a>
     <a href="{% url 'equipment:transfer_list' %}" class="btn btn-outline-primary"><i class="bi bi-arrow-left-right"></i> Transfers</a>
+    <a href="{% url 'equipment:claim_list' %}" class="btn btn-outline-primary"><i class="bi bi-cash-coin"></i> Rental claims{% if claims_waiting %} <span class="badge bg-warning text-dark">{{ claims_waiting }}</span>{% endif %}</a>
     {% if can_manage %}<a href="{% url 'equipment:tool_add' %}" class="btn btn-outline-success"><i class="bi bi-plus-circle"></i> Add tool</a>
     <a href="{% url 'equipment:labels_pdf' %}" class="btn btn-outline-secondary" target="_blank"><i class="bi bi-qr-code"></i> Print all labels</a>{% endif %}
   </div>

@@ -1,0 +1,40 @@
+{% extends 'base.html' %}
+{% block title %}Payables{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center flex-wrap gap-2 my-4">
+  <div>
+    <h1 class="h3 mb-0"><i class="bi bi-cash-stack"></i> Payables</h1>
+    <p class="text-muted mb-0">Monthly rental claims of the rented heavy equipment, posted when the payment cycle (26th &rarr; 25th) closes. The project engineer reviews each one first; only reviewed claims can be paid.</p>
+  </div>
+  <a href="{% url 'accounting:dashboard' %}" class="btn btn-outline-secondary">Accounting</a>
+</div>
+
+<div class="row g-3 mb-3">
+  <div class="col-6 col-md-3"><div class="card"><div class="card-body"><div class="text-muted small">Ready to pay</div><div class="fs-4 fw-bold">{{ ready_total }}</div><div class="small text-muted">{{ ready_count }} claim(s)</div></div></div></div>
+  <div class="col-6 col-md-3"><div class="card"><div class="card-body"><div class="text-muted small">Waiting for the engineer</div><div class="fs-4 fw-bold">{{ waiting_total }}</div><div class="small text-muted">{{ waiting_count }} claim(s)</div></div></div></div>
+  <div class="col-12 col-md-6"><div class="card h-100"><div class="card-body"><div class="text-muted small mb-1">To pay by vendor</div>
+    {% for name, count, total in vendor_totals %}<div class="d-flex justify-content-between"><span>{{ name }} <span class="text-muted small">({{ count }})</span></span><strong>{{ total }}</strong></div>{% empty %}<div class="text-muted">Nothing to pay.</div>{% endfor %}</div></div></div>
+</div>
+
+<form method="get" class="mb-3 d-flex gap-2 flex-wrap">
+  <select name="status" class="form-select w-auto" onchange="this.form.submit()"><option value="open" {% if status == 'open' %}selected{% endif %}>To pay (posted)</option><option value="paid" {% if status == 'paid' %}selected{% endif %}>Paid</option><option value="all" {% if status == 'all' %}selected{% endif %}>All</option></select>
+  <select name="cycle" class="form-select w-auto" onchange="this.form.submit()"><option value="">All cycles</option>{% for c in cycles %}<option value="{{ c|date:'Y-m-d' }}" {% if cycle == c|date:'Y-m-d' %}selected{% endif %}>until {{ c|date:'d/m/Y' }}</option>{% endfor %}</select>
+</form>
+
+<div class="card"><div class="table-responsive"><table class="table table-hover align-middle mb-0">
+  <thead><tr><th>Cycle</th><th>Vendor</th><th>Equipment</th><th>Project</th><th class="text-end">Days / hours</th><th class="text-end">Amount</th><th>Engineer review</th><th>Payment</th></tr></thead><tbody>
+  {% for c in claims %}
+    <tr><td class="text-nowrap">{{ c.cycle_label }}</td><td>{{ c.vendor.name|default:'—' }}</td>
+      <td><a href="{% url 'equipment:claim_detail' c.pk %}" class="fw-bold text-decoration-none">{{ c.tool.code }}</a> {{ c.tool.name }}</td><td>{{ c.project.project_symbol }}</td>
+      <td class="text-end">{{ c.days_worked }} d / {{ c.hours_worked|floatformat:"-1" }} h</td>
+      <td class="text-end fw-bold">{{ c.amount }}{% if c.is_adjusted %}<div class="small text-warning">changed by the engineer (was {{ c.calculated_amount }}): {{ c.adjustment_reason }}</div>{% endif %}</td>
+      <td>{% if c.reviewed_at %}<span class="badge bg-success">Reviewed</span><div class="small text-muted">{{ c.reviewed_by.get_full_name|default:c.reviewed_by.username }}</div>{% else %}<span class="badge bg-warning text-dark">Waiting</span>{% endif %}</td>
+      <td style="min-width: 230px">
+        {% if c.status == 'paid' %}<span class="badge bg-success">Paid {{ c.payment_date|date:"d/m/Y" }}</span>{% if c.payment_reference %}<div class="small text-muted">{{ c.payment_reference }}</div>{% endif %}
+          {% if request.user.is_admin %}<form method="post" action="{% url 'accounting:payable_reopen' c.pk %}" class="d-inline" onsubmit="return confirm('Reopen this payment?');">{% csrf_token %}<button class="btn btn-link btn-sm p-0">reopen</button></form>{% endif %}
+        {% elif can_pay and c.reviewed_at %}
+          <form method="post" action="{% url 'accounting:payable_pay' c.pk %}" class="d-flex gap-1">{% csrf_token %}<input name="reference" class="form-control form-control-sm" placeholder="cheque / transfer no." maxlength="100"><button class="btn btn-sm btn-success text-nowrap">Mark paid</button></form>
+        {% else %}<span class="text-muted small">{% if not c.reviewed_at %}after the engineer's review{% else %}-{% endif %}</span>{% endif %}
+      </td></tr>
+  {% empty %}<tr><td colspan="8" class="text-center text-muted py-4">No claims.</td></tr>{% endfor %}</tbody></table></div></div>
+{% endblock %}
