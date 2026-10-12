@@ -741,6 +741,92 @@ def payslip_list(request):
     return render(request, 'timesheets/payslip_list.html', context)
 
 
+@hr_required
+def payslip_print_all(request):
+    """One PDF with the payslip of every employee for a month (?month=YYYY-MM, &posted=1 for posted ones only), one per page."""
+    month_param = request.GET.get('month', '')
+    try:
+        month_start = datetime.strptime(month_param, '%Y-%m').date()
+    except ValueError:
+        messages.error(request, 'Choose a month first, then press Print all.')
+        return redirect('timesheets:payslip_list')
+    payslips = Payslip.objects.select_related('employee', 'employee__position', 'employee__department').filter(period_start=month_start).exclude(status='excluded')
+    if request.GET.get('posted'):
+        payslips = payslips.filter(status='posted')
+    payslips = list(payslips.order_by('employee__employee_id'))
+    if not payslips:
+        messages.warning(request, 'There are no payslips for that month.')
+        return redirect(f"{reverse('timesheets:payslip_list')}?month={month_param}")
+    from .payslip_form_pdf import generate_payslip_form_pdf
+    response = HttpResponse(generate_payslip_form_pdf(payslips), content_type='application/pdf')
+    response['Content-Disposition'] = f'inline; filename=payslips-{month_start:%Y-%m}.pdf'
+    return response
+
+
+@login_required
+def payslip_print_edit(request, pk):
+    """
+    Administrator only: change what is PRINTED on one payslip by hand before it goes to the printer. The entries are kept on the payslip
+    (print_overrides) and used by every PDF of it; the payroll itself -- gross, net, the posted run -- is never changed.
+    """
+    from accounts.models import UserAuditLog
+    from decimal import Decimal, InvalidOperation
+    from .payslip_form import NUMBER_KEYS, OVERRIDE_FIELDS, effective, payslip_form_data
+
+    if not request.user.is_admin():
+        return HttpResponseForbidden('Only an administrator can edit a payslip before printing.')
+    payslip = get_object_or_404(Payslip.objects.select_related('employee'), pk=pk)
+    computed = payslip_form_data(payslip)
+
+    def shown(value, key):
+        return format(Decimal(value).quantize(Decimal('0.01')).normalize(), 'f') if key in NUMBER_KEYS else (value or '')
+
+    if request.method == 'POST':
+        if request.POST.get('action') == 'reset':
+            payslip.print_overrides = {}
+            payslip.save(update_fields=['print_overrides'])
+            UserAuditLog.objects.create(user=request.user, action='update', content_type='timesheets.Payslip', object_id=payslip.pk,
+                                        description=f'Printed payslip of {payslip.employee.employee_id} {payslip.period_start:%m/%Y} reset to the computed figures')
+            messages.success(request, 'The printed payslip is back to the computed figures.')
+            return redirect('timesheets:payslip_print_edit', pk=pk)
+        overrides, errors = {}, []
+        for key, label, kind in OVERRIDE_FIELDS:
+            raw = request.POST.get(key, '').strip()
+            if kind == 'number':
+                try:
+                    value = Decimal(raw.replace(',', '')) if raw else computed[key]
+                except InvalidOperation:
+                    errors.append(f'"{label}" is not a number.')
+                    continue
+                if value != computed[key]:
+                    overrides[key] = str(value)
+            elif raw != (computed.get(key) or ''):
+                overrides[key] = raw
+        if errors:
+            for error in errors:
+                messages.error(request, error)
+        else:
+            old = payslip.print_overrides or {}
+            payslip.print_overrides = overrides
+            payslip.save(update_fields=['print_overrides'])
+            if overrides != old:
+                UserAuditLog.objects.create(
+                    user=request.user, action='update', content_type='timesheets.Payslip', object_id=payslip.pk,
+                    description=f'Printed payslip of {payslip.employee.employee_id} {payslip.period_start:%m/%Y} edited by hand: ' +
+                                ', '.join(f'{k}={v}' for k, v in overrides.items()))
+            messages.success(request, 'Saved. The printed payslip now shows your figures; the payroll itself was not changed.')
+            if request.POST.get('action') == 'print':
+                return redirect('timesheets:payslip_pdf', pk=pk)
+            return redirect('timesheets:payslip_print_edit', pk=pk)
+
+    current = effective(payslip)
+    fields = [{'key': key, 'label': label, 'kind': kind, 'computed': shown(computed[key], key), 'value': shown(current[key], key),
+               'changed': key in current['changed']} for key, label, kind in OVERRIDE_FIELDS]
+    return render(request, 'timesheets/payslip_print_edit.html', {
+        'payslip': payslip, 'fields': fields, 'has_overrides': bool(payslip.print_overrides), 'words_changed': 'words' in current['changed'],
+    })
+
+
 @login_required
 def payslip_pdf(request, pk):
     """

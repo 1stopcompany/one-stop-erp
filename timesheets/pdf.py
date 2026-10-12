@@ -409,6 +409,12 @@ def generate_dtr_pdf(employee, records, period_start, generated_by=None):
 # ------------------------------------------------------------------ #
 
 def generate_payslip_pdf(payslip):
+    """One payslip as a PDF: the company's monthly payslip form (see payslip_form_pdf.py); used by the web page and the mobile app."""
+    from .payslip_form_pdf import generate_payslip_form_pdf
+    return generate_payslip_form_pdf([payslip])
+
+
+def generate_payslip_pdf_classic(payslip):   # the earlier plain layout, kept for reference; nothing calls it any more
     buffer = BytesIO()
     doc = SimpleDocTemplate(
         buffer, pagesize=A4,

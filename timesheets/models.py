@@ -801,6 +801,7 @@ class Payslip(models.Model):
         help_text='Attendance days typed by HR instead of the days counted from GPS clock-ins (blank = automatic). Display only: does not change pay',
     )
     note = models.CharField(max_length=300, blank=True, help_text='Free note on this employee for this month')
+    print_overrides = models.JSONField(default=dict, blank=True, help_text='Figures the admin changed by hand for the PRINTED payslip only; the payroll itself is not touched')
     gross_pay = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     net_pay = models.DecimalField(max_digits=12, decimal_places=2, default=0)
 

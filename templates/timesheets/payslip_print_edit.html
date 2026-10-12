@@ -1,0 +1,40 @@
+{% extends 'timesheets/_hr_base.html' %}
+{% block title %}Edit printed payslip - One Stop ERP{% endblock %}
+
+{% block hr_body %}
+<div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+    <div>
+        <h1 class="h3 mb-0"><i class="fas fa-pen me-2 text-primary"></i>Edit the printed payslip</h1>
+        <div class="text-muted">{{ payslip.employee.full_name }} &middot; {{ payslip.employee.employee_id }} &middot; {{ payslip.period_start|date:"F Y" }}
+            {% if payslip.status == 'posted' %}<span class="badge bg-success">Posted</span>{% else %}<span class="badge bg-warning text-dark">Draft</span>{% endif %}</div>
+    </div>
+    <a href="{% url 'timesheets:payslip_list' %}?month={{ payslip.period_start|date:'Y-m' }}" class="btn btn-outline-secondary">Back to payslips</a>
+</div>
+
+<div class="alert alert-info">
+    What you change here is only what is <strong>printed</strong> on this payslip. The payroll itself (gross, net, the posted run, the reports) is not changed.
+    Each field starts with the computed figure; type over it to print something else. Fields you change are marked, and the totals follow your lines unless you type the total yourself.
+    Everything you change is recorded with your name.
+</div>
+
+<form method="post" class="card" dir="rtl">
+    {% csrf_token %}
+    <div class="card-body">
+        <div class="row g-3">
+            {% for f in fields %}
+            <div class="col-md-4">
+                <label class="form-label mb-1" for="id_{{ f.key }}">{{ f.label }}{% if f.changed %} <span class="badge bg-warning text-dark">عُدّل</span>{% endif %}</label>
+                <input id="id_{{ f.key }}" name="{{ f.key }}" value="{{ f.value }}" class="form-control{% if f.changed %} border-warning{% endif %}" {% if f.kind == 'number' %}inputmode="decimal"{% endif %}>
+                {% if f.changed %}<div class="form-text" dir="ltr">computed: {{ f.computed }}</div>{% endif %}
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    <div class="card-footer d-flex gap-2 flex-wrap" dir="ltr">
+        <button name="action" value="save" class="btn btn-primary"><i class="fas fa-save me-1"></i>Save</button>
+        <button name="action" value="print" class="btn btn-success"><i class="fas fa-print me-1"></i>Save &amp; open the PDF</button>
+        <a href="{% url 'timesheets:payslip_pdf' payslip.pk %}" target="_blank" class="btn btn-outline-secondary">Open the PDF as it is now</a>
+        {% if has_overrides %}<button name="action" value="reset" class="btn btn-outline-danger ms-auto" onclick="return confirm('Throw away your changes and print the computed figures again?');">Back to computed figures</button>{% endif %}
+    </div>
+</form>
+{% endblock %}
