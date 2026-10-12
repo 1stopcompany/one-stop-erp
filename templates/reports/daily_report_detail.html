@@ -863,56 +863,42 @@
                 {% csrf_token %}
                 <div class="modal-body">
                     <div class="mb-3">
-                        <label for="equipmentTool" class="form-label">Tool of this project (equipment register) *</label>
-                        <select class="form-select" id="equipmentTool" name="tool">
-                            <option value="" selected>— Choose a tool handed over to this project —</option>
-                            {% for tool in project_tools %}{% if tool.pk not in tools_on_report %}
-                            <option value="{{ tool.pk }}" data-heavy="{% if tool.is_heavy %}1{% endif %}" data-operator="{{ tool.operator }}" data-meter="{{ tool.hour_meter }}">{{ tool.code }} — {{ tool.name }}{% if tool.manufacturer %} ({{ tool.manufacturer }}){% endif %}{% if tool.status != 'working' and tool.status != 'new' %} — {{ tool.get_status_display }}{% endif %}</option>
-                            {% endif %}{% endfor %}
-                        </select>
-                        <div class="form-text">{% if project_tools %}These are the tools the storekeeper handed over to this project. Equipment that is not in the register can be chosen from the general list below.{% else %}No tool is registered at this project yet (the storekeeper hands tools over from <em>Equipment</em>). You can still choose equipment from the general list below.{% endif %}</div>
-                    </div>
-                    <div class="mb-3">
-                        <label for="equipmentMaster" class="form-label">Or equipment from the general list</label>
+                        <label for="equipmentTool" class="form-label">Heavy equipment *</label>
                         <div class="input-group">
-                            <select class="form-select" id="equipmentMaster" name="equipment_master">
-                                <option value="" selected>— Select equipment —</option>
-                                {% for eq in equipment_master_list %}
-                                <option value="{{ eq.id }}">{{ eq.name }}</option>
-                                {% endfor %}
+                            <select class="form-select" id="equipmentTool" name="tool">
+                                <option value="" selected>— Choose the equipment —</option>
+                                {% for tool in project_tools %}{% if tool.pk not in tools_on_report %}
+                                <option value="{{ tool.pk }}" data-operator="{{ tool.operator }}" data-meter="{{ tool.hour_meter }}">{{ tool.code }} — {{ tool.name }}{% if tool.manufacturer %} ({{ tool.manufacturer }}){% endif %}{% if tool.plate_no %} · {{ tool.plate_no }}{% endif %}{% if tool.status != 'working' and tool.status != 'new' %} — {{ tool.get_status_display }}{% endif %}</option>
+                                {% endif %}{% endfor %}
                             </select>
-                            <button type="button" class="btn btn-outline-secondary text-nowrap" onclick="toggleNewEquipment(true)">+ Add New Equipment</button>
+                            <button type="button" class="btn btn-outline-secondary text-nowrap" onclick="toggleNewEquipment(true)">+ Add New Heavy Equipment</button>
                         </div>
-                        <div class="form-text">Not on the list? Add it with "+ Add New Equipment" and it is selectable here and on every report.</div>
+                        <div class="form-text">The heavy equipment registered at this project. Not in the list? Add it with the button: it is registered at this project and chosen for this report.</div>
                         <div id="newEquipmentBox" class="border rounded p-3 mt-2 bg-light" style="display:none;">
                             <div class="row g-2">
-                                <div class="col-12">
-                                    <label class="form-label small mb-1">Equipment name *</label>
-                                    <input type="text" class="form-control form-control-sm" id="newEquipName" maxlength="150" placeholder="e.g. Mini Excavator 3T">
-                                </div>
-                                <div class="col-md-4">
-                                    <label class="form-label small mb-1">Category</label>
-                                    <input type="text" class="form-control form-control-sm" id="newEquipCategory" list="equipCategoryList" maxlength="100" placeholder="e.g. Excavation">
-                                    <datalist id="equipCategoryList">{% for c in equipment_categories %}<option value="{{ c }}">{% endfor %}</datalist>
-                                </div>
-                                <div class="col-md-4">
-                                    <label class="form-label small mb-1">Make</label>
-                                    <input type="text" class="form-control form-control-sm" id="newEquipMake" maxlength="100">
-                                </div>
-                                <div class="col-md-4">
-                                    <label class="form-label small mb-1">Model</label>
-                                    <input type="text" class="form-control form-control-sm" id="newEquipModel" maxlength="100">
+                                <div class="col-md-6"><label class="form-label small mb-1">Equipment name *</label><input type="text" class="form-control form-control-sm" id="newEquipName" maxlength="150" placeholder="e.g. Excavator 20T"></div>
+                                <div class="col-md-3"><label class="form-label small mb-1">Make</label><input type="text" class="form-control form-control-sm" id="newEquipMake" maxlength="100" placeholder="CAT, Komatsu..."></div>
+                                <div class="col-md-3"><label class="form-label small mb-1">Plate number</label><input type="text" class="form-control form-control-sm" id="newEquipPlate" maxlength="60"></div>
+                                <div class="col-md-4"><label class="form-label small mb-1">Operator / driver</label><input type="text" class="form-control form-control-sm" id="newEquipOperator" maxlength="100"></div>
+                                <div class="col-md-4"><label class="form-label small mb-1">Ownership</label><select class="form-select form-select-sm" id="newEquipOwnership" onchange="document.getElementById('newEquipRent').style.display = this.value === 'rented' ? '' : 'none'"><option value="owned">Owned by the company</option><option value="rented">Rented</option></select></div>
+                                <div id="newEquipRent" class="col-12" style="display:none">
+                                    <div class="row g-2">
+                                        <div class="col-md-5"><label class="form-label small mb-1">Rented from (vendor) *</label><select class="form-select form-select-sm" id="newEquipVendor"><option value="">— choose —</option>{% for v in rental_vendors %}<option value="{{ v.pk }}">{{ v.name }}</option>{% endfor %}</select></div>
+                                        <div class="col-md-4"><label class="form-label small mb-1">Rental rate *</label><input type="number" step="0.01" min="0" class="form-control form-control-sm" id="newEquipRate"></div>
+                                        <div class="col-md-3"><label class="form-label small mb-1">Rate is</label><select class="form-select form-select-sm" id="newEquipRateUnit"><option value="hour">per hour</option><option value="day" selected>per day</option><option value="month">per month</option></select></div>
+                                        <div class="col-12 form-text">The monthly claim for the vendor is calculated from this rate and the hours in the daily reports.</div>
+                                    </div>
                                 </div>
                             </div>
                             <div class="mt-2 d-flex gap-2 align-items-center">
-                                <button type="button" class="btn btn-sm btn-primary" onclick="saveNewEquipment(this)">Add to list</button>
+                                <button type="button" class="btn btn-sm btn-primary" onclick="saveNewEquipment(this)">Register and choose</button>
                                 <button type="button" class="btn btn-sm btn-light" onclick="toggleNewEquipment(false)">Cancel</button>
                                 <span class="small text-danger" id="newEquipMsg"></span>
                             </div>
                         </div>
                     </div>
-                    <div id="heavyFields" class="row g-2 mb-3 border rounded p-2 bg-light" style="display:none">
-                        <div class="col-12 small fw-bold">Heavy equipment</div>
+                    <div id="heavyFields" class="row g-2 mb-3 border rounded p-2 bg-light">
+                        <div class="col-12 small fw-bold">Today on site</div>
                         <div class="col-md-6"><label class="form-label small mb-1">Operator / driver today</label><input class="form-control form-control-sm" name="operator_name" id="heavyOperator" maxlength="100"></div>
                         <div class="col-md-3"><label class="form-label small mb-1">Idle hours</label><input class="form-control form-control-sm" name="idle_hours" type="number" step="0.5" min="0" max="24" value="0"></div>
                         <div class="col-md-3"><label class="form-label small mb-1">Hour meter (end of day)</label><input class="form-control form-control-sm" name="meter_reading" id="heavyMeter" type="number" step="0.1" min="0"></div>
@@ -1981,29 +1967,22 @@ async function serverMessage(response, fallback) {
     }
 }
 
-// Add Equipment: a register tool OR an item of the general list, never both
+// Add Equipment: a heavy equipment of this project; choosing one fills in its usual operator and last meter reading
 (function () {
-    const toolSelect = document.getElementById('equipmentTool'), masterSelect = document.getElementById('equipmentMaster');
-    if (!toolSelect || !masterSelect) return;
-    const heavyBox = document.getElementById('heavyFields');
-    const showHeavy = () => {
+    const toolSelect = document.getElementById('equipmentTool');
+    if (!toolSelect) return;
+    toolSelect.addEventListener('change', () => {
         const option = toolSelect.options[toolSelect.selectedIndex];
-        const heavy = option && option.dataset.heavy === '1';
-        if (heavyBox) heavyBox.style.display = heavy ? '' : 'none';
-        if (heavy) {
-            const operator = document.getElementById('heavyOperator'), meter = document.getElementById('heavyMeter');
-            if (operator && !operator.value) operator.value = option.dataset.operator || '';
-            if (meter && !meter.value) meter.placeholder = 'last: ' + (option.dataset.meter || '0');
-        }
-    };
-    toolSelect.addEventListener('change', () => { if (toolSelect.value) masterSelect.value = ''; showHeavy(); });
-    masterSelect.addEventListener('change', () => { if (masterSelect.value) { toolSelect.value = ''; showHeavy(); } });
+        const operator = document.getElementById('heavyOperator'), meter = document.getElementById('heavyMeter');
+        if (operator) operator.value = option && option.value ? (option.dataset.operator || '') : '';
+        if (meter) meter.placeholder = option && option.value ? 'last: ' + (option.dataset.meter || '0') : '';
+    });
 })();
 document.getElementById('equipmentForm').addEventListener('submit', async (e) => {
     e.preventDefault();
     const formData = new FormData(e.target);
-    if (!formData.get('tool') && !formData.get('equipment_master')) {
-        showAlert('Choose a tool of this project, or an item from the general list.', 'danger');
+    if (!formData.get('tool')) {
+        showAlert('Choose the heavy equipment, or add it with "+ Add New Heavy Equipment".', 'danger');
         return;
     }
 
@@ -2669,28 +2648,36 @@ async function saveNewEquipment(btn) {
     const msg = document.getElementById('newEquipMsg');
     const name = document.getElementById('newEquipName').value.trim();
     if (!name) { msg.textContent = 'Write the equipment name first.'; return; }
+    const ownership = document.getElementById('newEquipOwnership').value;
     const body = new FormData();
     body.append('name', name);
-    body.append('category', document.getElementById('newEquipCategory').value);
     body.append('manufacturer', document.getElementById('newEquipMake').value);
-    body.append('model', document.getElementById('newEquipModel').value);
+    body.append('plate_no', document.getElementById('newEquipPlate').value);
+    body.append('operator', document.getElementById('newEquipOperator').value);
+    body.append('ownership', ownership);
+    if (ownership === 'rented') {
+        body.append('rental_vendor', document.getElementById('newEquipVendor').value);
+        body.append('rental_rate', document.getElementById('newEquipRate').value);
+        body.append('rental_rate_unit', document.getElementById('newEquipRateUnit').value);
+    }
     btn.disabled = true;
     try {
-        const response = await fetch('/reports/api/equipment-master/', {method: 'POST', headers: {'X-CSRFToken': csrfToken}, body: body});
-        const data = await response.json();
-        if (!response.ok || !data.success) { msg.textContent = data.message || 'Could not add the equipment.'; return; }
-        const select = document.getElementById('equipmentMaster');
-        let option = Array.from(select.options).find(o => o.value === String(data.id));
-        if (!option) {
-            option = new Option(data.name, data.id);
-            select.add(option);
-            // keep the list alphabetical, like the server-side list
-            const options = Array.from(select.options).slice(1).sort((a, b) => a.text.localeCompare(b.text));
-            options.forEach(o => select.add(o));
-        }
+        const response = await fetch(`/reports/api/daily/${reportId}/heavy-equipment/`, {method: 'POST', headers: {'X-CSRFToken': csrfToken}, body: body});
+        let data = {};
+        try { data = await response.json(); } catch (err) { data = {}; }
+        if (!response.ok || !data.success) { msg.textContent = data.message || data.error || 'Could not register the equipment.'; return; }
+        const select = document.getElementById('equipmentTool');
+        const option = new Option(data.label, data.id);
+        option.dataset.operator = data.operator || '';
+        option.dataset.meter = data.meter || '0';
+        select.add(option);
         select.value = String(data.id);
-        ['newEquipName', 'newEquipCategory', 'newEquipMake', 'newEquipModel'].forEach(id => document.getElementById(id).value = '');
+        select.dispatchEvent(new Event('change'));
+        ['newEquipName', 'newEquipMake', 'newEquipPlate', 'newEquipOperator', 'newEquipRate'].forEach(id => document.getElementById(id).value = '');
+        document.getElementById('newEquipOwnership').value = 'owned';
+        document.getElementById('newEquipRent').style.display = 'none';
         toggleNewEquipment(false);
+        showAlert(data.code + ' was registered at this project. Now fill in the hours and press Add Equipment.', 'success');
     } catch (error) {
         msg.textContent = 'Error: ' + error.message;
     } finally {

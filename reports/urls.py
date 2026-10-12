@@ -40,6 +40,7 @@ urlpatterns = [
     path('api/mobile/workers/', api_mobile.search_workers, name='mobile_worker_search'),
     path('api/daily/section-order/', api_views.save_daily_report_section_order, name='api_save_daily_report_section_order'),
     path('api/daily/<int:report_id>/equipment/', api_views.add_daily_equipment, name='api_add_equipment'),
+    path('api/daily/<int:report_id>/heavy-equipment/', api_views.add_heavy_equipment, name='api_add_heavy_equipment'),
     path('api/daily/<int:report_id>/equipment/<int:equipment_id>/', api_views.delete_daily_equipment, name='api_delete_equipment'),
     path('api/daily/<int:report_id>/material/', api_views.add_daily_material, name='api_add_material'),
     path('api/daily/<int:report_id>/material/<int:material_id>/', api_views.delete_daily_material, name='api_delete_material'),

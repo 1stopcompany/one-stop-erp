@@ -10,6 +10,7 @@ from django.views.decorators.csrf import csrf_exempt
 from django.shortcuts import get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.utils import timezone
+from django.db import transaction
 from datetime import datetime
 from decimal import Decimal, InvalidOperation
 from .models import (
@@ -89,6 +90,8 @@ def add_daily_equipment(request, report_id):
         if data.get('tool'):
             from equipment.models import Tool
             tool = get_object_or_404(Tool, pk=data.get('tool'))
+            if not tool.is_heavy:
+                return JsonResponse({'success': False, 'message': f'{tool.code} is a hand tool; the daily report lists heavy equipment only.'}, status=400)
             if tool.project_id != report.project_id:
                 return JsonResponse({'success': False, 'message': f'{tool.code} is not at this project (it is at {tool.location_label}); only the tools handed over to the project can be used here.'}, status=400)
             if tool.status == 'scrapped':
@@ -132,6 +135,51 @@ def add_daily_equipment(request, report_id):
             'success': False,
             'message': str(e)
         }, status=400)
+
+
+@login_required
+@require_http_methods(["POST"])
+def add_heavy_equipment(request, report_id):
+    """
+    Register a heavy equipment that is not in the register yet, straight from the daily report, on this report's project. It becomes a
+    real HV-xxxx record (so it keeps its history, can be moved to another project, and -- if rented -- gets its monthly claim); the
+    caller then adds it to the report like any other.
+    """
+    try:
+        report = get_object_or_404(DailyReport, pk=report_id)
+        if not _can_edit_daily_report(request.user, report):
+            return JsonResponse({'success': False, 'message': 'Not allowed'}, status=403)
+        from equipment import services as equipment_services
+        from equipment.models import Tool
+        from procurement.models import Vendor
+        data = request.POST
+        name = (data.get('name') or '').strip()
+        if not name:
+            return JsonResponse({'success': False, 'message': 'Write the equipment name.'}, status=400)
+        rented = data.get('ownership') == Tool.RENTED
+        vendor = Vendor.objects.filter(pk=data.get('rental_vendor')).first() if rented and data.get('rental_vendor') else None
+        if rented and not vendor:
+            return JsonResponse({'success': False, 'message': 'A rented equipment needs its vendor (the one the monthly claim is paid to).'}, status=400)
+        try:
+            rate = Decimal(data['rental_rate']) if rented and data.get('rental_rate') else None
+        except InvalidOperation:
+            return JsonResponse({'success': False, 'message': 'The rental rate must be a number.'}, status=400)
+        if rented and not rate:
+            return JsonResponse({'success': False, 'message': 'A rented equipment needs its rental rate (the monthly claim is calculated from it).'}, status=400)
+        if Tool.objects.filter(kind=Tool.KIND_HEAVY, project=report.project, name__iexact=name, plate_no__iexact=(data.get('plate_no') or '').strip()).exists():
+            return JsonResponse({'success': False, 'message': 'This equipment is already registered at this project: choose it from the list.'}, status=400)
+        with transaction.atomic():
+            tool = Tool(
+                kind=Tool.KIND_HEAVY, name=name, manufacturer=(data.get('manufacturer') or '').strip(), model_no=(data.get('model_no') or '').strip(),
+                plate_no=(data.get('plate_no') or '').strip(), operator=(data.get('operator') or '').strip(), status=Tool.STATUS_WORKING,
+                ownership=Tool.RENTED if rented else Tool.OWNED, rental_vendor=vendor, rental_rate=rate,
+                rental_rate_unit=data.get('rental_rate_unit') if data.get('rental_rate_unit') in ('hour', 'day', 'month') else 'day')
+            tool.save()
+            equipment_services.receive_at(tool, request.user, project=report.project, note=f'Registered from daily report {report.report_number}')
+        return JsonResponse({'success': True, 'id': tool.pk, 'code': tool.code, 'label': f'{tool.code} — {tool.name}' + (f' ({tool.manufacturer})' if tool.manufacturer else ''),
+                             'operator': tool.operator, 'meter': str(tool.hour_meter)})
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': str(e)}, status=400)
 
 
 @login_required
