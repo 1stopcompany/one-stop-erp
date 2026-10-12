@@ -532,8 +532,35 @@ class DailyAttendanceRecord(models.Model):
             return None
         return max(Decimal(minutes) / Decimal(60) - Decimal(self.break_hours or 0), Decimal('0')).quantize(Decimal('0.01'))
 
+    def save(self, *args, **kwargs):
+        from .services.period_lock import assert_unlocked
+        assert_unlocked(self.employee_id, self.date)   # an approved / posted month cannot be changed
+        super().save(*args, **kwargs)
+
+    def delete(self, *args, **kwargs):
+        from .services.period_lock import assert_unlocked
+        assert_unlocked(self.employee_id, self.date)
+        return super().delete(*args, **kwargs)
+
     def __str__(self):
         return f'{self.employee.full_name} - {self.date} ({self.get_status_display()})'
+
+
+class MonthlyTimesheetApproval(models.Model):
+    """HR's approval of one employee's attendance sheet (DTR) for a month: once it exists the month is locked (see services/period_lock.py)."""
+    employee = models.ForeignKey(Employee, on_delete=models.CASCADE, related_name='timesheet_approvals')
+    year = models.PositiveIntegerField()
+    month = models.PositiveIntegerField()
+    approved_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='+')
+    approved_at = models.DateTimeField(auto_now_add=True)
+    note = models.CharField(max_length=200, blank=True)
+
+    class Meta:
+        unique_together = [('employee', 'year', 'month')]
+        ordering = ['-year', '-month', 'employee']
+
+    def __str__(self):
+        return f'{self.employee.employee_id} {self.month:02d}/{self.year} approved'
 
 
 class EmployeeProjectHours(models.Model):
@@ -556,6 +583,16 @@ class EmployeeProjectHours(models.Model):
     notes = models.CharField(max_length=255, blank=True)
     updated_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='+')
     updated_at = models.DateTimeField(auto_now=True)
+
+    def save(self, *args, **kwargs):
+        from .services.period_lock import assert_unlocked
+        assert_unlocked(self.employee_id, self.date)
+        super().save(*args, **kwargs)
+
+    def delete(self, *args, **kwargs):
+        from .services.period_lock import assert_unlocked
+        assert_unlocked(self.employee_id, self.date)
+        return super().delete(*args, **kwargs)
 
     class Meta:
         unique_together = [('employee', 'date', 'project', 'sub_name')]

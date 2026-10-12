@@ -1114,7 +1114,72 @@ def daily_time_record(request, employee_id):
         "unpaid_leave_count": sum(1 for r in records if r.status == 'unpaid_leave'),
         "undertime": undertime,
     }
+    from .models import MonthlyTimesheetApproval
+    from .services.period_lock import lock_message, lock_state
+    state = lock_state(employee, period_start)
+    context["lock"] = state
+    context["lock_text"] = lock_message(state, period_start) if state else ""
+    context["approval"] = MonthlyTimesheetApproval.objects.filter(employee=employee, year=period_start.year, month=period_start.month).select_related("approved_by").first()
     return render(request, "timesheets/daily_time_record.html", context)
+
+
+def _month_locked_redirect(request, employee, day):
+    """If the month of `day` is approved / posted, say so and send the user back to the sheet; otherwise None."""
+    from .services.period_lock import lock_message, lock_state
+    state = lock_state(employee, day)
+    if not state:
+        return None
+    messages.error(request, lock_message(state, day))
+    return redirect(f"{reverse('timesheets:daily_time_record', args=[employee.pk])}?month={day.strftime('%Y-%m')}")
+
+
+@hr_manager_required
+@require_http_methods(["POST"])
+def dtr_approve_month(request, employee_id):
+    """HR approves the month's attendance sheet of one employee: it is locked from now on."""
+    from .services.period_lock import PeriodLocked, approve_month
+    employee = get_object_or_404(Employee, pk=employee_id)
+    period_start, _ = _resolve_month_period(request.POST.get("month"))
+    try:
+        approval, created = approve_month(employee, period_start.year, period_start.month, request.user, note=request.POST.get("note", ""))
+        messages.success(request, f"The attendance sheet of {employee.full_name} for {period_start:%m/%Y} was approved and is now locked."
+                         if created else "It was already approved.")
+    except PeriodLocked as error:
+        messages.error(request, "; ".join(error.messages))
+    return redirect(f"{reverse('timesheets:daily_time_record', args=[employee.pk])}?month={period_start.strftime('%Y-%m')}")
+
+
+@hr_manager_required
+@require_http_methods(["POST"])
+def dtr_reopen_month(request, employee_id):
+    """Administrator only, and only before the payroll of that month is posted."""
+    from .services.period_lock import PeriodLocked, reopen_month
+    employee = get_object_or_404(Employee, pk=employee_id)
+    period_start, _ = _resolve_month_period(request.POST.get("month"))
+    try:
+        reopened = reopen_month(employee, period_start.year, period_start.month, request.user)
+        messages.warning(request, f"The sheet of {employee.full_name} for {period_start:%m/%Y} is open for editing again." if reopened else "It was not approved.")
+    except PeriodLocked as error:
+        messages.error(request, "; ".join(error.messages))
+    return redirect(f"{reverse('timesheets:daily_time_record', args=[employee.pk])}?month={period_start.strftime('%Y-%m')}")
+
+
+@hr_manager_required
+@require_http_methods(["POST"])
+def dtr_approve_all(request):
+    """Approve (lock) the attendance sheets of every active employee for a month in one go (those already approved / posted are skipped)."""
+    from .services.period_lock import PeriodLocked, approve_month
+    period_start, _ = _resolve_month_period(request.POST.get("month"))
+    done = skipped = 0
+    for employee in Employee.objects.filter(employment_status="active"):
+        try:
+            _, created = approve_month(employee, period_start.year, period_start.month, request.user)
+            done += 1 if created else 0
+            skipped += 0 if created else 1
+        except PeriodLocked:
+            skipped += 1
+    messages.success(request, f"{done} attendance sheet(s) of {period_start:%m/%Y} approved and locked; {skipped} were already locked.")
+    return redirect(request.POST.get("next") or reverse("timesheets:payslip_list"))
 
 
 @hr_manager_required
@@ -1125,6 +1190,9 @@ def dtr_fill_defaults(request, employee_id):
 
     employee = get_object_or_404(Employee, pk=employee_id)
     period_start, period_end = _resolve_month_period(request.POST.get("month"))
+    locked = _month_locked_redirect(request, employee, period_start)
+    if locked:
+        return locked
     filled = fill_default_hours(employee, period_start, period_end)
     messages.success(request, f"{filled} empty working day(s) set to 08:00-17:00." if filled else "No empty working days to fill.")
     return redirect(f"{reverse('timesheets:daily_time_record', args=[employee.pk])}?month={period_start.strftime('%Y-%m')}")
@@ -1138,6 +1206,9 @@ def dtr_recalc_undertime(request, employee_id):
 
     employee = get_object_or_404(Employee, pk=employee_id)
     period_start, period_end = _resolve_month_period(request.POST.get("month"))
+    locked = _month_locked_redirect(request, employee, period_start)
+    if locked:
+        return locked
     changed = recalculate_undertime(employee, period_start, period_end)
     messages.success(request, f"Undertime recalculated: {changed} day(s) updated." if changed else "Undertime already matches the hours.")
     return redirect(f"{reverse('timesheets:daily_time_record', args=[employee.pk])}?month={period_start.strftime('%Y-%m')}")
@@ -1156,6 +1227,9 @@ def dtr_project_hours_save(request, employee_id):
     except ValueError:
         messages.error(request, "Bad date.")
         return redirect("timesheets:daily_time_record", employee_id=employee.pk)
+    locked = _month_locked_redirect(request, employee, day)
+    if locked:
+        return locked
     stay_open = request.POST.get("action") == "save_stay"
     back = (f"{reverse('timesheets:daily_time_record', args=[employee.pk])}?month={day.strftime('%Y-%m')}"
             f"{'&split=' + day.isoformat() if stay_open else ''}#day-{day.isoformat()}")
@@ -1354,6 +1428,9 @@ def _apply_dtr_fields(record, get):
 def daily_time_record_update_row(request, pk):
     """Correct one day's status/clock times/late/undertime/overtime on an employee's DTR."""
     record = get_object_or_404(DailyAttendanceRecord, pk=pk)
+    locked = _month_locked_redirect(request, record.employee, record.date)
+    if locked:
+        return locked
     _apply_dtr_fields(record, request.POST.get)
 
     messages.success(request, f'Updated {record.date} for {record.employee.full_name}.')
@@ -1370,6 +1447,10 @@ def daily_time_record_save_all(request, employee_id):
     month = request.POST.get("month") or ""
     ids = [int(x) for x in (request.POST.get("ids") or "").split(",") if x.strip().isdigit()]
     records = DailyAttendanceRecord.objects.filter(employee=employee, pk__in=ids)
+    for record in records:   # one locked day stops the whole save: nothing is half-saved
+        locked = _month_locked_redirect(request, employee, record.date)
+        if locked:
+            return locked
     saved = 0
     with transaction.atomic():
         for record in records:

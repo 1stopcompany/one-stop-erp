@@ -45,6 +45,13 @@
                     <input type="month" name="month" value="{{ month_param }}" class="form-control form-control-sm" style="width: auto;">
                     <button type="submit" class="btn btn-sm btn-outline-primary">Load</button>
                 </form>
+                {% if request.user.is_staff or request.user.is_admin %}
+                <form method="post" action="{% url 'timesheets:dtr_approve_all' %}" class="d-inline"
+                      onsubmit="return confirm('Approve and lock the attendance sheets (DTR) of ALL active employees for this month? Nobody can change them afterwards; only an administrator can reopen one, before the payroll is posted.');">
+                    {% csrf_token %}<input type="hidden" name="month" value="{{ month_param }}"><input type="hidden" name="next" value="{{ request.get_full_path }}">
+                    <button type="submit" class="btn btn-sm btn-outline-secondary" title="Approve and lock every employee's attendance sheet of this month"><i class="fas fa-lock me-1"></i>Approve &amp; lock attendance sheets</button>
+                </form>
+                {% endif %}
                 <a href="{% url 'timesheets:export_payroll' %}?month={{ month_param }}" class="btn btn-sm btn-outline-success">
                     <i class="fas fa-file-excel me-1"></i>Export Excel
                 </a>

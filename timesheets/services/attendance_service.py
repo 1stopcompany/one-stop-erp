@@ -252,6 +252,9 @@ def _leave_status_by_date(employee, year):
 
 def generate_daily_attendance(employee, period_start, period_end):
     """Ensure a DailyAttendanceRecord exists for every day in the period; return them all, oldest first."""
+    from .period_lock import lock_state
+    if lock_state(employee, period_start):   # an approved / posted month is read-only: show what is there, create nothing
+        return list(DailyAttendanceRecord.objects.filter(employee=employee, date__gte=period_start, date__lte=period_end).order_by('date'))
     holidays = set(
         Holiday.objects.filter(date__gte=period_start, date__lte=period_end).values_list('date', flat=True)
     )

@@ -4,6 +4,13 @@
 {% block title %}DTR - {{ employee.full_name }} - One Stop ERP{% endblock %}
 
 {% block hr_body %}
+{% if lock %}
+<div class="alert {% if lock == 'posted' %}alert-dark{% else %}alert-success{% endif %} d-flex align-items-center gap-2">
+    <i class="fas fa-lock"></i>
+    <div><strong>{% if lock == 'posted' %}Closed for good{% else %}Approved and locked{% endif %}.</strong> {{ lock_text }}
+        {% if approval %}<span class="text-muted">Approved{% if approval.approved_by %} by {{ approval.approved_by.get_full_name|default:approval.approved_by.username }}{% endif %} on {{ approval.approved_at|date:"d/m/Y H:i" }}.</span>{% endif %}</div>
+</div>
+{% endif %}
 <div class="row">
     <div class="col-12">
         <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
@@ -29,6 +36,20 @@
                       onsubmit="return confirm('Set every empty working day of this month (no check-in, not Friday / holiday / leave / a future day) to Present 08:00-17:00 (8 working hours + 1 hour break)? Days with real check-ins or your own corrections are not touched; you can still edit any day afterwards.');">
                     {% csrf_token %}<input type="hidden" name="month" value="{{ month_param }}">
                     <button type="submit" class="btn btn-sm btn-outline-secondary" title="Fill the empty working days with the standard 08:00-17:00"><i class="fas fa-clock me-1"></i>Fill empty days 08:00-17:00</button>
+                </form>
+                {% endif %}
+                {% if can_split and not lock %}
+                <form method="post" action="{% url 'timesheets:dtr_approve_month' employee.pk %}" class="d-inline"
+                      onsubmit="return confirm('Approve this month? The attendance sheet is locked: nobody can change it afterwards (only an administrator can reopen it, before the payroll is posted).');">
+                    {% csrf_token %}<input type="hidden" name="month" value="{{ month_param }}">
+                    <button type="submit" class="btn btn-sm btn-success" title="Approve and lock this month's sheet"><i class="fas fa-lock me-1"></i>Approve &amp; lock</button>
+                </form>
+                {% endif %}
+                {% if lock == 'approved' and request.user.is_admin %}
+                <form method="post" action="{% url 'timesheets:dtr_reopen_month' employee.pk %}" class="d-inline"
+                      onsubmit="return confirm('Reopen this approved sheet for editing? It is recorded with your name.');">
+                    {% csrf_token %}<input type="hidden" name="month" value="{{ month_param }}">
+                    <button type="submit" class="btn btn-sm btn-outline-danger"><i class="fas fa-unlock me-1"></i>Reopen (admin)</button>
                 </form>
                 {% endif %}
                 <a href="{% url 'timesheets:export_dtr_excel' employee.pk %}?month={{ month_param }}" class="btn btn-sm btn-outline-success">
@@ -156,6 +177,15 @@
     </div>
 </div>
 {% if can_split %}
+{% if lock %}
+<script>
+// the month is approved / posted: the sheet is read-only on the page too (the server refuses changes in any case)
+document.addEventListener('DOMContentLoaded', function () {
+    document.querySelectorAll('#dtrTable input, #dtrTable select, #dtrTable textarea, #dtrTable button, .save-all-btn, .split-btn').forEach(function (el) { el.disabled = true; });
+    document.querySelectorAll('form[action*="recalc-undertime"], form[action*="fill-defaults"]').forEach(function (f) { f.style.display = 'none'; });
+});
+</script>
+{% endif %}
 <form method="post" id="saveAllForm" action="{% url 'timesheets:daily_time_record_save_all' employee.pk %}" class="d-none">
     {% csrf_token %}<input type="hidden" name="month" value="{{ month_param }}"><input type="hidden" name="ids" id="saveAllIds">
 </form>
