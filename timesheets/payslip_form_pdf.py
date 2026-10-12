@@ -23,7 +23,8 @@ from .voucher_pdf import BOTTOM, SIDE, TOP, _letterhead
 GREY = colors.HexColor('#e8e8e8')
 LIGHT = colors.HexColor('#f1f1f1')
 NET = colors.HexColor('#fff9c4')
-FRACTIONS = [21, 13, 11, 10, 11, 12, 10]   # logical columns right -> left (B..H of the Excel form)
+FRACTIONS = [19, 12, 11, 12, 13, 15, 12]   # logical columns right -> left (B..H of the Excel form), a little wider on the left for the labels
+ROW_H = 18.5   # every row of every table has this height, so the blocks line up
 
 
 def _plain(value):
@@ -72,7 +73,7 @@ class _Grid:
         if fill is not None:
             self.fills.append((r, fill))
 
-    def table(self, extra=()):
+    def table(self, extra=(), heights=None):
         last = self.n - 1
         mirrored = [list(reversed(r)) for r in self.rows]
         style = [
@@ -84,7 +85,7 @@ class _Grid:
         style += [('SPAN', (last - c1, r0), (last - c0, r1)) for c0, r0, c1, r1 in self.spans]
         style += [('BACKGROUND', (0, r), (-1, r), colour) for r, colour in self.fills]
         style += list(extra)
-        table = Table(mirrored, colWidths=list(reversed(self.widths)))
+        table = Table(mirrored, colWidths=list(reversed(self.widths)), rowHeights=heights or [ROW_H] * len(mirrored))
         table.setStyle(TableStyle(style))
         return table
 
@@ -112,7 +113,7 @@ def _story_for(payslip, S, width):
     top.add(P('الاجازات المستنفذة', 'labb'), num(d['leave_used']), P('الايام المدفوعة', 'labb'), num(d['paid_days']),
             P('الفرع', 'labb'), (P(d['bank_branch'], 'lab'), 2))
     top.add(P('الرصيد الاجازات المتبقي', 'labb'), num(d['leave_balance']), ('', 2), P('العملة', 'labb'), (P(d['currency'], 'lab'), 2))
-    story = [top.table(extra=[('BACKGROUND', (0, 5), (-1, 5), GREY)]), Spacer(1, 6)]
+    story = [top.table(extra=[('BACKGROUND', (0, 5), (-1, 5), GREY)], heights=[24] + [ROW_H] * (len(top.rows) - 1)), Spacer(1, 7)]
 
     # ---- the payments statement (right side of the page) and the current payment (left side)
     right_w = [widths[0], widths[1], widths[2]]
@@ -134,15 +135,16 @@ def _story_for(payslip, S, width):
     current.add(P('بدل اضافي', 'lab'), money(d['overtime']) if d['overtime'] else '', P('سلف', 'lab'), money(d['advances']) if d['advances'] else '')
     current.add(P('بدلات اخرى', 'lab'), money(d['other_allowances']) if d['other_allowances'] else '', P('خصومات اخرى', 'lab'),
                 money(d['other_deductions']) if d['other_deductions'] else '')
-    current.add('', '', P('خصم اجازات غير مدفوعة', 'lab'), money(d['unpaid_leave']) if d['unpaid_leave'] else '')
+    current.add('', '', P('اجازات بدون راتب', 'lab'), money(d['unpaid_leave']) if d['unpaid_leave'] else '')
     current.add(P('مجموع العلاوات', 'labb'), money(d['total_allowances']), P('مجموع الاقتطاعات', 'labb'), money(d['total_deductions']), fill=GREY)
     current.add('', '', P('امتيازات اضافية', 'lab'), money(d['extra_benefits']) if d['extra_benefits'] else '')
     current.add('', '', P('بونص', 'lab'), money(d['bonus']) if d['bonus'] else '')
-    current.add('', '', '', '')
     current.add(P('الراتب الاجمالي', 'labb'), (money(d['gross']), 3))
     current.add(P('الراتب للدفع', 'labb'), (money(d['net'], 'valb'), 3), fill=NET)
     current.add(P('المبلغ بالكلمات', 'labb'), (P(d['words'], 'valb'), 3))
-    current_table = current.table()
+    # the words row takes the height left over, so both halves end on the same line
+    current_heights = [ROW_H] * (len(current.rows) - 1) + [ROW_H * (len(months.rows) - len(current.rows) + 1)]
+    current_table = current.table(heights=current_heights)
 
     # both halves are as tall as the taller one, so the page reads as one block
     months_table = months.table()
