@@ -601,6 +601,11 @@
                         <div class="accordion-body">
                             {% if report.status == 'draft' and request.user == report.site_engineer or report.status == 'draft' and request.user.is_admin %}
                             <div class="d-flex justify-content-end mb-2">
+                                {% if attachments %}
+                                <button type="button" class="btn btn-sm btn-outline-secondary me-1" id="editCaptionsBtn" onclick="toggleCaptionEditing(true)"><i class="fas fa-pen"></i> Edit descriptions</button>
+                                <button type="button" class="btn btn-sm btn-success me-1" id="saveCaptionsBtn" style="display:none" onclick="saveCaptions()"><i class="fas fa-save"></i> Save descriptions</button>
+                                <button type="button" class="btn btn-sm btn-light me-1" id="cancelCaptionsBtn" style="display:none" onclick="toggleCaptionEditing(false)">Cancel</button>
+                                {% endif %}
                                 <button type="button" class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#addAttachmentModal">
                                     <i class="fas fa-plus"></i> Add
                                 </button>
@@ -622,7 +627,10 @@
                                                 <i class="fas fa-file"></i> {{ item.get_attachment_type_display }}
                                                 {% endif %}
                                             </p>
-                                            <p class="card-text"><strong>{{ item.description|default:"Untitled" }}</strong></p>
+                                            <p class="card-text caption-view"><strong>{{ item.description|default:"Untitled" }}</strong></p>
+                                            {% if report.status == 'draft' and request.user == report.site_engineer or report.status == 'draft' and request.user.is_admin %}
+                                            <input type="text" class="form-control form-control-sm mb-2 caption-edit" style="display:none" data-id="{{ item.id }}" data-original="{{ item.description }}" value="{{ item.description }}" placeholder="Description">
+                                            {% endif %}
                                             {% if item.location %}<p class="text-muted small mb-1"><i class="fas fa-map-marker-alt"></i> {{ item.location }}</p>{% endif %}
                                             <p class="text-muted small">{{ item.created_at|date:"d M Y H:i" }}</p>
                                             <div class="d-flex flex-wrap gap-1">
@@ -1000,7 +1008,7 @@
 
 <!-- Add Attachment Modal -->
 <div class="modal fade" id="addAttachmentModal" tabindex="-1">
-    <div class="modal-dialog">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
         <div class="modal-content">
             <div class="modal-header">
                 <h5 class="modal-title">Add Attachment</h5>
@@ -1009,32 +1017,20 @@
             <form id="attachmentForm" enctype="multipart/form-data">
                 {% csrf_token %}
                 <div class="modal-body">
-                    <div class="mb-3">
-                        <label for="attachmentFile" class="form-label">File *</label>
-                        <input type="file" class="form-control" id="attachmentFile" name="file" required>
+                    <div class="mb-2">
+                        <label for="attachmentFiles" class="form-label">Files * <span class="text-muted small">(choose as many as you like at once)</span></label>
+                        <input type="file" class="form-control" id="attachmentFiles" multiple>
                     </div>
-                    <div class="mb-3">
-                        <label for="attachmentCaption" class="form-label">Caption</label>
-                        <input type="text" class="form-control" id="attachmentCaption" name="caption">
+                    <div id="attachmentCommon" class="row g-2 mb-2" style="display:none">
+                        <div class="col-md-8"><label class="form-label small mb-1">Location for all (optional, you can still change it per file)</label><input type="text" class="form-control form-control-sm" id="attachmentLocationAll" placeholder="e.g. Block B, 2nd floor"></div>
+                        <div class="col-md-4"><label class="form-label small mb-1">Type for all</label><select class="form-select form-select-sm" id="attachmentTypeAll"><option value="">Auto (by file)</option><option value="photo">Photo</option><option value="document">Document</option><option value="video">Video</option><option value="other">Other</option></select></div>
                     </div>
-                    <div class="mb-3">
-                        <label for="attachmentLocation" class="form-label">Location</label>
-                        <input type="text" class="form-control" id="attachmentLocation" name="location">
-                    </div>
-                    <div class="mb-3">
-                        <label for="fileType" class="form-label">File Type *</label>
-                        <select class="form-select" id="fileType" name="attachment_type" required>
-                            <option value="">Select type...</option>
-                            <option value="photo">Photo</option>
-                            <option value="document">Document</option>
-                            <option value="video">Video</option>
-                            <option value="other">Other</option>
-                        </select>
-                    </div>
+                    <div id="attachmentRows"></div>
+                    <div id="attachmentProgress" class="small mt-2"></div>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                    <button type="submit" class="btn btn-primary">Upload Attachment</button>
+                    <button type="submit" class="btn btn-primary" id="attachmentUploadBtn">Upload</button>
                 </div>
             </form>
         </div>
@@ -2049,27 +2045,132 @@ document.getElementById('visitorForm').addEventListener('submit', async (e) => {
     }
 });
 
-// Add Attachment
-document.getElementById('attachmentForm').addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const formData = new FormData(e.target);
-    
-    try {
-        const response = await fetch(`/reports/api/daily/${reportId}/attachment/`, {
-            method: 'POST',
-            headers: {'X-CSRFToken': csrfToken},
-            body: formData
+// Add Attachments: several files at once, each with its own description (and location / type), uploaded one after the other
+(function () {
+    const input = document.getElementById('attachmentFiles'), rows = document.getElementById('attachmentRows');
+    if (!input) return;
+    let files = [];   // [{file, row}]
+    const guessType = (f) => f.type.startsWith('image/') ? 'photo' : f.type.startsWith('video/') ? 'video'
+        : (/\.(pdf|docx?|xlsx?|pptx?|txt|csv)$/i.test(f.name) ? 'document' : 'other');
+    const size = (n) => n > 1048576 ? (n / 1048576).toFixed(1) + ' MB' : Math.max(1, Math.round(n / 1024)) + ' KB';
+    function render() {
+        rows.innerHTML = '';
+        files.forEach((entry, index) => {
+            const f = entry.file, row = document.createElement('div');
+            row.className = 'border rounded p-2 mb-2 d-flex gap-2 align-items-start';
+            const thumb = f.type.startsWith('image/')
+                ? `<img src="${URL.createObjectURL(f)}" style="width:64px;height:64px;object-fit:cover;border-radius:4px" alt="">`
+                : `<div class="d-flex align-items-center justify-content-center bg-light border rounded" style="width:64px;height:64px"><i class="fas fa-file fa-lg text-muted"></i></div>`;
+            row.innerHTML = `${thumb}
+                <div class="flex-grow-1">
+                    <div class="small text-muted text-truncate" style="max-width:420px">${f.name.replace(/</g, '&lt;')} &middot; ${size(f.size)}</div>
+                    <input type="text" class="form-control form-control-sm mt-1 att-caption" placeholder="Description of this file" value="${(entry.caption || '').replace(/"/g, '&quot;')}">
+                    <div class="row g-1 mt-1">
+                        <div class="col-7"><input type="text" class="form-control form-control-sm att-location" placeholder="Location (optional)" value="${(entry.location || '').replace(/"/g, '&quot;')}"></div>
+                        <div class="col-5"><select class="form-select form-select-sm att-type">
+                            ${['photo', 'document', 'video', 'other'].map(t => `<option value="${t}" ${(entry.type || guessType(f)) === t ? 'selected' : ''}>${t.charAt(0).toUpperCase() + t.slice(1)}</option>`).join('')}</select></div>
+                    </div>
+                    <div class="att-status small mt-1"></div>
+                </div>
+                <button type="button" class="btn btn-sm btn-outline-danger" title="Remove from the list">&times;</button>`;
+            row.querySelector('button').addEventListener('click', () => { remember(); files.splice(index, 1); render(); });
+            entry.row = row;
+            rows.appendChild(row);
         });
-        
-        if (response.ok) {
-            location.reload();
-        } else {
-            showAlert(await serverMessage(response, 'Error adding attachment'), 'danger');
-        }
-    } catch (error) {
-        showAlert('Error: ' + error.message, 'danger');
+        document.getElementById('attachmentCommon').style.display = files.length ? '' : 'none';
+        document.getElementById('attachmentUploadBtn').textContent = files.length > 1 ? `Upload ${files.length} files` : 'Upload';
     }
-});
+    function remember() {   // keep what was typed when the list is redrawn
+        files.forEach(e => {
+            if (!e.row) return;
+            e.caption = e.row.querySelector('.att-caption').value;
+            e.location = e.row.querySelector('.att-location').value;
+            e.type = e.row.querySelector('.att-type').value;
+        });
+    }
+    input.addEventListener('change', () => {
+        remember();
+        Array.from(input.files).forEach(f => files.push({file: f}));
+        input.value = '';   // so the same file can be chosen again, and the list below is the only source
+        render();
+    });
+    document.getElementById('attachmentLocationAll').addEventListener('input', (e) => {
+        files.forEach(entry => { const box = entry.row && entry.row.querySelector('.att-location'); if (box && (!box.dataset.typed)) box.value = e.target.value; });
+    });
+    document.getElementById('attachmentTypeAll').addEventListener('change', (e) => {
+        if (!e.target.value) return;
+        files.forEach(entry => { const box = entry.row && entry.row.querySelector('.att-type'); if (box) box.value = e.target.value; });
+    });
+    rows.addEventListener('input', (e) => { if (e.target.classList.contains('att-location')) e.target.dataset.typed = '1'; });
+
+    document.getElementById('attachmentForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        if (!files.length) { showAlert('Choose at least one file.', 'danger'); return; }
+        const button = document.getElementById('attachmentUploadBtn'), progress = document.getElementById('attachmentProgress');
+        button.disabled = true;
+        let done = 0, failed = 0;
+        for (const entry of files.slice()) {
+            if (entry.uploaded) continue;
+            const status = entry.row.querySelector('.att-status');
+            status.className = 'att-status small mt-1 text-primary'; status.textContent = 'Uploading...';
+            const body = new FormData();
+            body.append('file', entry.file);
+            body.append('caption', entry.row.querySelector('.att-caption').value);
+            body.append('location', entry.row.querySelector('.att-location').value);
+            body.append('attachment_type', entry.row.querySelector('.att-type').value);
+            try {
+                const response = await fetch(`/reports/api/daily/${reportId}/attachment/`, {method: 'POST', headers: {'X-CSRFToken': csrfToken}, body: body});
+                if (response.ok) {
+                    entry.uploaded = true; done++;
+                    status.className = 'att-status small mt-1 text-success'; status.textContent = 'Uploaded';
+                } else {
+                    failed++;
+                    status.className = 'att-status small mt-1 text-danger'; status.textContent = await serverMessage(response, 'Upload failed');
+                }
+            } catch (error) {
+                failed++;
+                status.className = 'att-status small mt-1 text-danger'; status.textContent = 'Error: ' + error.message;
+            }
+            progress.textContent = `${done} of ${files.length} uploaded` + (failed ? `, ${failed} failed (fix or remove them and press Upload again)` : '');
+        }
+        button.disabled = false;
+        if (!failed) { location.reload(); }
+        else {
+            files = files.filter(entry => !entry.uploaded);   // only the failed ones stay for another try
+            if (done) showAlert(`${done} file(s) uploaded; ${failed} failed - they are still in the list.`, 'warning');
+        }
+    });
+    document.getElementById('addAttachmentModal').addEventListener('hidden.bs.modal', () => { files = []; rows.innerHTML = ''; document.getElementById('attachmentProgress').textContent = ''; render(); });
+})();
+
+// Edit all the descriptions of the attachments in one go
+function toggleCaptionEditing(on) {
+    document.querySelectorAll('.caption-view').forEach(el => el.style.display = on ? 'none' : '');
+    document.querySelectorAll('.caption-edit').forEach(el => el.style.display = on ? '' : 'none');
+    const edit = document.getElementById('editCaptionsBtn'), saveBtn = document.getElementById('saveCaptionsBtn'), cancel = document.getElementById('cancelCaptionsBtn');
+    if (edit) edit.style.display = on ? 'none' : '';
+    if (saveBtn) saveBtn.style.display = on ? '' : 'none';
+    if (cancel) cancel.style.display = on ? '' : 'none';
+    if (!on) document.querySelectorAll('.caption-edit').forEach(el => el.value = el.dataset.original);
+}
+async function saveCaptions() {
+    const changed = Array.from(document.querySelectorAll('.caption-edit')).filter(el => el.value.trim() !== (el.dataset.original || '').trim());
+    if (!changed.length) { toggleCaptionEditing(false); return; }
+    const button = document.getElementById('saveCaptionsBtn');
+    button.disabled = true;
+    let failed = 0;
+    for (const el of changed) {
+        const body = new FormData();
+        body.append('caption', el.value);
+        try {
+            const response = await fetch(`/reports/api/daily/${reportId}/attachment/${el.dataset.id}/edit/`, {method: 'POST', headers: {'X-CSRFToken': csrfToken}, body: body});
+            if (!response.ok) failed++;
+        } catch (error) { failed++; }
+    }
+    button.disabled = false;
+    if (failed) showAlert(`${failed} description(s) could not be saved.`, 'danger');
+    else location.reload();
+}
 
 // Delete functions
 function deleteEquipment(id) {

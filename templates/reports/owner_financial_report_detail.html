@@ -348,8 +348,13 @@
                 <div class="card-header bg-light d-flex justify-content-between align-items-center">
                     <h5 class="mb-0"><i class="fas fa-images"></i> Photos</h5>
                     {% if report.is_editable and request.user == report.site_engineer or report.is_editable and request.user.is_admin %}
+                    {% if report.phase_photos.exists %}
+                    <button type="button" class="btn btn-sm btn-outline-secondary me-1" id="editPhotoCaptionsBtn" onclick="togglePhotoCaptionEditing(true)"><i class="fas fa-pen"></i> Edit captions</button>
+                    <button type="button" class="btn btn-sm btn-success me-1" id="savePhotoCaptionsBtn" style="display:none" onclick="savePhotoCaptions()"><i class="fas fa-save"></i> Save captions</button>
+                    <button type="button" class="btn btn-sm btn-light me-1" id="cancelPhotoCaptionsBtn" style="display:none" onclick="togglePhotoCaptionEditing(false)">Cancel</button>
+                    {% endif %}
                     <button type="button" class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#addPhotoModal">
-                        <i class="fas fa-plus"></i> Add Photo
+                        <i class="fas fa-plus"></i> Add Photos
                     </button>
                     {% endif %}
                 </div>
@@ -364,7 +369,10 @@
                                 <div class="card h-100">
                                     <img src="{{ photo.photo.url }}" class="card-img-top" style="height: 150px; object-fit: cover;" alt="{{ photo.caption }}">
                                     <div class="card-body p-2">
-                                        <p class="small mb-2">{{ photo.caption|default:"—"|truncatewords:10 }}</p>
+                                        <p class="small mb-2 photo-caption-view">{{ photo.caption|default:"—"|truncatewords:10 }}</p>
+                                        {% if report.is_editable and request.user == report.site_engineer or report.is_editable and request.user.is_admin %}
+                                        <input type="text" class="form-control form-control-sm mb-2 photo-caption-edit" style="display:none" data-id="{{ photo.id }}" data-original="{{ photo.caption }}" value="{{ photo.caption }}" placeholder="Caption">
+                                        {% endif %}
                                         {% if report.is_editable and request.user == report.site_engineer or report.is_editable and request.user.is_admin %}
                                         <div class="d-flex gap-1">
                                             <button class="btn btn-sm btn-outline-warning" onclick="openEditPhoto({{ photo.id }}, {{ photo.phase_id }}, '{{ photo.caption|escapejs }}', '{{ photo.taken_date|date:'Y-m-d' }}')">
@@ -392,7 +400,7 @@
 
 <!-- Add Photo Modal -->
 <div class="modal fade" id="addPhotoModal" tabindex="-1">
-    <div class="modal-dialog">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
         <div class="modal-content">
             <div class="modal-header">
                 <h5 class="modal-title">Add Photo</h5>
@@ -401,31 +409,31 @@
             <form id="addPhotoForm" enctype="multipart/form-data">
                 {% csrf_token %}
                 <div class="modal-body">
-                    <div class="mb-3">
-                        <label class="form-label">Phase *</label>
-                        <select class="form-select" name="phase" required>
-                            <option value="">Select phase...</option>
-                            {% for phase in project_phases %}
-                            <option value="{{ phase.id }}">{{ phase.code }}. {{ phase.name_ar }}</option>
-                            {% endfor %}
-                        </select>
+                    <div class="row g-2 mb-2">
+                        <div class="col-md-6">
+                            <label class="form-label">Phase * <span class="text-muted small">(for all; you can change it per photo)</span></label>
+                            <select class="form-select" id="photoPhaseAll" name="phase" required>
+                                <option value="">Select phase...</option>
+                                {% for phase in project_phases %}
+                                <option value="{{ phase.id }}">{{ phase.code }}. {{ phase.name_ar }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Date taken (for all)</label>
+                            <input type="date" class="form-control" id="photoDateAll">
+                        </div>
                     </div>
-                    <div class="mb-3">
-                        <label class="form-label">Photo *</label>
-                        <input type="file" class="form-control" name="photo" accept="image/*" required>
+                    <div class="mb-2">
+                        <label class="form-label">Photos * <span class="text-muted small">(choose as many as you like at once)</span></label>
+                        <input type="file" class="form-control" id="photoFiles" accept="image/*" multiple>
                     </div>
-                    <div class="mb-3">
-                        <label class="form-label">Caption</label>
-                        <input type="text" class="form-control" name="caption" placeholder="اعمال عقدة طابق الارضي">
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">Date Taken</label>
-                        <input type="date" class="form-control" name="taken_date">
-                    </div>
+                    <div id="photoRows"></div>
+                    <div id="photoProgress" class="small mt-2"></div>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                    <button type="submit" class="btn btn-primary">Add</button>
+                    <button type="submit" class="btn btn-primary" id="photoUploadBtn">Add</button>
                 </div>
             </form>
         </div>
@@ -857,25 +865,124 @@ document.getElementById('editNarrativeForm').addEventListener('submit', async (e
     }
 });
 
-document.getElementById('addPhotoForm').addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const form = e.target;
-    try {
-        const response = await fetch(`/reports/api/owner-financial/${reportId}/photos/`, {
-            method: 'POST',
-            headers: {'X-CSRFToken': csrfToken},
-            body: new FormData(form),
+// Add Photos: several at once, each with its own caption (and phase / date), uploaded one after the other
+(function () {
+    const input = document.getElementById('photoFiles'), rows = document.getElementById('photoRows');
+    if (!input) return;
+    let files = [];
+    const phaseOptions = document.getElementById('photoPhaseAll').innerHTML;
+    function remember() {
+        files.forEach(e => {
+            if (!e.row) return;
+            e.caption = e.row.querySelector('.ph-caption').value; e.phase = e.row.querySelector('.ph-phase').value; e.date = e.row.querySelector('.ph-date').value;
         });
-        if (response.ok) {
-            location.reload();
-        } else {
-            const data = await response.json().catch(() => ({}));
-            showAlert(data.error || 'Error adding photo', 'danger');
-        }
-    } catch (error) {
-        showAlert('Error: ' + error.message, 'danger');
     }
-});
+    function render() {
+        rows.innerHTML = '';
+        const commonPhase = document.getElementById('photoPhaseAll').value, commonDate = document.getElementById('photoDateAll').value;
+        files.forEach((entry, index) => {
+            const row = document.createElement('div');
+            row.className = 'border rounded p-2 mb-2 d-flex gap-2 align-items-start';
+            row.innerHTML = `<img src="${URL.createObjectURL(entry.file)}" style="width:72px;height:72px;object-fit:cover;border-radius:4px" alt="">
+                <div class="flex-grow-1">
+                    <div class="small text-muted text-truncate" style="max-width:420px">${entry.file.name.replace(/</g, '&lt;')}</div>
+                    <input type="text" class="form-control form-control-sm mt-1 ph-caption" placeholder="Caption of this photo" value="${(entry.caption || '').replace(/"/g, '&quot;')}">
+                    <div class="row g-1 mt-1">
+                        <div class="col-8"><select class="form-select form-select-sm ph-phase">${phaseOptions}</select></div>
+                        <div class="col-4"><input type="date" class="form-control form-control-sm ph-date" value="${entry.date || commonDate || ''}"></div>
+                    </div>
+                    <div class="ph-status small mt-1"></div>
+                </div>
+                <button type="button" class="btn btn-sm btn-outline-danger" title="Remove from the list">&times;</button>`;
+            row.querySelector('.ph-phase').value = entry.phase || commonPhase || '';
+            row.querySelector('button').addEventListener('click', () => { remember(); files.splice(index, 1); render(); });
+            entry.row = row;
+            rows.appendChild(row);
+        });
+        document.getElementById('photoUploadBtn').textContent = files.length > 1 ? `Add ${files.length} photos` : 'Add';
+    }
+    input.addEventListener('change', () => {
+        remember();
+        Array.from(input.files).forEach(f => files.push({file: f}));
+        input.value = '';
+        render();
+    });
+    document.getElementById('photoPhaseAll').addEventListener('change', (e) => {
+        files.forEach(entry => { const box = entry.row && entry.row.querySelector('.ph-phase'); if (box) box.value = e.target.value; });
+    });
+    document.getElementById('photoDateAll').addEventListener('change', (e) => {
+        files.forEach(entry => { const box = entry.row && entry.row.querySelector('.ph-date'); if (box) box.value = e.target.value; });
+    });
+    document.getElementById('addPhotoForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        if (!files.length) { showAlert('Choose at least one photo.', 'danger'); return; }
+        const button = document.getElementById('photoUploadBtn'), progress = document.getElementById('photoProgress');
+        for (const entry of files) {
+            if (!entry.row.querySelector('.ph-phase').value) { showAlert('Choose the phase of every photo.', 'danger'); return; }
+        }
+        button.disabled = true;
+        let done = 0, failed = 0;
+        for (const entry of files.slice()) {
+            const status = entry.row.querySelector('.ph-status');
+            status.className = 'ph-status small mt-1 text-primary'; status.textContent = 'Uploading...';
+            const body = new FormData();
+            body.append('photo', entry.file);
+            body.append('phase', entry.row.querySelector('.ph-phase').value);
+            body.append('caption', entry.row.querySelector('.ph-caption').value);
+            if (entry.row.querySelector('.ph-date').value) body.append('taken_date', entry.row.querySelector('.ph-date').value);
+            try {
+                const response = await fetch(`/reports/api/owner-financial/${reportId}/photos/`, {method: 'POST', headers: {'X-CSRFToken': csrfToken}, body: body});
+                if (response.ok) {
+                    entry.uploaded = true; done++;
+                    status.className = 'ph-status small mt-1 text-success'; status.textContent = 'Uploaded';
+                } else {
+                    failed++;
+                    const data = await response.json().catch(() => ({}));
+                    status.className = 'ph-status small mt-1 text-danger'; status.textContent = data.error || 'Upload failed';
+                }
+            } catch (error) {
+                failed++;
+                status.className = 'ph-status small mt-1 text-danger'; status.textContent = 'Error: ' + error.message;
+            }
+            progress.textContent = `${done} of ${files.length} uploaded` + (failed ? `, ${failed} failed (fix or remove them and press Add again)` : '');
+        }
+        button.disabled = false;
+        if (!failed) { location.reload(); }
+        else {
+            files = files.filter(entry => !entry.uploaded);
+            if (done) showAlert(`${done} photo(s) added; ${failed} failed - they are still in the list.`, 'warning');
+        }
+    });
+    document.getElementById('addPhotoModal').addEventListener('hidden.bs.modal', () => { files = []; rows.innerHTML = ''; document.getElementById('photoProgress').textContent = ''; render(); });
+})();
+
+// Edit all the captions of the photos in one go
+function togglePhotoCaptionEditing(on) {
+    document.querySelectorAll('.photo-caption-view').forEach(el => el.style.display = on ? 'none' : '');
+    document.querySelectorAll('.photo-caption-edit').forEach(el => el.style.display = on ? '' : 'none');
+    document.getElementById('editPhotoCaptionsBtn').style.display = on ? 'none' : '';
+    document.getElementById('savePhotoCaptionsBtn').style.display = on ? '' : 'none';
+    document.getElementById('cancelPhotoCaptionsBtn').style.display = on ? '' : 'none';
+    if (!on) document.querySelectorAll('.photo-caption-edit').forEach(el => el.value = el.dataset.original);
+}
+async function savePhotoCaptions() {
+    const changed = Array.from(document.querySelectorAll('.photo-caption-edit')).filter(el => el.value.trim() !== (el.dataset.original || '').trim());
+    if (!changed.length) { togglePhotoCaptionEditing(false); return; }
+    const button = document.getElementById('savePhotoCaptionsBtn');
+    button.disabled = true;
+    let failed = 0;
+    for (const el of changed) {
+        const body = new FormData();
+        body.append('caption', el.value);
+        try {
+            const response = await fetch(`/reports/api/owner-financial/${reportId}/photos/${el.dataset.id}/`, {method: 'POST', headers: {'X-CSRFToken': csrfToken}, body: body});
+            if (!response.ok) failed++;
+        } catch (error) { failed++; }
+    }
+    button.disabled = false;
+    if (failed) showAlert(`${failed} caption(s) could not be saved.`, 'danger');
+    else location.reload();
+}
 
 function openEditPhoto(id, phaseId, caption, takenDate) {
     const form = document.getElementById('editPhotoForm');
