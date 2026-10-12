@@ -743,20 +743,25 @@ def payslip_list(request):
 
 @hr_required
 def payslip_print_all(request):
-    """One PDF with the payslip of every employee for a month (?month=YYYY-MM, &posted=1 for posted ones only), one per page."""
+    """One PDF with the payslip of every employee for a month (?month=YYYY-MM), one per page. ONLY posted payslips are printed:
+    a draft is still being worked on, so it never reaches the printer in bulk (it can still be opened one by one for a preview)."""
     month_param = request.GET.get('month', '')
     try:
         month_start = datetime.strptime(month_param, '%Y-%m').date()
     except ValueError:
         messages.error(request, 'Choose a month first, then press Print all.')
         return redirect('timesheets:payslip_list')
-    payslips = Payslip.objects.select_related('employee', 'employee__position', 'employee__department').filter(period_start=month_start).exclude(status='excluded')
-    if request.GET.get('posted'):
-        payslips = payslips.filter(status='posted')
-    payslips = list(payslips.order_by('employee__employee_id'))
+    month_slips = Payslip.objects.filter(period_start=month_start).exclude(status='excluded')
+    payslips = list(month_slips.filter(status='posted').select_related('employee', 'employee__position', 'employee__department')
+                    .order_by('employee__employee_id'))
     if not payslips:
-        messages.warning(request, 'There are no payslips for that month.')
+        drafts = month_slips.count()
+        messages.warning(request, (f'The {drafts} payslip(s) of that month are still drafts: post the payroll run first, then print.'
+                                   if drafts else 'There are no payslips for that month.'))
         return redirect(f"{reverse('timesheets:payslip_list')}?month={month_param}")
+    skipped = month_slips.exclude(status='posted').count()
+    if skipped:
+        messages.info(request, f'{skipped} draft payslip(s) of that month were left out: only posted payslips are printed together.')
     from .payslip_form_pdf import generate_payslip_form_pdf
     response = HttpResponse(generate_payslip_form_pdf(payslips), content_type='application/pdf')
     response['Content-Disposition'] = f'inline; filename=payslips-{month_start:%Y-%m}.pdf'

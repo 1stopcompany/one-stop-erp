@@ -15,8 +15,7 @@
                 <input type="month" name="month" value="{{ month_param }}" class="form-control form-control-sm" style="width: auto;">
                 <button type="submit" class="btn btn-sm btn-outline-primary">Filter</button>
                 {% if month_param %}<a href="{% url 'timesheets:payslip_list' %}" class="btn btn-sm btn-outline-secondary">Clear</a>
-                <a href="{% url 'timesheets:payslip_print_all' %}?month={{ month_param }}" target="_blank" class="btn btn-sm btn-primary" title="One PDF with every payslip of the month, one per page"><i class="fas fa-print"></i> Print all</a>
-                <a href="{% url 'timesheets:payslip_print_all' %}?month={{ month_param }}&posted=1" target="_blank" class="btn btn-sm btn-outline-primary" title="Only the posted payslips">Posted only</a>{% endif %}
+                <a href="{% url 'timesheets:payslip_print_all' %}?month={{ month_param }}" target="_blank" class="btn btn-sm btn-primary" title="One PDF with the posted payslips of the month, one per page (drafts are left out)"><i class="fas fa-print"></i> Print posted payslips</a>{% endif %}
             </form>
         </div>
     </div>
