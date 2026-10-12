@@ -453,8 +453,8 @@
                                         <tr id="equipment-{{ item.id }}">
                                             <td><strong>{% if item.tool_id %}<a href="{% url 'equipment:tool_detail' item.tool_id %}" class="text-decoration-none">{{ item.equipment_name }}</a>{% else %}{{ item.equipment_name }}{% endif %}</strong></td>
                                             <td>{{ item.activity.activity_description|default:"—" }}</td>
-                                            <td>{{ item.hours_worked }} hrs</td>
-                                            <td>{{ item.quantity_idle }}</td>
+                                            <td>{{ item.hours_worked|floatformat:"-1" }} hrs{% if item.operator_name %}<div class="small text-muted">{{ item.operator_name }}</div>{% endif %}</td>
+                                            <td>{% if item.idle_hours %}{{ item.idle_hours|floatformat:"-1" }} hrs idle{% else %}{{ item.quantity_idle }}{% endif %}{% if item.meter_reading %}<div class="small text-muted">meter {{ item.meter_reading|floatformat:"-1" }}</div>{% endif %}</td>
                                             <td>
                                                 {% if report.status == 'draft' and request.user == report.site_engineer or report.status == 'draft' and request.user.is_admin %}
                                                 <button class="btn btn-sm btn-danger" onclick="deleteEquipment({{ item.id }})">
@@ -867,7 +867,7 @@
                         <select class="form-select" id="equipmentTool" name="tool">
                             <option value="" selected>— Choose a tool handed over to this project —</option>
                             {% for tool in project_tools %}{% if tool.pk not in tools_on_report %}
-                            <option value="{{ tool.pk }}">{{ tool.code }} — {{ tool.name }}{% if tool.manufacturer %} ({{ tool.manufacturer }}){% endif %}{% if tool.status != 'working' and tool.status != 'new' %} — {{ tool.get_status_display }}{% endif %}</option>
+                            <option value="{{ tool.pk }}" data-heavy="{% if tool.is_heavy %}1{% endif %}" data-operator="{{ tool.operator }}" data-meter="{{ tool.hour_meter }}">{{ tool.code }} — {{ tool.name }}{% if tool.manufacturer %} ({{ tool.manufacturer }}){% endif %}{% if tool.status != 'working' and tool.status != 'new' %} — {{ tool.get_status_display }}{% endif %}</option>
                             {% endif %}{% endfor %}
                         </select>
                         <div class="form-text">{% if project_tools %}These are the tools the storekeeper handed over to this project. Equipment that is not in the register can be chosen from the general list below.{% else %}No tool is registered at this project yet (the storekeeper hands tools over from <em>Equipment</em>). You can still choose equipment from the general list below.{% endif %}</div>
@@ -910,6 +910,13 @@
                                 <span class="small text-danger" id="newEquipMsg"></span>
                             </div>
                         </div>
+                    </div>
+                    <div id="heavyFields" class="row g-2 mb-3 border rounded p-2 bg-light" style="display:none">
+                        <div class="col-12 small fw-bold">Heavy equipment</div>
+                        <div class="col-md-6"><label class="form-label small mb-1">Operator / driver today</label><input class="form-control form-control-sm" name="operator_name" id="heavyOperator" maxlength="100"></div>
+                        <div class="col-md-3"><label class="form-label small mb-1">Idle hours</label><input class="form-control form-control-sm" name="idle_hours" type="number" step="0.5" min="0" max="24" value="0"></div>
+                        <div class="col-md-3"><label class="form-label small mb-1">Hour meter (end of day)</label><input class="form-control form-control-sm" name="meter_reading" id="heavyMeter" type="number" step="0.1" min="0"></div>
+                        <div class="col-12 form-text">Worked hours go in "Hours Worked" below; they are what the monthly rental claim is made from.</div>
                     </div>
                     <div class="mb-3">
                         <label for="equipmentActivity" class="form-label">Used For (Activity) *</label>
@@ -1978,8 +1985,19 @@ async function serverMessage(response, fallback) {
 (function () {
     const toolSelect = document.getElementById('equipmentTool'), masterSelect = document.getElementById('equipmentMaster');
     if (!toolSelect || !masterSelect) return;
-    toolSelect.addEventListener('change', () => { if (toolSelect.value) masterSelect.value = ''; });
-    masterSelect.addEventListener('change', () => { if (masterSelect.value) toolSelect.value = ''; });
+    const heavyBox = document.getElementById('heavyFields');
+    const showHeavy = () => {
+        const option = toolSelect.options[toolSelect.selectedIndex];
+        const heavy = option && option.dataset.heavy === '1';
+        if (heavyBox) heavyBox.style.display = heavy ? '' : 'none';
+        if (heavy) {
+            const operator = document.getElementById('heavyOperator'), meter = document.getElementById('heavyMeter');
+            if (operator && !operator.value) operator.value = option.dataset.operator || '';
+            if (meter && !meter.value) meter.placeholder = 'last: ' + (option.dataset.meter || '0');
+        }
+    };
+    toolSelect.addEventListener('change', () => { if (toolSelect.value) masterSelect.value = ''; showHeavy(); });
+    masterSelect.addEventListener('change', () => { if (masterSelect.value) { toolSelect.value = ''; showHeavy(); } });
 })();
 document.getElementById('equipmentForm').addEventListener('submit', async (e) => {
     e.preventDefault();

@@ -11,7 +11,7 @@ from django.shortcuts import get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.utils import timezone
 from datetime import datetime
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 from .models import (
     DailyReport, DailyEquipment,
     DailyMaterial, DailyVisitor, ReportAttachment,
@@ -98,14 +98,29 @@ def add_daily_equipment(request, report_id):
         else:
             equipment_master = get_object_or_404(EquipmentMaster, pk=data.get('equipment_master'), is_active=True)
 
+        try:
+            hours = Decimal(data.get('hours_worked') or 0)
+            idle_hours = Decimal(data.get('idle_hours') or 0)
+            meter = Decimal(data['meter_reading']) if data.get('meter_reading') else None
+        except InvalidOperation:
+            return JsonResponse({'success': False, 'message': 'Hours and the meter reading must be numbers.'}, status=400)
+        if not (0 <= hours <= 24 and 0 <= idle_hours <= 24):
+            return JsonResponse({'success': False, 'message': 'Hours must be between 0 and 24.'}, status=400)
+        operator = (data.get('operator_name') or '').strip() or (tool.operator if tool and tool.is_heavy else '')
         equipment = DailyEquipment.objects.create(
             report=report,
             tool=tool,
             equipment_master=equipment_master,
             activity=activity,
-            hours_worked=float(data.get('hours_worked', 0)),
-            quantity_idle=int(data.get('quantity_idle', 0))
+            hours_worked=hours,
+            idle_hours=idle_hours,
+            operator_name=operator,
+            meter_reading=meter,
+            quantity_idle=int(data.get('quantity_idle') or 0)
         )
+        if tool and tool.is_heavy and meter is not None and meter > tool.hour_meter:
+            tool.hour_meter = meter   # the equipment's own meter follows the readings of the daily reports
+            tool.save(update_fields=['hour_meter'])
 
         return JsonResponse({
             'success': True,

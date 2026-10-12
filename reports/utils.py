@@ -1222,9 +1222,9 @@ def generate_daily_report_pdf(report):
                              'ساعات التشغيل / Hours Worked', 'عدد عاطل / Idle Qty.'], col_widths)]
         for i, eq in enumerate(report.equipment.select_related('activity').all(), start=1):
             rows.append([
-                str(i), rtl_paragraph(eq.equipment_name, cell_left_style, col_widths[1] - 8),
+                str(i), rtl_paragraph(eq.equipment_name + (f' — {eq.operator_name}' if eq.operator_name else ''), cell_left_style, col_widths[1] - 8),
                 rtl_paragraph(eq.activity.activity_description if eq.activity_id else '—', cell_left_style, col_widths[2] - 8),
-                str(eq.hours_worked), str(eq.quantity_idle),
+                _qty(eq.hours_worked, '0') + (f' (+{_qty(eq.idle_hours, "0")} idle)' if eq.idle_hours else ''), str(eq.quantity_idle),
             ])
         elements.append(hdr_table(rows, col_widths, font_size=8))
         elements.append(Spacer(1, 0.12 * inch))

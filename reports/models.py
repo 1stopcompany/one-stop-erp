@@ -487,11 +487,24 @@ class DailyEquipment(models.Model):
         help_text=_('Set automatically from the chosen equipment; kept editable only for historical rows from before the equipment list existed')
     )
 
-    hours_worked = models.IntegerField(
+    hours_worked = models.DecimalField(
+        max_digits=4, decimal_places=1,
         validators=[MinValueValidator(0), MaxValueValidator(24)],
         help_text=_('Number of hours equipment worked')
     )
-    
+
+    idle_hours = models.DecimalField(
+        max_digits=4, decimal_places=1, default=0,
+        validators=[MinValueValidator(0), MaxValueValidator(24)],
+        help_text=_('Hours the equipment stood idle on site (heavy equipment)')
+    )
+
+    operator_name = models.CharField(max_length=100, blank=True, help_text=_('Operator / driver on this day (heavy equipment)'))
+
+    meter_reading = models.DecimalField(
+        max_digits=10, decimal_places=1, null=True, blank=True,
+        help_text=_('Hour-meter reading at the end of the day (heavy equipment); updates the equipment\'s own meter'))
+
     quantity_idle = models.IntegerField(
         validators=[MinValueValidator(0)],
         default=0,
