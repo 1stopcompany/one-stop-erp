@@ -1584,13 +1584,16 @@ def delete_report(request, kind, pk):
         description = (f'{label} {report.report_number} ({report.project.project_symbol}, status {report.status}, '
                        f'{getattr(report, "report_date", "")}) deleted')
         ip = (request.META.get('HTTP_X_FORWARDED_FOR', '').split(',')[0].strip() or request.META.get('REMOTE_ADDR') or None)
+        was_pending = bool(report.deleted_at)   # approving a hidden draft from the pending-deletions queue goes back to that queue
+        project_id = report.project_id
         with transaction.atomic():
             number = report.report_number
             report.delete()
             UserAuditLog.objects.create(user=request.user, action='delete', content_type=f'reports.{model_name}', object_id=pk,
                                         description=description, ip_address=ip, user_agent=request.META.get('HTTP_USER_AGENT', '')[:500])
         messages.success(request, f'{label} {number} was deleted.')
-        return redirect(list_url)
+        # back to the reports of the project the deleted report belonged to
+        return redirect('reports:pending_deletions') if was_pending else redirect('projects:project_reports', pk=project_id)
 
     collector = NestedObjects(using='default')
     collector.collect([report])
@@ -1651,7 +1654,7 @@ def request_delete_report(request, kind, pk):
                                         description=f'Draft {report.report_number} ({report.project.project_symbol}) deleted; kept hidden until the admin approves',
                                         ip_address=(request.META.get('HTTP_X_FORWARDED_FOR', '').split(',')[0].strip() or request.META.get('REMOTE_ADDR') or None))
         messages.success(request, f'The draft {report.report_number} was deleted.')
-        return redirect(list_url)
+        return redirect('projects:project_reports', pk=report.project_id)
     return render(request, 'reports/report_confirm_delete.html', {
         'report': report, 'label': label, 'soft': True, 'removed': [], 'kept': [], 'back_url': reverse(detail_url, args=[pk]),
     })
