@@ -1964,6 +1964,16 @@ function showAlert(message, type = 'success') {
     setTimeout(() => alertDiv.remove(), 5000);
 }
 
+// What the server answered when it refused: its own message (e.g. "project not ready", "Not allowed"), else the fallback text
+async function serverMessage(response, fallback) {
+    try {
+        const data = await response.json();
+        return data.message || data.error || data.detail || fallback;
+    } catch (err) {
+        return response.status === 403 ? fallback + ' (not allowed: the project may not be ready yet, or the report is no longer a draft)' : fallback;
+    }
+}
+
 // Add Equipment: a register tool OR an item of the general list, never both
 (function () {
     const toolSelect = document.getElementById('equipmentTool'), masterSelect = document.getElementById('equipmentMaster');
@@ -2013,7 +2023,7 @@ document.getElementById('materialForm').addEventListener('submit', async (e) => 
         if (response.ok) {
             location.reload();
         } else {
-            showAlert('Error adding material', 'danger');
+            showAlert(await serverMessage(response, 'Error adding material'), 'danger');
         }
     } catch (error) {
         showAlert('Error: ' + error.message, 'danger');
@@ -2035,7 +2045,7 @@ document.getElementById('visitorForm').addEventListener('submit', async (e) => {
         if (response.ok) {
             location.reload();
         } else {
-            showAlert('Error adding visitor', 'danger');
+            showAlert(await serverMessage(response, 'Error adding visitor'), 'danger');
         }
     } catch (error) {
         showAlert('Error: ' + error.message, 'danger');
@@ -2057,7 +2067,7 @@ document.getElementById('attachmentForm').addEventListener('submit', async (e) =
         if (response.ok) {
             location.reload();
         } else {
-            showAlert('Error adding attachment', 'danger');
+            showAlert(await serverMessage(response, 'Error adding attachment'), 'danger');
         }
     } catch (error) {
         showAlert('Error: ' + error.message, 'danger');
@@ -2126,7 +2136,7 @@ document.getElementById('editAttachmentForm').addEventListener('submit', async (
         if (response.ok) {
             location.reload();
         } else {
-            showAlert('Error updating attachment', 'danger');
+            showAlert(await serverMessage(response, 'Error updating attachment'), 'danger');
         }
     } catch (error) {
         showAlert('Error: ' + error.message, 'danger');
@@ -2199,7 +2209,7 @@ document.getElementById('activityProgressForm').addEventListener('submit', async
         if (response.ok) {
             location.reload();
         } else {
-            showAlert('Error adding activity progress', 'danger');
+            showAlert(await serverMessage(response, 'Error adding activity progress'), 'danger');
         }
     } catch (error) {
         showAlert('Error: ' + error.message, 'danger');
@@ -2538,7 +2548,7 @@ document.getElementById('qaqcForm').addEventListener('submit', async (e) => {
         if (response.ok) {
             showAlert('QA/QC & HSE saved', 'success');
         } else {
-            showAlert('Error saving QA/QC & HSE', 'danger');
+            showAlert(await serverMessage(response, 'Error saving QA/QC & HSE'), 'danger');
         }
     } catch (error) {
         showAlert('Error: ' + error.message, 'danger');
@@ -2558,7 +2568,7 @@ document.getElementById('siteEventForm').addEventListener('submit', async (e) =>
         if (response.ok) {
             location.reload();
         } else {
-            showAlert('Error adding site event', 'danger');
+            showAlert(await serverMessage(response, 'Error adding site event'), 'danger');
         }
     } catch (error) {
         showAlert('Error: ' + error.message, 'danger');
@@ -2587,7 +2597,7 @@ document.getElementById('nextDayPlanForm').addEventListener('submit', async (e) 
         if (response.ok) {
             location.reload();
         } else {
-            showAlert('Error adding next-day plan item', 'danger');
+            showAlert(await serverMessage(response, 'Error adding next-day plan item'), 'danger');
         }
     } catch (error) {
         showAlert('Error: ' + error.message, 'danger');
