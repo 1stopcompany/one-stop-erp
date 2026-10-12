@@ -75,7 +75,7 @@ class SecureLocationThrottle(UserRateThrottle):
 
 from .models import (
     Employee, CheckInLocation, LocationHistory,
-    EmployeeStatus, Geofence, LeaveRequest, Payslip
+    EmployeeStatus, Geofence, LeaveRequest, Payslip, DailyAttendanceRecord
 )
 from .serializers import (
     EmployeeLocationSerializer, CheckInLocationSerializer,
@@ -423,3 +423,48 @@ def ai_assistant_query(request):
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
     
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class MyTimesheetView(APIView):
+    """
+    The signed-in employee's own monthly attendance sheet (the record HR reviews and approves), READ-ONLY. The employee only clocks in and
+    out; the sheet itself can be corrected by HR alone, until HR approves it (then it is locked) and, for good, once the payroll is posted.
+
+        GET /timesheets/api/employees/me/timesheet/?month=YYYY-MM
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        import calendar
+        from datetime import date, datetime as _dt
+        from django.utils import timezone as _tz
+        from .services.attendance_service import generate_daily_attendance
+        from .services.period_lock import lock_state
+
+        emp = get_object_or_404(Employee, user=request.user)
+        today = _tz.localdate()
+        try:
+            first = _dt.strptime(request.query_params.get('month') or '', '%Y-%m').date()
+        except ValueError:
+            first = today.replace(day=1)
+        last = first.replace(day=calendar.monthrange(first.year, first.month)[1])
+        state = lock_state(emp, first)
+        records = generate_daily_attendance(emp, first, last)
+        labels = dict(DailyAttendanceRecord.STATUS_CHOICES)
+        rows = [{
+            "date": r.date.isoformat(), "weekday": r.date.strftime('%a'), "future": r.date > today, "status": r.status, "status_label": labels.get(r.status, r.status),
+            "clock_in": r.clock_in.strftime('%H:%M') if r.clock_in else None, "clock_out": r.clock_out.strftime('%H:%M') if r.clock_out else None,
+            "total_hours": str(r.total_hours) if r.total_hours is not None else None, "late_minutes": r.late_minutes, "undertime_minutes": r.undertime_minutes,
+            "overtime_hours": str(r.overtime_hours), "notes": r.notes,
+        } for r in records]
+        counted = [r for r in records if r.date <= today]
+        return Response({
+            "month": first.strftime('%Y-%m'),
+            "state": state or "open",
+            "state_label": {"posted": "Closed - the payroll was posted", "approved": "Approved by HR"}.get(state, "Open - HR is still reviewing it"),
+            "present_days": sum(1 for r in counted if r.status == 'present'),
+            "absent_days": sum(1 for r in counted if r.status == 'absent'),
+            "unpaid_leave_days": sum(1 for r in counted if r.status == 'unpaid_leave'),
+            "total_hours": str(sum((r.total_hours or 0 for r in records), 0)),
+            "rows": rows,
+        })

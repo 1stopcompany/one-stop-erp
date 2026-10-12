@@ -1939,7 +1939,18 @@ def payroll_run_post(request):
     """ترحيل -- finalize this month's draft payslips, locking them against further edits."""
     from .models import Payslip
 
+    from .models import MonthlyTimesheetApproval
+
     period_start, period_end = _resolve_month_period(request.POST.get("month"))
+    # the payroll is posted only for employees whose attendance sheet HR has approved (and so locked)
+    drafts = Payslip.objects.filter(period_start=period_start, period_end=period_end, status='draft').select_related('employee')
+    approved = set(MonthlyTimesheetApproval.objects.filter(year=period_start.year, month=period_start.month).values_list('employee_id', flat=True))
+    missing = [p.employee for p in drafts if p.employee_id not in approved]
+    if missing:
+        names = ', '.join(e.full_name for e in missing[:8]) + (f' and {len(missing) - 8} more' if len(missing) > 8 else '')
+        messages.error(request, f'The payroll cannot be posted yet: the attendance sheet (DTR) of {len(missing)} employee(s) is not approved: {names}. '
+                                f'Review the sheets, then press "Approve & lock attendance sheets".')
+        return redirect(f"{reverse('timesheets:payroll_run')}?month={period_start.strftime('%Y-%m')}")
     updated = Payslip.objects.filter(
         period_start=period_start, period_end=period_end, status='draft',
     ).update(status='posted', posted_by=request.user, posted_at=timezone.now())

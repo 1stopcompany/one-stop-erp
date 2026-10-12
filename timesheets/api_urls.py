@@ -16,6 +16,7 @@ urlpatterns = [
     path('', include(router.urls)),
     # Renamed the original check-in/out to location-based
     path('employees/me/', api_views.MyEmployeeView.as_view(), name='employee_me'),
+    path('employees/me/timesheet/', api_views.MyTimesheetView.as_view(), name='employee_me_timesheet'),
 
     path('location/check-in/', api_views.location_check_in, name='api_location_check_in'),
     path('location/check-out/', api_views.location_check_out, name='api_location_check_out'),
