@@ -143,10 +143,11 @@ def send_notification(report, pdf, filename, to):
     if settings.EMAIL_BACKEND.endswith('dummy.EmailBackend'):
         raise DeliveryError('E-mail is not set up on this server (EMAIL_HOST / EMAIL_HOST_USER / EMAIL_HOST_PASSWORD in .env).')
     link = f"{settings.SITE_URL}{reverse('reports:daily_report_detail', args=[report.pk])}"
-    engineer = report.site_engineer.get_full_name() or report.site_engineer.username
+    # a report can exist without a site engineer (created by an admin, or the engineer's account was removed)
+    engineer = (report.site_engineer.get_full_name() or report.site_engineer.username) if report.site_engineer else ''
     subject = f'[{report.project.project_symbol}] Daily report {report.report_date:%d/%m/%Y} submitted'
     body = (f'The daily report of {report.project.name} ({report.project.project_symbol}) for {report.report_date:%d/%m/%Y} '
-            f'was submitted by {engineer}.\n\nReport number: {report.report_number}\n\n'
+            f'was submitted{" by " + engineer if engineer else ""}.\n\nReport number: {report.report_number}\n\n'
             f'Open it: {link}\n\nThe report is attached as a PDF.\n')
     message = EmailMessage(subject, body, settings.DEFAULT_FROM_EMAIL, to)
     message.attach(filename, pdf, 'application/pdf')
