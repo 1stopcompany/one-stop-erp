@@ -85,6 +85,12 @@ class DailyReportCrew(models.Model):
                     'auto-filled from the agreement above when one is set')
     )
 
+    external = models.BooleanField(
+        default=False,
+        help_text=_('A crew of another company working under a lump-sum agreement: only its names are listed (no roster, '
+                    'no daily wages, no labor cost) -- the company is paid under the agreement, not by the day')
+    )
+
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

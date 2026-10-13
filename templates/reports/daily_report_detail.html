@@ -349,7 +349,7 @@
                                     <tbody>
                                         {% for crew in crews %}
                                         <tr id="crew-{{ crew.id }}">
-                                            <td>{{ crew.name }}</td>
+                                            <td>{{ crew.name }}{% if crew.external %} <span class="badge bg-warning text-dark" title="Names only; paid under its agreement, not by the day">Subcontractor</span>{% endif %}</td>
                                             <td>
                                                 {% if crew.activity %}
                                                 {{ crew.activity.activity_description }}
@@ -360,7 +360,7 @@
                                             <td>{{ crew.contractor_name|default:"—" }}</td>
                                             <td>
                                                 {% if report.status == 'draft' and request.user == report.site_engineer or report.status == 'draft' and request.user.is_admin %}
-                                                <button type="button" class="btn btn-sm btn-outline-warning" onclick="openEditDailyCrew({{ crew.id }}, '{{ crew.name|escapejs }}', '{{ crew.activity_id|default_if_none:'' }}', '{{ crew.agreement_id|default_if_none:'' }}', '{{ crew.contractor_name|escapejs }}')">
+                                                <button type="button" class="btn btn-sm btn-outline-warning" onclick="openEditDailyCrew({{ crew.id }}, '{{ crew.name|escapejs }}', '{{ crew.activity_id|default_if_none:'' }}', '{{ crew.agreement_id|default_if_none:'' }}', '{{ crew.contractor_name|escapejs }}', {{ crew.external|yesno:'true,false' }})">
                                                     <i class="fas fa-edit"></i> Edit
                                                 </button>
                                                 <button type="button" class="btn btn-sm btn-danger" onclick="deleteDailyCrew({{ crew.id }})" title="{% if crew.workers.count %}Remove/reassign its {{ crew.workers.count }} worker(s) first{% else %}Delete crew{% endif %}">
@@ -377,6 +377,11 @@
                             {% endif %}
                             <h6 class="text-primary mb-2"><i class="fas fa-user-tie"></i> Employees (HR staff) <span class="badge bg-primary">{{ attendance_employees|length }}</span></h6>
                             {% include 'reports/_attendance_table.html' with items=attendance_employees name_header='Employee' total_label='Employees total hours' total_hours=attendance_employees_hours count_label='employees' empty_text='No employee marked present yet - add any HR employee who worked on site with "Add Worker Attendance".' %}
+
+                            {% if attendance_external %}
+                            <h6 class="text-primary mt-4 mb-2"><i class="fas fa-people-carry"></i> Subcontractor crews (names only) <span class="badge bg-primary">{{ attendance_external|length }}</span></h6>
+                            {% include 'reports/_attendance_table.html' with items=attendance_external name_header='Name' total_label='Subcontractor crews total hours' total_hours=attendance_external_hours count_label='workers' empty_text='' %}
+                            {% endif %}
 
                             <h6 class="text-primary mt-4 mb-2"><i class="fas fa-hard-hat"></i> Workers (day labor) <span class="badge bg-primary">{{ attendance_workers|length }}</span></h6>
                             {% include 'reports/_attendance_table.html' with items=attendance_workers name_header='Worker' total_label='Workers total hours' total_hours=attendance_workers_hours count_label='workers' empty_text='No day-labor worker recorded yet.' %}
@@ -402,7 +407,7 @@
                                             <td>{{ row.crew.name|default:"— No Crew —" }}</td>
                                             <td>{{ row.activity.activity_description|default:"—" }}</td>
                                             <td>{{ row.hours }}</td>
-                                            <td>₪{{ row.cost|floatformat:2 }}</td>
+                                            <td>{% if row.external %}<span class="text-muted">Lump sum</span>{% else %}₪{{ row.cost|floatformat:2 }}{% endif %}</td>
                                             <td>{% if row.quantity_today %}{{ row.quantity_today }} {{ row.unit }}{% else %}—{% endif %}</td>
                                             <td>{% if row.cost_per_unit %}₪{{ row.cost_per_unit|floatformat:2 }} / {{ row.unit }}{% else %}—{% endif %}</td>
                                         </tr>
@@ -1213,7 +1218,12 @@
                 {% csrf_token %}
                 <div class="modal-body">
                     <div class="row g-2">
-                        <div class="col-md-8 position-relative">
+                        <div class="col-12" id="externalNamesBox" style="display:none;">
+                            <label class="form-label">Names of the crew's workers *</label>
+                            <textarea class="form-control" name="names" rows="5" placeholder="One name per line"></textarea>
+                            <div class="form-text">This crew belongs to another company under a lump-sum agreement: only the names are listed (no roster, no daily wage, no ID). Each name becomes one line of today's attendance.</div>
+                        </div>
+                        <div class="col-md-8 position-relative" id="workerPickBox">
                             <label class="form-label">Worker *</label>
                             <div class="d-flex flex-column flex-sm-row gap-2">
                                 <input type="text" class="form-control" id="workerAttendanceSearch" placeholder="Type a name to search (HR employees and day-labor roster)..." autocomplete="off" required>
@@ -1232,6 +1242,7 @@
                                     <option value="">— No crew (individual) —</option>
                                     {% for crew in crews %}
                                     <option value="{{ crew.id }}"
+                                            data-external="{{ crew.external|yesno:'1,0' }}"
                                             data-contractor="{{ crew.contractor_name|escapejs }}"
                                             data-activity="{{ crew.activity.activity_description|default:''|escapejs }}">
                                         {{ crew.name }}{% if crew.activity %} — {{ crew.activity.activity_description }}{% endif %}{% if crew.contractor_name %} ({{ crew.contractor_name }}){% endif %}
@@ -1398,6 +1409,13 @@
                             </select>
                         </div>
                         <div class="col-12">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" name="external" value="1" id="dailyCrewExternal">
+                                <label class="form-check-label" for="dailyCrewExternal">Crew of another company under a lump-sum agreement (names only)</label>
+                            </div>
+                            <div class="form-text">Its workers are entered as a list of names: no daily wages, no roster, no ID document.</div>
+                        </div>
+                        <div class="col-12">
                             <label class="form-label">Contractor / Company</label>
                             <input type="text" class="form-control" name="contractor_name" id="dailyCrewContractorName" placeholder='e.g. "One Stop" for an in-house crew'>
                             <div class="form-text">Auto-filled from the agreement above, if picked; otherwise type the contractor/company name.</div>
@@ -1450,6 +1468,13 @@
                                 <option value="{{ ag.id }}" data-vendor="{{ ag.vendor.name|escapejs }}">{{ ag.agreement_number }} — {{ ag.vendor.name }}</option>
                                 {% endfor %}
                             </select>
+                        </div>
+                        <div class="col-12">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" name="external" value="1" id="editDailyCrewExternal">
+                                <label class="form-check-label" for="editDailyCrewExternal">Crew of another company under a lump-sum agreement (names only)</label>
+                            </div>
+                            <div class="form-text">Its workers are entered as a list of names: no daily wages, no roster, no ID document.</div>
                         </div>
                         <div class="col-12">
                             <label class="form-label">Contractor / Company</label>
@@ -1919,11 +1944,21 @@ document.getElementById('addActivityProgressModal').addEventListener('hidden.bs.
 function applyCrewToForm(selectEl, formId) {
     const form = document.getElementById(formId);
     const option = selectEl.options[selectEl.selectedIndex];
+    setExternalCrewMode(form, !!(option && option.value && option.getAttribute('data-external') === '1'));
     if (!option || !option.value) return;
     const contractor = option.getAttribute('data-contractor');
     const activity = option.getAttribute('data-activity');
     if (contractor) form.elements['contractor_name'].value = contractor;
     if (activity) form.elements['activity_location'].value = activity;
+}
+
+// A crew of another company (lump-sum agreement) is entered as a list of names instead of picking people from the roster.
+function setExternalCrewMode(form, external) {
+    if (!form || form.id !== 'workerAttendanceForm') return;
+    document.getElementById('externalNamesBox').style.display = external ? '' : 'none';
+    document.getElementById('workerPickBox').style.display = external ? 'none' : '';
+    document.getElementById('workerAttendanceSearch').required = !external;
+    form.elements['names'].required = external;
 }
 
 // Clear the picked worker when the modal is dismissed without submitting, so reopening it
@@ -1935,6 +1970,7 @@ document.getElementById('addWorkerAttendanceModal').addEventListener('hidden.bs.
     }
     const form = document.getElementById('workerAttendanceForm');
     form.reset();
+    setExternalCrewMode(form, false);
     document.getElementById('workerAttendanceSearch').value = '';
     form.elements['employee'].value = '';
     form.elements['daily_worker'].value = '';
@@ -2485,6 +2521,7 @@ function fillCrewContractorFromAgreement(selectEl, targetInputId) {
     const vendor = option ? option.getAttribute('data-vendor') : '';
     if (vendor) {
         document.getElementById(targetInputId || 'dailyCrewContractorName').value = vendor;
+        document.getElementById(targetInputId === 'editDailyCrewContractorName' ? 'editDailyCrewExternal' : 'dailyCrewExternal').checked = true;
     }
 }
 
@@ -2521,6 +2558,7 @@ document.getElementById('dailyCrewForm').addEventListener('submit', async (e) =>
                 const opt = document.createElement('option');
                 opt.value = data.id;
                 opt.textContent = label;
+                opt.setAttribute('data-external', data.external ? '1' : '0');
                 opt.setAttribute('data-contractor', data.contractor_name || '');
                 opt.setAttribute('data-activity', data.activity_description || '');
                 select.appendChild(opt);
@@ -2546,8 +2584,9 @@ document.getElementById('dailyCrewForm').addEventListener('submit', async (e) =>
     }
 });
 
-function openEditDailyCrew(id, name, activityId, agreementId, contractorName) {
+function openEditDailyCrew(id, name, activityId, agreementId, contractorName, external) {
     const form = document.getElementById('editDailyCrewForm');
+    form.external.checked = !!external;
     form.crew_id.value = id;
     form.name.value = name;
     form.activity.value = activityId || '';

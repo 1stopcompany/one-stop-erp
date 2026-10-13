@@ -419,8 +419,11 @@ class DailyReportDetailView(LoginRequiredMixin, DetailView):
         # the attendance rows split in two tables: HR employees, and the day-labor workers
         attendance = list(report.worker_attendance.select_related('employee', 'crew', 'labor_classification').order_by('worker_name'))
         context['attendance_employees'] = [a for a in attendance if a.employee_id]
-        context['attendance_workers'] = [a for a in attendance if not a.employee_id]
+        # crews of other companies (lump-sum agreements) are a table of their own: names only
+        context['attendance_external'] = [a for a in attendance if not a.employee_id and a.crew_id and a.crew.external]
+        context['attendance_workers'] = [a for a in attendance if not a.employee_id and not (a.crew_id and a.crew.external)]
         context['attendance_employees_hours'] = sum((a.total_hours or 0 for a in context['attendance_employees']), 0)
+        context['attendance_external_hours'] = sum((a.total_hours or 0 for a in context['attendance_external']), 0)
         context['attendance_workers_hours'] = sum((a.total_hours or 0 for a in context['attendance_workers']), 0)
         # Day laborers (no HR record) are picked from this shared, reusable roster instead of
         # typing a fresh name on every report -- see DailyReportWorkerAttendance.daily_worker

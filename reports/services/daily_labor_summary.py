@@ -47,7 +47,7 @@ def daily_labor_productivity_summary(report):
     for attendance in attendance_qs:
         crew = attendance.crew
         key = crew.id if crew else None
-        bucket = buckets.setdefault(key, {'crew': crew, 'hours': Decimal('0'), 'cost': Decimal('0')})
+        bucket = buckets.setdefault(key, {'crew': crew, 'hours': Decimal('0'), 'cost': Decimal('0')})   # a crew of another company costs nothing by the day
         bucket['hours'] += attendance.total_hours or Decimal('0')
         bucket['cost'] += _attendance_cost(attendance)
 
@@ -66,6 +66,7 @@ def daily_labor_productivity_summary(report):
             'quantity_today': quantity_today,
             'unit': unit,
             'cost_per_unit': cost_per_unit,
+            'external': bool(crew and crew.external),   # paid under its lump-sum agreement, not by the day
         })
 
     rows.sort(key=lambda r: (r['crew'] is None, r['crew'].name if r['crew'] else ''))

@@ -510,12 +510,14 @@ def add_daily_crew(request, report_id):
             activity_id=activity_id,
             agreement_id=agreement_id,
             contractor_name=data.get('contractor_name', ''),
+            external=data.get('external') in ('1', 'on', 'true', 'True'),
         )
         return JsonResponse({
             'success': True,
             'message': 'Crew added',
             'id': crew.id,
             'name': crew.name,
+            'external': crew.external,
             'contractor_name': crew.contractor_name,
             'activity_description': crew.activity.activity_description if crew.activity_id else '',
         })
@@ -556,6 +558,8 @@ def edit_daily_crew(request, report_id, crew_id):
             crew.agreement_id = agreement_id
         if 'contractor_name' in data:
             crew.contractor_name = data.get('contractor_name', '')
+        if 'name' in data:   # the edit form always sends the checkbox state through this hidden marker
+            crew.external = data.get('external') in ('1', 'on', 'true', 'True')
         crew.save()
 
         # Every worker attendance row under this crew re-derives its own contractor_name/
@@ -628,6 +632,29 @@ def add_daily_worker_attendance(request, report_id):
         # rows created before this rule (free-text worker_name only) are left as they are.
         employee_id = data.get('employee') or None
         daily_worker_id = data.get('daily_worker') or None
+
+        # A crew of another company (lump-sum agreement) is entered as plain names: no roster, no rate, no ID document. One row per
+        # name (one name per line), each with the crew's trade/contractor/activity; they never reach daily-wage payroll or labor cost.
+        external_crew = DailyReportCrew.objects.filter(pk=data.get('crew') or 0, report=report, external=True).first()
+        if external_crew:
+            names = []
+            for line in data.get('names', '').splitlines():
+                line = line.strip()
+                if line and line not in names:
+                    names.append(line[:255])
+            if not names:
+                return JsonResponse({'success': False, 'message': 'Write the names of the crew, one per line.'}, status=400)
+            if len(names) > 100:
+                return JsonResponse({'success': False, 'message': 'At most 100 names at a time.'}, status=400)
+            hours = Decimal(data.get('total_hours') or '0')
+            for name in names:
+                DailyReportWorkerAttendance.objects.create(
+                    report=report, worker_name=name, labor_classification_id=data.get('labor_classification') or None, crew=external_crew,
+                    time_in=datetime.strptime(data['time_in'], '%H:%M').time() if data.get('time_in') else None,
+                    time_out=datetime.strptime(data['time_out'], '%H:%M').time() if data.get('time_out') else None,
+                    total_hours=hours, notes=data.get('notes', ''))
+            return JsonResponse({'success': True, 'message': f'{len(names)} name(s) added', 'count': len(names)})
+
         if not employee_id and not daily_worker_id:
             return JsonResponse({
                 'success': False,
