@@ -1,6 +1,6 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
-from . import views, views_warehouse
+from . import views, views_warehouse, api_mobile
 
 app_name = "procurement"
 
@@ -84,5 +84,14 @@ urlpatterns = [
     path("warehouse/list/create/", views_warehouse.warehouse_form, name="warehouse_create"),
     path("warehouse/list/<int:pk>/edit/", views_warehouse.warehouse_form, name="warehouse_update"),
 
+    # the phone's purchasing screens (api_mobile.py), before the router so "api/mobile/..." is never read as a router route
+    path("api/mobile/items/", api_mobile.mobile_items, name="mobile_items"),
+    path("api/mobile/projects/", api_mobile.mobile_request_projects, name="mobile_request_projects"),
+    path("api/mobile/requisitions/", api_mobile.mobile_requisitions, name="mobile_requisitions"),
+    path("api/mobile/requisitions/<int:pk>/", api_mobile.mobile_requisition_detail, name="mobile_requisition_detail"),
+    path("api/mobile/requisitions/<int:pk>/<str:action>/", api_mobile.mobile_requisition_action, name="mobile_requisition_action"),
+    path("api/mobile/orders/", api_mobile.mobile_orders, name="mobile_orders"),
+    path("api/mobile/orders/<int:pk>/", api_mobile.mobile_order_detail, name="mobile_order_detail"),
+    path("api/mobile/orders/<int:pk>/receive/", api_mobile.mobile_order_receive, name="mobile_order_receive"),
     path("api/", include(router.urls)),
 ]
