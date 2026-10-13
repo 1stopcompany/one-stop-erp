@@ -652,6 +652,7 @@ def add_daily_worker_attendance(request, report_id):
                     report=report, worker_name=name, labor_classification_id=data.get('labor_classification') or None, crew=external_crew,
                     time_in=datetime.strptime(data['time_in'], '%H:%M').time() if data.get('time_in') else None,
                     time_out=datetime.strptime(data['time_out'], '%H:%M').time() if data.get('time_out') else None,
+                    break_hours=Decimal(data.get('break_hours') or '0'), overtime_hours=Decimal(data.get('overtime_hours') or '0'),
                     total_hours=hours, notes=data.get('notes', ''))
             return JsonResponse({'success': True, 'message': f'{len(names)} name(s) added', 'count': len(names)})
 
@@ -752,6 +753,10 @@ def edit_daily_worker_attendance(request, report_id, entry_id):
             entry.overtime_hours = _parse_decimal(data.get('overtime_hours'))
         if 'total_hours' in data:
             entry.total_hours = _parse_decimal(data.get('total_hours'))
+        elif entry.time_in and entry.time_out and entry.time_in != entry.time_out and any(
+                key in data for key in ('time_in', 'time_out', 'break_hours', 'overtime_hours')):
+            # the form does not send the total: changing the times / break / overtime must change it too (save() recomputes it from 0)
+            entry.total_hours = Decimal('0')
         if 'notes' in data:
             entry.notes = data.get('notes', '')
         entry.save()
