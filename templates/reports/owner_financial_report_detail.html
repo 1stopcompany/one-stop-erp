@@ -406,7 +406,7 @@
                 <h5 class="modal-title">Add Photo</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
-            <form id="addPhotoForm" enctype="multipart/form-data">
+            <form id="addPhotoForm" enctype="multipart/form-data" style="display:flex;flex-direction:column;min-height:0;flex:1 1 auto;overflow:hidden">
                 {% csrf_token %}
                 <div class="modal-body">
                     <div class="row g-2 mb-2">
@@ -428,7 +428,7 @@
                         <label class="form-label">Photos * <span class="text-muted small">(choose as many as you like at once)</span></label>
                         <input type="file" class="form-control" id="photoFiles" accept="image/*" multiple>
                     </div>
-                    <div id="photoRows"></div>
+                    <div id="photoRows" style="max-height:48vh;overflow-y:auto;padding-right:4px"></div>
                     <div id="photoProgress" class="small mt-2"></div>
                 </div>
                 <div class="modal-footer">

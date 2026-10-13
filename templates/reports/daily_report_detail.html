@@ -1014,7 +1014,7 @@
                 <h5 class="modal-title">Add Attachment</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
-            <form id="attachmentForm" enctype="multipart/form-data">
+            <form id="attachmentForm" enctype="multipart/form-data" style="display:flex;flex-direction:column;min-height:0;flex:1 1 auto;overflow:hidden">
                 {% csrf_token %}
                 <div class="modal-body">
                     <div class="mb-2">
@@ -1025,7 +1025,7 @@
                         <div class="col-md-8"><label class="form-label small mb-1">Location for all (optional, you can still change it per file)</label><input type="text" class="form-control form-control-sm" id="attachmentLocationAll" placeholder="e.g. Block B, 2nd floor"></div>
                         <div class="col-md-4"><label class="form-label small mb-1">Type for all</label><select class="form-select form-select-sm" id="attachmentTypeAll"><option value="">Auto (by file)</option><option value="photo">Photo</option><option value="document">Document</option><option value="video">Video</option><option value="other">Other</option></select></div>
                     </div>
-                    <div id="attachmentRows"></div>
+                    <div id="attachmentRows" style="max-height:48vh;overflow-y:auto;padding-right:4px"></div>
                     <div id="attachmentProgress" class="small mt-2"></div>
                 </div>
                 <div class="modal-footer">
