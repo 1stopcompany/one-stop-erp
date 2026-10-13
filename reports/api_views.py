@@ -566,6 +566,8 @@ def edit_daily_crew(request, report_id, crew_id):
         # activity_location from the crew on save -- refresh them now so an edit here (e.g.
         # linking the crew to an activity for the first time) reaches rows already added under it.
         for attendance in crew.workers.all():
+            if crew.external and attendance.time_in and attendance.time_out and attendance.time_in != attendance.time_out:
+                attendance.total_hours = Decimal('0')   # a crew of another company: hours follow the times, with no break deducted
             attendance.save()
 
         return JsonResponse({

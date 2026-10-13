@@ -212,7 +212,7 @@ python manage.py send_reminders                # reports app (email reminder sys
   subcontractor agreement ticks it for you). For such a crew the Add Worker Attendance form shows a box of names (one per line) instead of the
   roster picker, and each name becomes a `DailyReportWorkerAttendance` row with no employee / day-labor link (so no daily wage, no ID document, nothing
   in daily-wage payroll); the trade is still required. They list in their own "Subcontractor crews (names only)" table, and the cost-vs-productivity row
-  of that crew says "Lump sum" (web and PDF) instead of an estimated cost. A normal crew or no crew still needs the roster rule.
+  of that crew says "Lump sum" (web and PDF) instead of an estimated cost. Their hours are the plain time between In and Out (+ overtime): the break is shown but NOT deducted, unlike our own people; saving such a crew (Edit in the Crews table) recomputes the hours of its rows. A normal crew or no crew still needs the roster rule.
   **Labor cost vs. productivity**: `reports/services/daily_labor_summary.py::daily_labor_productivity_summary(report)`
   groups today's worker-attendance rows by their **crew** (a "No Crew" bucket for solo workers) rather than by activity
   directly, so a crew with no activity linked yet (or two different crews that happen to share one) still shows up by

@@ -290,7 +290,9 @@ class DailyReportWorkerAttendance(models.Model):
                 # Overnight shift (e.g. night crew ending after midnight).
                 end += timedelta(days=1)
             worked = Decimal((end - start).total_seconds()) / Decimal(3600)
-            worked -= self.break_hours or Decimal('0')
+            # the break is deducted for our own people; a crew of another company (lump-sum agreement) is shown with its break but not docked for it
+            if not (self.crew_id and self.crew.external):
+                worked -= self.break_hours or Decimal('0')
             worked += self.overtime_hours or Decimal('0')
             self.total_hours = max(worked, Decimal('0'))
         super().save(*args, **kwargs)
