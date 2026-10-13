@@ -103,14 +103,14 @@ class CustomUser(AbstractUser):
     # the API calls behind a tab the role does not have, so hiding a tab is never the only protection).
     MOBILE_TABS = {
         'employee': ['index', 'attendance', 'profile'],
-        'site_engineer': ['index', 'attendance', 'requests', 'workers', 'procurement', 'profile'],
-        'project_manager': ['index', 'attendance', 'requests', 'procurement', 'profile'],
-        'storekeeper': ['index', 'attendance', 'procurement', 'receiving', 'profile'],
+        'site_engineer': ['index', 'attendance', 'requests', 'workers', 'procurement', 'equipment', 'profile'],
+        'project_manager': ['index', 'attendance', 'requests', 'procurement', 'equipment', 'profile'],
+        'storekeeper': ['index', 'attendance', 'procurement', 'equipment', 'receiving', 'profile'],
         'procurement_officer': ['index', 'attendance', 'procurement', 'receiving', 'profile'],
         'accountant': ['index', 'attendance', 'requests', 'profile'],
-        'engineering_manager': ['index', 'attendance', 'requests', 'procurement', 'profile'],
-        'general_manager': ['index', 'attendance', 'requests', 'procurement', 'profile'],
-        'admin': ['index', 'attendance', 'requests', 'workers', 'procurement', 'receiving', 'profile'],
+        'engineering_manager': ['index', 'attendance', 'requests', 'procurement', 'equipment', 'profile'],
+        'general_manager': ['index', 'attendance', 'requests', 'procurement', 'equipment', 'profile'],
+        'admin': ['index', 'attendance', 'requests', 'workers', 'procurement', 'equipment', 'receiving', 'profile'],
     }
 
     def mobile_tabs(self):

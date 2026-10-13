@@ -427,5 +427,10 @@ python manage.py send_reminders                # reports app (email reminder sys
   deliveries against the open POs line by line (the same `POReceipt` rows as the web page, so stock and the PO status follow). Every rule is the web
   one (`procurement.views._can_manage_pr` / `_can_approve_pr`); the receive view must not use a prefetched `po.lines` (the receipt signal recomputes the
   PO status from it).
+  **Equipment on the phone** (`equipment/api_mobile.py`, app tab `equipment`; roles: engineer, project manager, storekeeper, managers, admin): scan the QR label
+  (it holds `.../equipment/code/EQ-0001/`; the app only takes the code) or type a code / name, see the tool's photo, place, open request and last movements,
+  request a handover to the user's own project or a warehouse, approve / reject (managers), and the storekeeper completes it from the phone with a photo
+  taken on the spot (required; a tool coming back also needs its condition). Same `equipment.services` rules as the web pages; the photo is uploaded as
+  multipart (`complete`).
 - **Logging**: `config/settings.py` writes Django logs to `debug.log` at the project root (file handler)
   and to the console.

@@ -1,9 +1,17 @@
 from django.urls import path
-from . import views, views_claims
+from . import api_mobile, views, views_claims
 
 app_name = 'equipment'
 
 urlpatterns = [
+    # the phone's equipment screens (api_mobile.py)
+    path('api/mobile/tools/', api_mobile.mobile_tools, name='mobile_tools'),
+    path('api/mobile/tools/by-code/<str:code>/', api_mobile.mobile_tool_by_code, name='mobile_tool_by_code'),
+    path('api/mobile/tools/<int:pk>/', api_mobile.mobile_tool_detail, name='mobile_tool_detail'),
+    path('api/mobile/tools/<int:pk>/request/', api_mobile.mobile_tool_request, name='mobile_tool_request'),
+    path('api/mobile/destinations/', api_mobile.mobile_destinations, name='mobile_destinations'),
+    path('api/mobile/transfers/', api_mobile.mobile_transfers, name='mobile_transfers'),
+    path('api/mobile/transfers/<int:pk>/<str:action>/', api_mobile.mobile_transfer_action, name='mobile_transfer_action'),
     path('', views.equipment_dashboard, name='dashboard'),
     path('tools/', views.tool_list, name='tool_list'),
     path('tools/add/', views.tool_add, name='tool_add'),
