@@ -1552,13 +1552,26 @@
                                 </div>
                             </div>
                         </div>
+                        <div class="col-md-12">
+                            <label class="form-label">Crew</label>
+                            <select class="form-select" name="crew" onchange="editWorkerCrewChanged(this)">
+                                <option value="">— No crew (individual) —</option>
+                                {% for crew in crews %}
+                                <option value="{{ crew.id }}" data-contractor="{{ crew.contractor_name|escapejs }}" data-activity="{{ crew.activity.activity_description|default:''|escapejs }}">
+                                    {{ crew.name }}{% if crew.activity %} — {{ crew.activity.activity_description }}{% endif %}{% if crew.contractor_name %} ({{ crew.contractor_name }}){% endif %}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
                         <div class="col-md-6">
                             <label class="form-label">Contractor / Company</label>
                             <input type="text" class="form-control" name="contractor_name">
+                            <div class="form-text edit-crew-hint" style="display:none;">Taken from the crew: change it on the crew (Edit in the Crews table).</div>
                         </div>
                         <div class="col-md-6">
                             <label class="form-label">Activity / Location</label>
                             <input type="text" class="form-control" name="activity_location">
+                            <div class="form-text edit-crew-hint" style="display:none;">Taken from the crew: change it on the crew (Edit in the Crews table).</div>
                         </div>
                         <div class="col-md-3">
                             <label class="form-label">Time In</label>
@@ -1576,7 +1589,12 @@
                             <label class="form-label">Overtime (hrs)</label>
                             <input type="number" step="0.5" class="form-control" name="overtime_hours">
                         </div>
-                        <div class="col-md-12">
+                        <div class="col-md-4">
+                            <label class="form-label">Total Hours</label>
+                            <input type="number" step="0.01" min="0" class="form-control" name="total_hours">
+                            <div class="form-text">Follows the times, break and overtime when you change them; type a number only to set it by hand.</div>
+                        </div>
+                        <div class="col-md-8">
                             <label class="form-label">Notes</label>
                             <input type="text" class="form-control" name="notes">
                         </div>
@@ -2619,7 +2637,22 @@ document.getElementById('editDailyCrewForm').addEventListener('submit', async (e
     }
 });
 
-function openEditWorkerAttendance(id, employeeId, workerName, laborClassificationId, contractorName, activityLocation, timeIn, timeOut, breakHours, overtimeHours, notes, dailyWorkerId) {
+// A row under a crew takes its contractor and activity from the crew (so a change on the crew reaches every worker): show them read-only.
+function editWorkerCrewChanged(selectEl) {
+    const form = document.getElementById('editWorkerAttendanceForm');
+    const option = selectEl.options[selectEl.selectedIndex];
+    const contractor = option && option.value ? option.getAttribute('data-contractor') : '';
+    const activity = option && option.value ? option.getAttribute('data-activity') : '';
+    if (contractor) form.elements['contractor_name'].value = contractor;
+    if (activity) form.elements['activity_location'].value = activity;
+    form.elements['contractor_name'].readOnly = !!contractor;
+    form.elements['activity_location'].readOnly = !!activity;
+    const hints = form.querySelectorAll('.edit-crew-hint');
+    hints[0].style.display = contractor ? '' : 'none';
+    hints[1].style.display = activity ? '' : 'none';
+}
+
+function openEditWorkerAttendance(id, employeeId, workerName, laborClassificationId, contractorName, activityLocation, timeIn, timeOut, breakHours, overtimeHours, notes, dailyWorkerId, crewId, totalHours) {
     const form = document.getElementById('editWorkerAttendanceForm');
     form.entry_id.value = id;
     form.employee.value = employeeId;
@@ -2633,6 +2666,9 @@ function openEditWorkerAttendance(id, employeeId, workerName, laborClassificatio
     form.break_hours.value = breakHours;
     form.overtime_hours.value = overtimeHours;
     form.notes.value = notes;
+    form.crew.value = crewId || '';
+    form.total_hours.value = totalHours || '';
+    editWorkerCrewChanged(form.crew);
     new bootstrap.Modal(document.getElementById('editWorkerAttendanceModal')).show();
 }
 

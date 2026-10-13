@@ -45,7 +45,7 @@
                         <i class="fas fa-satellite-dish"></i>
                     </button>
                     {% endif %}
-                    <button class="btn btn-sm btn-outline-warning" onclick="openEditWorkerAttendance({{ item.id }}, '{{ item.employee_id|default_if_none:'' }}', '{{ item.worker_name|escapejs }}', '{{ item.labor_classification_id|default_if_none:'' }}', '{{ item.contractor_name|escapejs }}', '{{ item.activity_location|escapejs }}', '{{ item.time_in|time:'H:i'|default:'' }}', '{{ item.time_out|time:'H:i'|default:'' }}', '{{ item.break_hours }}', '{{ item.overtime_hours }}', '{{ item.notes|escapejs }}', '{{ item.daily_worker_id|default_if_none:'' }}')">
+                    <button class="btn btn-sm btn-outline-warning" onclick="openEditWorkerAttendance({{ item.id }}, '{{ item.employee_id|default_if_none:'' }}', '{{ item.worker_name|escapejs }}', '{{ item.labor_classification_id|default_if_none:'' }}', '{{ item.contractor_name|escapejs }}', '{{ item.activity_location|escapejs }}', '{{ item.time_in|time:'H:i'|default:'' }}', '{{ item.time_out|time:'H:i'|default:'' }}', '{{ item.break_hours }}', '{{ item.overtime_hours }}', '{{ item.notes|escapejs }}', '{{ item.daily_worker_id|default_if_none:'' }}', '{{ item.crew_id|default_if_none:'' }}', '{{ item.total_hours|stringformat:"s" }}')">
                         <i class="fas fa-edit"></i>
                     </button>
                     <button class="btn btn-sm btn-danger" onclick="deleteWorkerAttendance({{ item.id }})">

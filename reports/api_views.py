@@ -729,6 +729,8 @@ def edit_daily_worker_attendance(request, report_id, entry_id):
         def _parse_decimal(value, default='0'):
             return Decimal(value) if value else Decimal(default)
 
+        before = (entry.time_in, entry.time_out, entry.break_hours, entry.overtime_hours)
+        stored_total = entry.total_hours
         if 'worker_name' in data:
             entry.worker_name = data.get('worker_name', '')
         if 'labor_classification' in data:
@@ -751,11 +753,11 @@ def edit_daily_worker_attendance(request, report_id, entry_id):
             entry.break_hours = _parse_decimal(data.get('break_hours'))
         if 'overtime_hours' in data:
             entry.overtime_hours = _parse_decimal(data.get('overtime_hours'))
-        if 'total_hours' in data:
+        # The total: a value typed over the stored one is a manual total; otherwise, changing the times / break / overtime changes it
+        # too (save() recomputes it from 0 when there are real times); an edit that touches neither keeps whatever the total was.
+        if 'total_hours' in data and _parse_decimal(data.get('total_hours')) != stored_total:
             entry.total_hours = _parse_decimal(data.get('total_hours'))
-        elif entry.time_in and entry.time_out and entry.time_in != entry.time_out and any(
-                key in data for key in ('time_in', 'time_out', 'break_hours', 'overtime_hours')):
-            # the form does not send the total: changing the times / break / overtime must change it too (save() recomputes it from 0)
+        elif (entry.time_in, entry.time_out, entry.break_hours, entry.overtime_hours) != before and entry.time_in and entry.time_out and entry.time_in != entry.time_out:
             entry.total_hours = Decimal('0')
         if 'notes' in data:
             entry.notes = data.get('notes', '')
