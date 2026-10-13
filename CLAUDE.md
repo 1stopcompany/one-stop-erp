@@ -422,5 +422,10 @@ python manage.py send_reminders                # reports app (email reminder sys
 - **Roles in the mobile app**: `CustomUser.mobile_tabs()` decides which tabs the app shows (`employees/me/` returns `role` and `tabs`); the new
   `employee` role (default for new users) sees only attendance. The procurement REST API is limited by `ProcurementAPIPermission`. The employee
   page has a "Login account" card (`timesheets/account_form.py`) to create / link / change the user without the Django admin.
+  **Purchasing on the phone** (`procurement/api_mobile.py`, app tab `procurement`): a site engineer writes / edits / submits material requests
+  (purchase requisitions) for his projects, the project manager approves or rejects them, and engineers / procurement / the storekeeper record
+  deliveries against the open POs line by line (the same `POReceipt` rows as the web page, so stock and the PO status follow). Every rule is the web
+  one (`procurement.views._can_manage_pr` / `_can_approve_pr`); the receive view must not use a prefetched `po.lines` (the receipt signal recomputes the
+  PO status from it).
 - **Logging**: `config/settings.py` writes Django logs to `debug.log` at the project root (file handler)
   and to the console.
