@@ -420,7 +420,7 @@ python manage.py send_reminders                # reports app (email reminder sys
   caching), so a page rendering many attachments at once — a report's photo list, the photo-log annex in
   `generate_daily_report_pdf` — makes one Dropbox API round-trip per file shown.
 - **Daily report delivery** (`reports/services/report_delivery.py`, `reports.ReportDelivery`): submitting a daily report (`submit_daily_report`)
-  starts a background job that (1) e-mails the project manager, every active engineering manager and `Project.report_notify_emails` with the
+  starts a background job that (1) e-mails the project manager, the project's site engineer (and the report's author), every active engineering manager and `Project.report_notify_emails` (the "Extra e-mails" field of the project form: put the company's info@ address there) with the
   report PDF attached, (2) saves the PDF to `Project.report_dropbox_folder` and (3) copies the report's photo attachments (not videos, documents or
   owner-report phase photos) to `Project.photos_dropbox_folder` (empty = a `Photos` folder inside the reports folder), one folder per report date.
   A folder is a Dropbox path or a shared link to a folder of the company account (resolved with `sharing_get_shared_link_metadata`); the upload

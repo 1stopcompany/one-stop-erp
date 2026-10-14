@@ -100,7 +100,7 @@
                                 <label for="{{ form.report_notify_emails.id_for_label }}" class="form-label"><strong>Extra e-mails for the submit notification</strong></label>
                                 {{ form.report_notify_emails }}
                                 {% if form.report_notify_emails.errors %}<div class="invalid-feedback d-block">{{ form.report_notify_emails.errors.0 }}</div>{% endif %}
-                                <div class="form-text">The project manager and the engineering manager are notified automatically; add other addresses here, separated by commas.</div>
+                                <div class="form-text">The project manager, the site engineer and the engineering manager are notified automatically (each needs an e-mail on his user account); add other addresses here, e.g. info@one-stop.ps, separated by commas.</div>
                             </div>
                         </div>
 

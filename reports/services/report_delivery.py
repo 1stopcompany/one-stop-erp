@@ -1,6 +1,6 @@
 """
-What happens when a site engineer submits a daily report: the project's manager and the engineering manager(s) (plus any extra
-addresses set on the project) get an e-mail with the report as a PDF attachment, and the same PDF is saved in the project's Dropbox
+What happens when a site engineer submits a daily report: the project's manager, its site engineer and the engineering manager(s)
+(plus any extra addresses set on the project, e.g. the company's info address) get an e-mail with the report as a PDF attachment, and the same PDF is saved in the project's Dropbox
 folder (Project.report_dropbox_folder: a folder path in the company Dropbox, or a shared link to a folder of that account).
 
 It runs in the background so the engineer is not kept waiting; each part (e-mail, Dropbox) succeeds or fails on its own and the
@@ -29,12 +29,16 @@ def pdf_filename(report):
 
 
 def recipients(report):
-    """Project manager, every active engineering manager, and the project's extra addresses (no duplicates)."""
+    """Project manager, the project's site engineer (and the report's author), every active engineering manager, and the project's
+    extra addresses -- e.g. the company's info@ address (no duplicates)."""
     from accounts.models import CustomUser
     found = []
     manager = report.project.manager
     if manager and manager.is_active and manager.email:
         found.append(manager.email)
+    for engineer in (report.project.site_engineer, report.site_engineer):
+        if engineer and engineer.is_active and engineer.email:
+            found.append(engineer.email)
     found += list(CustomUser.objects.filter(role='engineering_manager', is_active=True).exclude(email='').values_list('email', flat=True))
     found += [e.strip() for e in re.split(r'[,;\s]+', report.project.report_notify_emails or '') if e.strip()]
     seen, unique = set(), []
