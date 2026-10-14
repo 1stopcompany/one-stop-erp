@@ -121,8 +121,8 @@ class Project(models.Model):
         null=True,
         blank=True,
         related_name='engineered_projects',
-        limit_choices_to={'role': 'site_engineer'},
-        help_text=_('Site engineer assigned to this project -- the only one who may create its Daily reports')
+        limit_choices_to={'role__in': ['site_engineer', 'project_manager']},
+        help_text=_('Site engineer assigned to this project -- the one who creates its Daily reports. May be the project manager himself')
     )
 
     report_dropbox_folder = models.CharField(

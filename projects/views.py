@@ -78,7 +78,7 @@ class ProjectListView(LoginRequiredMixin, ListView):
 
         if not self.request.user.is_admin():
             if self.request.user.is_project_manager():
-                queryset = queryset.filter(manager=self.request.user)
+                queryset = queryset.filter(Q(manager=self.request.user) | Q(site_engineer=self.request.user))
             elif self.request.user.is_site_engineer():
                 queryset = queryset.filter(site_engineer=self.request.user)
 
@@ -117,7 +117,7 @@ class ProjectDetailView(LoginRequiredMixin, DetailView):
         queryset = Project.objects.all()
         if not self.request.user.is_admin():
             if self.request.user.is_project_manager():
-                queryset = queryset.filter(manager=self.request.user)
+                queryset = queryset.filter(Q(manager=self.request.user) | Q(site_engineer=self.request.user))
             elif self.request.user.is_site_engineer():
                 queryset = queryset.filter(site_engineer=self.request.user)
         return queryset
@@ -169,10 +169,14 @@ class ProjectReportsView(LoginRequiredMixin, DetailView):
         queryset = Project.objects.all()
         if not self.request.user.is_admin():
             if self.request.user.is_project_manager():
-                queryset = queryset.filter(manager=self.request.user)
+                queryset = queryset.filter(Q(manager=self.request.user) | Q(site_engineer=self.request.user))
             elif self.request.user.is_site_engineer():
                 queryset = queryset.filter(site_engineer=self.request.user)
         return queryset
+
+    def _daily_projects(self):
+        from reports.views import daily_report_projects
+        return set(daily_report_projects(self.request.user).values_list('pk', flat=True))
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -190,7 +194,8 @@ class ProjectReportsView(LoginRequiredMixin, DetailView):
             'report_type': report_type,
             'status': status,
             'type_counts': {'daily': daily_qs.count(), 'monthly': monthly_qs.count(), 'owner_financial': owner_qs.count()},
-            'can_create_daily': self.request.user.is_site_engineer() or self.request.user.is_admin(),
+            'can_create_daily': self.request.user.is_site_engineer() or self.request.user.is_admin() or (
+                self.request.user.is_project_manager() and project.pk in self._daily_projects()),
             'can_create_monthly_or_owner': self.request.user.is_project_manager() or self.request.user.is_admin(),
             'status_choices': DailyReport.STATUS_CHOICES,
         })

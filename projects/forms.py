@@ -7,7 +7,7 @@ class ProjectForm(forms.ModelForm):
     
     class Meta:
         model = Project
-        fields = ('name', 'project_symbol', 'contract_number', 'client_name', 'start_date', 'end_date', 'maintenance_type', 'status', 'description', 'location', 'manager', 'report_dropbox_folder', 'photos_dropbox_folder', 'report_notify_emails')
+        fields = ('name', 'project_symbol', 'contract_number', 'client_name', 'start_date', 'end_date', 'maintenance_type', 'status', 'description', 'location', 'manager', 'site_engineer', 'report_dropbox_folder', 'photos_dropbox_folder', 'report_notify_emails')
         widgets = {
             'name': forms.TextInput(attrs={'class': 'form-control'}),
             'project_symbol': forms.TextInput(attrs={'class': 'form-control'}),
@@ -20,6 +20,7 @@ class ProjectForm(forms.ModelForm):
             'description': forms.Textarea(attrs={'class': 'form-control', 'rows': 4}),
             'location': forms.TextInput(attrs={'class': 'form-control'}),
             'manager': forms.Select(attrs={'class': 'form-control'}),
+            'site_engineer': forms.Select(attrs={'class': 'form-control'}),
             'report_dropbox_folder': forms.TextInput(attrs={'class': 'form-control', 'placeholder': '/Projects/TAB/Daily Reports   or   https://www.dropbox.com/scl/fo/...'}),
             'photos_dropbox_folder': forms.TextInput(attrs={'class': 'form-control', 'placeholder': '/Projects/TAB/Photos   or   https://www.dropbox.com/scl/fo/...   (empty = Photos inside the reports folder)'}),
             'report_notify_emails': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'name@example.com, other@example.com'}),
@@ -27,6 +28,14 @@ class ProjectForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        # Project manager and site (project) engineer are two assignments; the same person may hold both. The engineer picker also
+        # offers the project managers for that reason.
+        self.fields['manager'].label = 'Project manager'
+        self.fields['site_engineer'].label = 'Site engineer'
+        self.fields['site_engineer'].required = False
+        self.fields['site_engineer'].empty_label = '— none (the project manager writes the daily reports) —'
+        for name in ('manager', 'site_engineer'):
+            self.fields[name].label_from_instance = lambda user: f'{user.get_full_name() or user.username} ({user.get_role_display()})'
         if not self.instance.pk:
             # A new project always starts in Planning and only becomes Active by finishing the
             # start-up flow (insurance -> tender documents -> approved drawings): see projects.workflow.

@@ -308,6 +308,9 @@ python manage.py send_reminders                # reports app (email reminder sys
   `get()` (`reports/views.py::_redirect_if_requested_project_unusable`) checks this upfront and redirects back with a
   clear reason (to that project's Workflow page if not ready, its own page if not assigned) instead of silently falling
   back to showing a different project pre-selected in the picker, which used to look like the link was simply broken.
+- **Project manager and site engineer** (`Project.manager`, `Project.site_engineer`, both set on the project form): the same person may hold both. The engineer
+  picker also offers project managers; a project manager who is the engineer of a project (his own or not) sees that project and its reports and writes its
+  daily reports (`reports.views.daily_report_projects`: his projects without an engineer, plus every project where he is the engineer). Roles stay one per user.
 - **A project's own Reports page** (`projects:project_reports`, `projects/views.py::ProjectReportsView`, "Reports" button
   on the project page): every Daily/Monthly/Owner Financial report on that one project in one paginated, filterable
   (type, status) list, instead of only the top-10 preview on the project page or filtering the site-wide Reports list by

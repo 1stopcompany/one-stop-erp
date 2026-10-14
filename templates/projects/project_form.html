@@ -157,7 +157,7 @@
                         </div>
                         <div class="mb-3">
                             <label for="{{ form.manager.id_for_label }}" class="form-label">
-                                <strong>Manager</strong>
+                                <strong>Project manager</strong>
                             </label>
                             {{ form.manager }}
                             {% if form.manager.errors %}
@@ -165,7 +165,19 @@
                                     {{ form.manager.errors.0 }}
                                 </div>
                             {% endif %}
-                            <small class="form-text text-muted">Optional: Provide additional project details</small>
+                            <small class="form-text text-muted">Approves the project's requests and creates its Monthly and Owner Financial reports.</small>
+                        </div>
+                        <div class="mb-3">
+                            <label for="{{ form.site_engineer.id_for_label }}" class="form-label">
+                                <strong>Site engineer</strong>
+                            </label>
+                            {{ form.site_engineer }}
+                            {% if form.site_engineer.errors %}
+                                <div class="invalid-feedback d-block">
+                                    {{ form.site_engineer.errors.0 }}
+                                </div>
+                            {% endif %}
+                            <small class="form-text text-muted">Writes the project's Daily reports and receives its deliveries. It may be the same person as the project manager.</small>
                         </div>
                         <!-- Form Actions -->
                         <div class="d-flex gap-2 mt-4">

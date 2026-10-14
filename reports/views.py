@@ -180,7 +180,8 @@ def report_type_selection(request):
     Site engineers create Daily reports; project managers create Monthly
     (EDGE) and Owner Financial reports. Admins can reach all three.
     """
-    can_create_daily = request.user.is_site_engineer() or request.user.is_admin()
+    can_create_daily = request.user.is_site_engineer() or request.user.is_admin() or (
+        request.user.is_project_manager() and daily_report_projects(request.user).exists())
     can_create_monthly = request.user.is_project_manager() or request.user.is_admin()
     can_view_approvals = request.user.is_engineering_manager() or request.user.is_general_manager() or request.user.is_admin()
     if not (can_create_daily or can_create_monthly or can_view_approvals):
@@ -199,7 +200,7 @@ def report_type_selection(request):
         elif request.user.is_site_engineer():
             qs = qs.filter(site_engineer=request.user)
         elif request.user.is_project_manager():
-            qs = qs.filter(project__manager=request.user)
+            qs = qs.filter(Q(project__manager=request.user) | Q(site_engineer=request.user))
         return qs
 
     daily_qs = _scoped(DailyReport)
@@ -273,12 +274,12 @@ def select_project_for_report(request, report_type):
     # Daily reports are the site engineer's own; Monthly/Owner Financial
     # are the project manager's -- see the roles agreed for this app.
     if report_type == 'daily':
-        if not (request.user.is_site_engineer() or request.user.is_admin()):
+        if not (request.user.is_site_engineer() or request.user.is_admin() or daily_report_projects(request.user).exists()):
             messages.error(request, 'Only site engineers can create daily reports.')
             return redirect('reports:report_type_selection')
         projects = Project.objects.filter(status='active', pk__in=readiness.ready_projects().values('pk'))
         if not request.user.is_admin():
-            projects = projects.filter(site_engineer=request.user)
+            projects = projects.filter(pk__in=daily_report_projects(request.user).values('pk'))
     else:
         if not (request.user.is_project_manager() or request.user.is_admin()):
             messages.error(request, 'Only project managers can create this report type.')
@@ -314,7 +315,7 @@ class DailyReportListView(LoginRequiredMixin, ListView):
         elif self.request.user.is_site_engineer():
             queryset = queryset.filter(site_engineer=self.request.user)
         elif self.request.user.is_project_manager():
-            queryset = queryset.filter(project__manager=self.request.user)
+            queryset = queryset.filter(Q(project__manager=self.request.user) | Q(site_engineer=self.request.user))
         
         # Apply search and filters
         search = self.request.GET.get('search')
@@ -358,7 +359,7 @@ class DailyReportDetailView(LoginRequiredMixin, DetailView):
         elif self.request.user.is_site_engineer():
             queryset = queryset.filter(site_engineer=self.request.user)
         elif self.request.user.is_project_manager():
-            queryset = queryset.filter(project__manager=self.request.user)
+            queryset = queryset.filter(Q(project__manager=self.request.user) | Q(site_engineer=self.request.user))
         return queryset
 
     def get_context_data(self, **kwargs):
@@ -500,7 +501,8 @@ def daily_report_projects(user):
     if user.is_site_engineer():
         return Project.objects.filter(site_engineer=user)
     if user.is_project_manager():
-        return Project.objects.filter(manager=user, site_engineer__isnull=True)
+        # his own projects that have no engineer, and every project where he is the engineer himself (he may be both manager and engineer)
+        return Project.objects.filter(Q(manager=user, site_engineer__isnull=True) | Q(site_engineer=user))
     return Project.objects.none()
 
 
@@ -688,7 +690,7 @@ class MonthlyReportListView(LoginRequiredMixin, ListView):
         elif self.request.user.is_site_engineer():
             queryset = queryset.filter(site_engineer=self.request.user)
         elif self.request.user.is_project_manager():
-            queryset = queryset.filter(project__manager=self.request.user)
+            queryset = queryset.filter(Q(project__manager=self.request.user) | Q(site_engineer=self.request.user))
         
         # Apply search and filters
         search = self.request.GET.get('search')
@@ -766,7 +768,7 @@ class MonthlyReportDetailView(LoginRequiredMixin, DetailView):
         elif self.request.user.is_site_engineer():
             queryset = queryset.filter(site_engineer=self.request.user)
         elif self.request.user.is_project_manager():
-            queryset = queryset.filter(project__manager=self.request.user)
+            queryset = queryset.filter(Q(project__manager=self.request.user) | Q(site_engineer=self.request.user))
         return queryset
 
     def get_context_data(self, **kwargs):
@@ -845,7 +847,7 @@ class MonthlyReportDashboardView(LoginRequiredMixin, DetailView):
         elif self.request.user.is_site_engineer():
             queryset = queryset.filter(site_engineer=self.request.user)
         elif self.request.user.is_project_manager():
-            queryset = queryset.filter(project__manager=self.request.user)
+            queryset = queryset.filter(Q(project__manager=self.request.user) | Q(site_engineer=self.request.user))
         return queryset
 
     def get_context_data(self, **kwargs):
@@ -1156,7 +1158,7 @@ class OwnerFinancialReportListView(LoginRequiredMixin, ListView):
         elif self.request.user.is_site_engineer():
             queryset = queryset.filter(site_engineer=self.request.user)
         elif self.request.user.is_project_manager():
-            queryset = queryset.filter(project__manager=self.request.user)
+            queryset = queryset.filter(Q(project__manager=self.request.user) | Q(site_engineer=self.request.user))
 
         search = self.request.GET.get('search')
         status = self.request.GET.get('status')
@@ -1195,7 +1197,7 @@ class OwnerFinancialReportDetailView(LoginRequiredMixin, DetailView):
         elif self.request.user.is_site_engineer():
             queryset = queryset.filter(site_engineer=self.request.user)
         elif self.request.user.is_project_manager():
-            queryset = queryset.filter(project__manager=self.request.user)
+            queryset = queryset.filter(Q(project__manager=self.request.user) | Q(site_engineer=self.request.user))
         return queryset
 
     def get_context_data(self, **kwargs):
