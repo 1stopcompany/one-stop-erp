@@ -273,74 +273,98 @@
 
     <main class="dashboard-grid">
         <!-- CRM -->
+        {% if modules.crm %}
         <a href="{% url 'crm:dashboard' %}" class="app-card">
             <div class="icon-box icon-crm">🤝</div>
             <div class="app-label">CRM</div>
         </a>
+        {% endif %}
         <!-- Procurement -->
+        {% if modules.procurement %}
         <a href="{% url 'procurement:dashboard' %}" class="app-card">
             <div class="icon-box icon-procurement">📦</div>
             <div class="app-label">Procurement</div>
         </a>
+        {% endif %}
         <!-- Cost Control -->
+        {% if modules.cost_control %}
         <a href="{% url 'cost_control:dashboard' %}" class="app-card">
             <div class="icon-box icon-cost-control">📊</div>
             <div class="app-label">Cost Control</div>
         </a>
+        {% endif %}
 
         <!-- Project Management -->
+        {% if modules.projects %}
         <a href="{% url 'projects:project_list' %}" class="app-card">
             <div class="icon-box icon-project">🏗️</div>
             <div class="app-label">Projects</div>
         </a>
+        {% endif %}
 
         <!-- HR -->
+        {% if modules.timesheets %}
         <a href="{% url 'timesheets:dashboard' %}" class="app-card">
             <div class="icon-box icon-timesheet">📅</div>
             <div class="app-label">HR</div>
         </a>
+        {% endif %}
 
         <!-- Accounting -->
+        {% if modules.accounting %}
         <a href="{% url 'accounting:dashboard' %}" class="app-card">
             <div class="icon-box icon-accounting">💰</div>
             <div class="app-label">Accounting</div>
         </a>
+        {% endif %}
 
         <!-- Site Reports -->
+        {% if modules.reports %}
         <a href="{% url 'reports:report_type_selection' %}" class="app-card">
             <div class="icon-box icon-site">📝</div>
             <div class="app-label">Site Reports</div>
         </a>
+        {% endif %}
 
         <!-- Company Standards & Specifications -->
+        {% if modules.core %}
         <a href="{% url 'core:specifications_list' %}" class="app-card">
             <div class="icon-box icon-blueprints">📐</div>
             <div class="app-label">Standards &amp; Specs</div>
         </a>
+        {% endif %}
 
         <!-- Safety Compliance -->
+        {% if modules.safety %}
         <a href="{% url 'safety:dashboard' %}" class="app-card">
             <div class="icon-box icon-safety">🛡️</div>
             <div class="app-label">Safety</div>
         </a>
+        {% endif %}
 
         <!-- Equipment -->
+        {% if modules.equipment %}
         <a href="{% url 'equipment:dashboard' %}" class="app-card">
             <div class="icon-box icon-equipment">🚜</div>
             <div class="app-label">Equipment</div>
         </a>
+        {% endif %}
 
         <!-- Subcontractors -->
+        {% if modules.subcontractors %}
         <a href="{% url 'subcontractors:dashboard' %}" class="app-card">
             <div class="icon-box icon-subcontractors">👷</div>
             <div class="app-label">Subcontractors</div>
         </a>
+        {% endif %}
 
         <!-- Blueprints -->
+        {% if modules.blueprints %}
         <a href="{% url 'blueprints:dashboard' %}" class="app-card">
             <div class="icon-box icon-blueprints">🗺️</div>
             <div class="app-label">Blueprints</div>
         </a>
+        {% endif %}
 
         {% if user.is_admin %}
         <!-- Administration (admin only: system overview, users, settings) -->

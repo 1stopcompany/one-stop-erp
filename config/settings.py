@@ -97,6 +97,7 @@ MIDDLEWARE = [
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
+    'accounts.modules.ModuleAccessMiddleware',   # procurement officer / accountant open only their own modules
     'projects.middleware.ProjectReadinessMiddleware',   # blocks work on projects without insurance / a priced BOQ
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
@@ -114,6 +115,7 @@ TEMPLATES = [
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
+                'accounts.modules.module_access',
             ],
         },
     },

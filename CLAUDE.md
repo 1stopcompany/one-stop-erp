@@ -244,6 +244,10 @@ python manage.py send_reminders                # reports app (email reminder sys
   and purchase orders (list, detail, PDF, receipts) are scoped per role (`scoped_prs` / `scoped_pos`): an engineer or project manager sees only his
   projects'; vendors and RFQs are for admin, managers, procurement (+ accountant for vendors); receipts are recorded by procurement, the storekeeper and the
   project's engineer and corrected only by procurement / admin.
+- **Which modules a role may open** (`accounts/modules.py`): every role sees every module as before, except the procurement officer (Procurement only) and the accountant
+  (Procurement read-only + Accounting, plus the equipment rental-claim pages `/equipment/claims/` he reads from Payables). `ModuleAccessMiddleware` refuses the pages of any other
+  module (redirect to the dashboard for a page, 403 for POST / ajax), and the `modules` template variable (context processor) hides the menu entries and home cards; token
+  calls from the phone and the admin are not limited. To restrict another role, add it to `ROLE_MODULES`.
 - **Project BOQ → cost control**: pricing lives on the project's own BOQ, NOT on catalogue items. `reports.ProjectPhase`
   (main item, with an optional `section`) and `ProjectPhaseSubItem` each carry `unit`, `quantity`, `budget_unit_price`
   (cost) and `contract_unit_price` (sell), edited in "Manage BOQ" (`templates/reports/boq_editor.html`,
