@@ -2343,6 +2343,45 @@ function applySectionOrder(order) {
         if (downBtn) downBtn.disabled = index === order.length - 1;
     });
 }
+
+// The sections the viewer has open stay open: every save on this page reloads it, which used to fold everything back to the
+// Overview. The open sections (and, after a reload, the scroll position) are remembered per report in the browser.
+(function () {
+    const KEY = 'monthlyTabs:{{ report.id }}';
+    const SCROLL = 'monthlyScroll:{{ report.id }}';
+    const panes = () => Array.from(document.querySelectorAll('.tab-content > .collapse[id^="tab-"]'));
+    const buttonFor = (pane) => document.querySelector('[data-bs-target="#' + pane.id + '"][data-bs-toggle="collapse"]');
+    const read = () => { try { return JSON.parse(localStorage.getItem(KEY)); } catch (e) { return null; } };
+    const save = () => {
+        try { localStorage.setItem(KEY, JSON.stringify(panes().filter((p) => p.classList.contains('show')).map((p) => p.id))); } catch (e) { /* storage blocked: nothing to remember */ }
+    };
+    const setOpen = (pane, open) => {
+        pane.classList.toggle('show', open);
+        const button = buttonFor(pane);
+        if (button) {
+            button.setAttribute('aria-expanded', open ? 'true' : 'false');
+            button.classList.toggle('collapsed', !open);
+        }
+    };
+
+    document.addEventListener('DOMContentLoaded', () => {
+        const stored = read();
+        if (Array.isArray(stored)) {
+            panes().forEach((pane) => setOpen(pane, stored.includes(pane.id)));
+        }
+        let wasReload = false;
+        try { wasReload = (performance.getEntriesByType('navigation')[0] || {}).type === 'reload'; } catch (e) { /* old browser */ }
+        if (wasReload) {
+            try {
+                const y = parseInt(sessionStorage.getItem(SCROLL), 10);
+                if (y > 0) setTimeout(() => window.scrollTo(0, y), 60);
+            } catch (e) { /* ignore */ }
+        }
+    });
+    document.addEventListener('shown.bs.collapse', (e) => { if (e.target.id && e.target.id.startsWith('tab-')) save(); });
+    document.addEventListener('hidden.bs.collapse', (e) => { if (e.target.id && e.target.id.startsWith('tab-')) save(); });
+    window.addEventListener('beforeunload', () => { try { sessionStorage.setItem(SCROLL, String(window.scrollY)); } catch (e) { /* ignore */ } });
+})();
 </script>
 
 <style>
