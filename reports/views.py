@@ -20,6 +20,7 @@ from django.views.decorators.http import require_http_methods
 from decimal import Decimal
 from datetime import timedelta
 import calendar
+import re
 from dateutil.relativedelta import relativedelta
 
 from .models import (
@@ -976,6 +977,94 @@ def generate_monthly_report_view(request):
         'current_year': today.year,
         'current_month': today.month,
     })
+
+
+# Child rows copied from one monthly report to the next period's (the related names of MonthlyReport). NOT copied: the review comments
+# (the consultant's comments on THAT period), the photos and attachments (they document that period) and the revision history.
+_MONTHLY_COPY_RELATIONS = (
+    'progress_category_items', 'key_activities', 'issues_risks_delays', 'floor_activities', 'external_works',
+    'material_supplies', 'upcoming_works', 'workforce', 'equipment', 'activities',
+)
+_BARE_PERCENT = re.compile(r'^\s*\d+(\.\d+)?\s*%\s*$')
+
+
+def _refresh_progress_rows(report):
+    """
+    The "Progress Summary" category rows whose actual value is a bare percentage (as the generator writes them: one row per BOQ phase,
+    e.g. "12.5%") get the BOQ progress of THIS report's period; rows written by hand ("In progress (Phase 3)") are left as they are.
+    The overall / this-month figures and the BOQ breakdown are computed live from the period, so they follow the new dates by themselves.
+    """
+    phases = calculate_project_progress(report.project, as_of_date=report.reporting_period_to)['phases']
+    by_name = {}
+    for row in phases:
+        for name in (row['phase'].name_en, row['phase'].name_ar):
+            if name:
+                by_name[name.strip().lower()] = row
+    updated = 0
+    for item in report.progress_category_items.all():
+        row = by_name.get(item.item_name.strip().lower())
+        if row is not None and _BARE_PERCENT.match(item.actual_value or ''):
+            item.actual_value = f"{row['execution_percentage']:.1f}%"
+            item.save(update_fields=['actual_value'])
+            updated += 1
+    return updated
+
+
+@login_required
+@require_http_methods(["POST"])
+def copy_monthly_report(request, pk):
+    """
+    Duplicate a monthly (EDGE) report into a new draft for the NEXT reporting period -- August's report becomes the starting point of
+    September's: same narrative, activities, issues, plan, HSE / QC notes and tables, with the progress figures brought up to date
+    (everything computed from the BOQ follows the new dates on its own; the percentage rows of the Progress Summary are refreshed).
+    Same idea as "Copy for Next Period" on the Owner Financial report. Photos, attachments, the consultant's review comments and the
+    revision history are not copied; the external photo-album link is cleared (it belongs to the old period).
+    """
+    source = get_object_or_404(MonthlyReport, pk=pk)
+    project = source.project
+    if not (request.user.is_admin() or (request.user.is_project_manager() and project.manager_id == request.user.id)):
+        messages.error(request, 'You do not have permission to copy this report.')
+        return redirect('reports:monthly_report_detail', pk=pk)
+
+    new_from = source.reporting_period_to + timedelta(days=1)
+    new_to = (new_from + relativedelta(months=1)) - timedelta(days=1)
+    if MonthlyReport.objects.filter(project=project, reporting_period_to=new_to).exists():
+        messages.error(request, f'A monthly report for {new_from:%d/%m/%Y} - {new_to:%d/%m/%Y} already exists for this project.')
+        return redirect('reports:monthly_report_detail', pk=pk)
+
+    with transaction.atomic():
+        new_report = MonthlyReport.objects.create(
+            project=project, site_engineer=source.site_engineer or request.user, status='draft',
+            reporting_period_from=new_from, reporting_period_to=new_to, report_date=new_to,
+            weather_conditions=source.weather_conditions, general_description=source.general_description,
+            executive_summary=source.executive_summary, schedule_variance_note=source.schedule_variance_note,
+            hse_lti_note=source.hse_lti_note, hse_near_misses_note=source.hse_near_misses_note,
+            hse_toolbox_talks_note=source.hse_toolbox_talks_note, hse_site_inspections_note=source.hse_site_inspections_note,
+            hse_corrective_actions_note=source.hse_corrective_actions_note,
+            qc_inspections_note=source.qc_inspections_note, qc_nonconformances_note=source.qc_nonconformances_note,
+            qc_pending_submittals_note=source.qc_pending_submittals_note, next_month_plan=source.next_month_plan,
+            section_order=source.section_order, photos_external_link='', revision_number=1, revision_note='',
+        )
+        for relation in _MONTHLY_COPY_RELATIONS:
+            for row in getattr(source, relation).all():
+                row.pk = None
+                row.id = None
+                row._state.adding = True
+                row.report = new_report
+                row.save()
+        refreshed = _refresh_progress_rows(new_report)
+
+    UserAuditLog.objects.create(
+        user=request.user, action='create', content_type='MonthlyReport', object_id=new_report.id,
+        description=f'Copied monthly report {source.report_number} into {new_report.report_number}', ip_address=get_client_ip(request),
+    )
+    messages.success(
+        request,
+        f'New draft {new_report.report_number} for {new_from:%d/%m/%Y} - {new_to:%d/%m/%Y} was created from {source.report_number}. '
+        f'The progress figures follow the new period ({refreshed} progress row(s) refreshed); review the executive summary, the schedule '
+        f'variance, the HSE / QC notes and the plan, which are copied as they were.'
+    )
+    return redirect('reports:monthly_report_detail', pk=new_report.pk)
 
 
 class MonthlyReportUpdateView(LoginRequiredMixin, UpdateView):

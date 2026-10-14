@@ -88,6 +88,7 @@ urlpatterns = [
     path('monthly/<int:pk>/dashboard/export-pdf/', views.export_monthly_dashboard_pdf, name='export_monthly_dashboard_pdf'),
     path('monthly/<int:pk>/export-internal-pdf/', views.export_internal_monthly_pdf, name='export_internal_monthly_pdf'),
     path('monthly/<int:pk>/edit/', views.MonthlyReportUpdateView.as_view(), name='monthly_report_update'),
+    path('monthly/<int:pk>/copy/', views.copy_monthly_report, name='copy_monthly_report'),
     path('monthly/<int:pk>/submit/', views.submit_monthly_report, name='submit_monthly_report'),
     path('monthly/<int:pk>/review/', views.review_monthly_report, name='review_monthly_report'),
     path('monthly/<int:pk>/approve/', views.approve_monthly_report, name='approve_monthly_report'),

@@ -318,6 +318,12 @@ python manage.py send_reminders                # reports app (email reminder sys
 - **Project manager and site engineer** (`Project.manager`, `Project.site_engineer`, both set on the project form): the same person may hold both. The engineer
   picker also offers project managers; a project manager who is the engineer of a project (his own or not) sees that project and its reports and writes its
   daily reports (`reports.views.daily_report_projects`: his projects without an engineer, plus every project where he is the engineer). Roles stay one per user.
+- **Monthly (EDGE) report: "Duplicate for Next Period"** (`reports.views.copy_monthly_report`, button on the monthly report page for the admin / the project's manager;
+  same idea as the Owner Financial report's copy): creates a draft for the next period (day after the old end, one month long) with the text fields, HSE / QC notes,
+  plan and every table (progress rows, key activities, issues, floors, external works, material supplies, upcoming works, legacy workforce / equipment) copied. The
+  figures computed from the BOQ (overall, this month, BOQ breakdown) follow the new dates by themselves, and the Progress Summary rows whose value is a bare
+  percentage ("12.5%", matched to the BOQ phase by name) are refreshed; hand-written values stay. Photos, attachments, consultant review comments, revision history
+  and the photo-album link are not copied; a second copy of an existing period is refused.
 - **A project's own Reports page** (`projects:project_reports`, `projects/views.py::ProjectReportsView`, "Reports" button
   on the project page): every Daily/Monthly/Owner Financial report on that one project in one paginated, filterable
   (type, status) list, instead of only the top-10 preview on the project page or filtering the site-wide Reports list by
