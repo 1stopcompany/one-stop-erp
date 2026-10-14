@@ -16,11 +16,23 @@
       <div class="text-muted">Monthly Site Progress Report</div>
     </div>
 
-    <div class="d-flex gap-2">
+    <div class="d-flex gap-2 flex-wrap">
       {% if report.status == 'draft' and report.site_engineer == user or report.status == 'draft' and user.is_admin %}
         <a href="{% url 'reports:monthly_report_update' report.id %}" class="btn btn-primary">
           <i class="bi bi-pencil"></i> Edit
         </a>
+      {% endif %}
+      {% if report.status == 'draft' and report.site_engineer == user or report.status == 'draft' and user.is_admin %}
+      <form method="post" action="{% url 'reports:submit_monthly_report' report.id %}" class="d-inline">
+        {% csrf_token %}
+        <button type="submit" class="btn btn-success"><i class="bi bi-send"></i> Submit for Approval</button>
+      </form>
+      {% endif %}
+      {% if report.status == 'submitted' and user.is_engineering_manager or report.status == 'submitted' and user.is_admin %}
+      <a href="{% url 'reports:review_monthly_report' report.id %}" class="btn btn-info"><i class="bi bi-search"></i> Review</a>
+      {% endif %}
+      {% if report.status == 'engineering_approved' and user.is_general_manager or report.status == 'engineering_approved' and user.is_admin %}
+      <a href="{% url 'reports:approve_monthly_report' report.id %}" class="btn btn-success"><i class="bi bi-check-circle"></i> Final Approve</a>
       {% endif %}
       {% if request.user.is_admin or request.user == report.site_engineer %}
       <button type="button" class="btn btn-outline-warning" data-bs-toggle="modal" data-bs-target="#newRevisionModal">
@@ -240,41 +252,6 @@
         </div>
         <div class="card-body">
           <p style="white-space: pre-line;">{{ report.executive_summary|default:"—" }}</p>
-        </div>
-      </div>
-
-      <!-- Actions -->
-      <div class="card shadow-sm mb-4">
-        <div class="card-header bg-light">
-          <div class="fw-semibold text-primary"><i class="bi bi-lightning"></i> Quick Actions</div>
-        </div>
-        <div class="card-body d-flex flex-wrap gap-2">
-          {% if report.status == 'draft' %}
-            {% if report.site_engineer == user or user.is_admin %}
-            <form method="post" action="{% url 'reports:submit_monthly_report' report.id %}">
-              {% csrf_token %}
-              <button type="submit" class="btn btn-success">
-                <i class="bi bi-send"></i> Submit for Approval
-              </button>
-            </form>
-            {% endif %}
-          {% endif %}
-
-          {% if report.status == 'submitted' %}
-            {% if user.is_engineering_manager or user.is_admin %}
-            <a href="{% url 'reports:review_monthly_report' report.id %}" class="btn btn-info">
-              <i class="bi bi-search"></i> Review
-            </a>
-            {% endif %}
-          {% endif %}
-
-          {% if report.status == 'engineering_approved' %}
-            {% if user.is_general_manager or user.is_admin %}
-            <a href="{% url 'reports:approve_monthly_report' report.id %}" class="btn btn-success">
-              <i class="bi bi-check-circle"></i> Final Approve
-            </a>
-            {% endif %}
-          {% endif %}
         </div>
       </div>
     </div>
