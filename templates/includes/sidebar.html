@@ -29,9 +29,11 @@
         <li class="nav-item">
             <a class="nav-link {% if app == 'crm' %}active{% endif %}" href="{% url 'crm:dashboard' %}">🤝 CRM</a>
         </li>
+        {% if user.can_view_procurement %}
         <li class="nav-item">
             <a class="nav-link {% if app == 'procurement' %}active{% endif %}" href="{% url 'procurement:dashboard' %}">📦 Procurement</a>
         </li>
+        {% endif %}
         <li class="nav-item">
             <a class="nav-link {% if app == 'cost_control' %}active{% endif %}" href="{% url 'cost_control:dashboard' %}">📊 Cost Control</a>
         </li>

@@ -34,6 +34,19 @@ def _deny():
     return HttpResponseForbidden("Only procurement officers and admins can change warehouse stock.")
 
 
+def _viewers_only(view):
+    """The stock pages are for the people who work with procurement (not for an ordinary employee)."""
+    import functools
+    from .permissions import can_view_procurement
+
+    @functools.wraps(view)
+    def wrapper(request, *args, **kwargs):
+        if not can_view_procurement(request.user):
+            return HttpResponseForbidden("You do not have access to the warehouse stock.")
+        return view(request, *args, **kwargs)
+    return wrapper
+
+
 def _form_page(request, form, title):
     return render(request, "procurement/form.html", {"form": form, "title": title})
 
@@ -51,6 +64,7 @@ def _warn_if_low(request, warehouse, item):
 # ---------------------------------------------------------------- stock on hand
 
 @login_required
+@_viewers_only
 def stock_list(request):
     # Make sure at least one warehouse exists so the page (and receiving) always has somewhere to put stock.
     default_warehouse()
@@ -185,6 +199,7 @@ def stock_adjust(request):
 # ---------------------------------------------------------------- ledger
 
 @login_required
+@_viewers_only
 def stock_movements(request):
     qs = StockMovement.objects.select_related("item", "warehouse", "project", "created_by")
     warehouse_id = request.GET.get("warehouse", "")
@@ -208,6 +223,7 @@ def stock_movements(request):
 # ---------------------------------------------------------------- re-order
 
 @login_required
+@_viewers_only
 def reorder_list(request):
     """Items at or below their minimum, and the button that turns them into a draft PR."""
     can_edit = _can_work_procurement(request.user)
@@ -256,6 +272,7 @@ def reorder_list(request):
 # ---------------------------------------------------------------- warehouses
 
 @login_required
+@_viewers_only
 def warehouse_list(request):
     default_warehouse()
     return render(request, "procurement/warehouse/warehouse_list.html", {

@@ -99,6 +99,27 @@ class CustomUser(AbstractUser):
     def is_storekeeper(self):
         return self.role == 'storekeeper'
 
+    # Procurement permissions for the templates (rules in procurement/permissions.py)
+    def can_view_procurement(self):
+        from procurement.permissions import can_view_procurement
+        return can_view_procurement(self)
+
+    def can_manage_catalog(self):
+        from procurement.permissions import can_manage_catalog
+        return can_manage_catalog(self)
+
+    def can_view_vendors(self):
+        from procurement.permissions import can_view_vendors
+        return can_view_vendors(self)
+
+    def can_view_rfq(self):
+        from procurement.permissions import can_view_rfq
+        return can_view_rfq(self)
+
+    def can_record_receipts(self):
+        from procurement.permissions import can_record_receipts
+        return can_record_receipts(self)
+
     # Tabs of the mobile app each role sees (the app builds its tab bar from this list; the server separately refuses
     # the API calls behind a tab the role does not have, so hiding a tab is never the only protection).
     MOBILE_TABS = {

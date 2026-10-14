@@ -33,6 +33,24 @@ from .serializers import (
     ItemMasterSerializer, PRSerializer, POSerializer, VendorSerializer, ReceiptSerializer,
 )
 from .pdf import generate_pr_pdf, generate_po_pdf
+from . import permissions as perms
+
+
+class AccessMixin(LoginRequiredMixin):
+    """Login, and then the role rule of the view (`access`, a function of the user): anyone else gets a plain 403."""
+    access = staticmethod(perms.can_view_procurement)
+    denied_message = "You do not have access to this part of Procurement."
+
+    def dispatch(self, request, *args, **kwargs):
+        if request.user.is_authenticated and not self.access(request.user):
+            return HttpResponseForbidden(self.denied_message)
+        return super().dispatch(request, *args, **kwargs)
+
+
+class CatalogMixin(AccessMixin):
+    """Defining, editing or deleting catalogue items / vendors: the procurement officers and the admin only."""
+    access = staticmethod(perms.can_manage_catalog)
+    denied_message = "Only the procurement department (or an admin) can add or change items and vendors."
 
 
 # ==================== Permission helpers ====================
@@ -76,7 +94,7 @@ def _can_receive_on_site(user, po) -> bool:
 
 # ==================== Dashboard ====================
 
-class ProcurementDashboardView(LoginRequiredMixin, TemplateView):
+class ProcurementDashboardView(AccessMixin, TemplateView):
     template_name = "procurement/dashboard.html"
 
     def get_context_data(self, **kwargs):
@@ -94,8 +112,16 @@ class ProcurementDashboardView(LoginRequiredMixin, TemplateView):
 
         context["total_vendors"] = Vendor.objects.filter(is_active=True).count()
 
-        context["recent_prs"] = PurchaseRequisition.objects.select_related("project").order_by("-created_date")[:5]
-        context["recent_pos"] = PurchaseOrder.objects.select_related("vendor", "project").order_by("-created_date")[:5]
+        user = self.request.user
+        prs = perms.scoped_prs(user, PurchaseRequisition.objects.all())
+        pos = perms.scoped_pos(user, PurchaseOrder.objects.all())
+        context["total_prs"] = prs.count()
+        context["pending_prs"] = prs.filter(status="submitted").count()
+        context["approved_prs"] = prs.filter(status__in=["approved", "in_procurement"]).count()
+        context["total_pos"] = pos.count()
+        context["pending_pos"] = pos.filter(status__in=["sent", "confirmed"]).count()
+        context["recent_prs"] = prs.select_related("project").order_by("-created_date")[:5]
+        context["recent_pos"] = pos.select_related("vendor", "project").order_by("-created_date")[:5]
 
         context["statuses_receivable"] = ["sent", "confirmed", "partial_received"]
         context["can_work_procurement"] = _can_work_procurement(self.request.user)
@@ -146,7 +172,7 @@ def _item_classification_tree():
     ]
 
 
-class ItemListView(LoginRequiredMixin, ListView):
+class ItemListView(AccessMixin, ListView):
     model = ItemMaster
     template_name = "procurement/item_master_list.html"
     context_object_name = "items"
@@ -169,7 +195,7 @@ class ItemListView(LoginRequiredMixin, ListView):
         return qs
 
 
-class ItemCreateView(LoginRequiredMixin, CreateView):
+class ItemCreateView(CatalogMixin, CreateView):
     model = ItemMaster
     form_class = ItemMasterForm
     template_name = "procurement/form.html"
@@ -188,7 +214,7 @@ class ItemCreateView(LoginRequiredMixin, CreateView):
         return redirect(self.success_url)
 
 
-class ItemUpdateView(LoginRequiredMixin, UpdateView):
+class ItemUpdateView(CatalogMixin, UpdateView):
     model = ItemMaster
     form_class = ItemMasterForm
     template_name = "procurement/form.html"
@@ -201,7 +227,7 @@ class ItemUpdateView(LoginRequiredMixin, UpdateView):
         return ctx
 
 
-class ItemDetailView(LoginRequiredMixin, DetailView):
+class ItemDetailView(AccessMixin, DetailView):
     model = ItemMaster
     template_name = "procurement/item_detail.html"
     context_object_name = "item"
@@ -234,7 +260,7 @@ class ItemDetailView(LoginRequiredMixin, DetailView):
         return ctx
 
 
-class ItemBarcodeImageView(LoginRequiredMixin, View):
+class ItemBarcodeImageView(AccessMixin, View):
     """Renders the item's Code128 barcode (see ItemMaster.barcode_value) as a PNG."""
     def get(self, request, pk):
         from .barcode_utils import render_barcode_png
@@ -243,7 +269,7 @@ class ItemBarcodeImageView(LoginRequiredMixin, View):
         return HttpResponse(png_bytes, content_type="image/png")
 
 
-class ItemLabelPdfView(LoginRequiredMixin, View):
+class ItemLabelPdfView(AccessMixin, View):
     """A single printable barcode label (item code + description) for this item."""
     def get(self, request, pk):
         from .barcode_utils import generate_item_label_pdf
@@ -254,7 +280,7 @@ class ItemLabelPdfView(LoginRequiredMixin, View):
         return response
 
 
-class ProcurementManualPdfView(LoginRequiredMixin, View):
+class ProcurementManualPdfView(AccessMixin, View):
     """
     Downloads the illustrated "how to use the procurement system" guide,
     built live from real demo/example data already in the database (see
@@ -282,6 +308,7 @@ class ProcurementManualPdfView(LoginRequiredMixin, View):
         return response
 
 
+@login_required
 def item_scan_lookup(request):
     """
     Looks up an item by its scanned barcode value (exact match) and
@@ -289,6 +316,8 @@ def item_scan_lookup(request):
     scanner (or a handheld USB/Bluetooth scanner acting as a keyboard)
     would submit to.
     """
+    if not perms.can_view_procurement(request.user):
+        return HttpResponseForbidden("You do not have access to this part of Procurement.")
     code = request.GET.get("code", "").strip()
     if not code:
         messages.error(request, "No barcode value provided.")
@@ -307,6 +336,8 @@ def item_code_check(request):
     Classification/Brand/Attribute, reports whether that Full Code already
     belongs to another item (same rule as ItemMasterForm.clean()).
     """
+    if not perms.can_manage_catalog(request.user):
+        return JsonResponse({"exists": False}, status=403)
     parts = [request.GET.get(k, "") for k in ("aa", "bb", "cc", "dd", "eee")]
     if not all(p.isdigit() for p in parts):
         return JsonResponse({"exists": False})
@@ -330,7 +361,7 @@ def item_code_check(request):
     })
 
 
-class ItemDeleteView(LoginRequiredMixin, DeleteView):
+class ItemDeleteView(CatalogMixin, DeleteView):
     model = ItemMaster
     template_name = "procurement/confirm_delete.html"
     success_url = reverse_lazy("procurement:item_list")
@@ -338,23 +369,14 @@ class ItemDeleteView(LoginRequiredMixin, DeleteView):
 
 # ==================== Purchase Requisition ====================
 
-class PRListView(LoginRequiredMixin, ListView):
+class PRListView(AccessMixin, ListView):
     model = PurchaseRequisition
     template_name = "procurement/pr_list.html"
     context_object_name = "prs"
 
     def get_queryset(self):
-        user = self.request.user
         qs = PurchaseRequisition.objects.select_related("project", "requested_by", "approved_by")
-        if user.is_admin():
-            return qs
-        if user.is_site_engineer():
-            return qs.filter(project__site_engineer=user)
-        if user.is_project_manager():
-            return qs.filter(project__manager=user)
-        if user.is_procurement_officer():
-            return qs.filter(status__in=["approved", "in_procurement", "completed"])
-        return qs.none()
+        return perms.scoped_prs(self.request.user, qs)
 
 
 def pr_create(request):
@@ -411,10 +433,13 @@ def pr_edit(request, pk):
     return render(request, "procurement/pr_form.html", {"form": form, "formset": formset, "title": f"Edit {pr.pr_number}", "pr": pr})
 
 
-class PRDetailView(LoginRequiredMixin, DetailView):
+class PRDetailView(AccessMixin, DetailView):
     model = PurchaseRequisition
     template_name = "procurement/pr_detail.html"
     context_object_name = "pr"
+
+    def get_queryset(self):
+        return perms.scoped_prs(self.request.user, PurchaseRequisition.objects.all())
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
@@ -554,7 +579,8 @@ def rfq_create(request, pr_id):
     return render(request, "procurement/rfq_form.html", {"form": form, "pr": pr})
 
 
-class RFQListView(LoginRequiredMixin, ListView):
+class RFQListView(AccessMixin, ListView):
+    access = staticmethod(perms.can_view_rfq)
     model = RequestForQuotation
     template_name = "procurement/rfq_list.html"
     context_object_name = "rfqs"
@@ -563,7 +589,8 @@ class RFQListView(LoginRequiredMixin, ListView):
         return RequestForQuotation.objects.select_related("pr", "pr__project").order_by("-created_date")
 
 
-class RFQDetailView(LoginRequiredMixin, DetailView):
+class RFQDetailView(AccessMixin, DetailView):
+    access = staticmethod(perms.can_view_rfq)
     model = RequestForQuotation
     template_name = "procurement/rfq_detail.html"
     context_object_name = "rfq"
@@ -743,13 +770,13 @@ def po_create_from_rfq(request, pk):
 
 # ==================== Purchase Order ====================
 
-class POListView(LoginRequiredMixin, ListView):
+class POListView(AccessMixin, ListView):
     model = PurchaseOrder
     template_name = "procurement/po_list.html"
     context_object_name = "pos"
 
     def get_queryset(self):
-        return PurchaseOrder.objects.select_related("vendor", "project").order_by("-po_date")
+        return perms.scoped_pos(self.request.user, PurchaseOrder.objects.select_related("vendor", "project")).order_by("-po_date")
 
 
 def po_create(request):
@@ -777,10 +804,13 @@ def po_create(request):
     return render(request, "procurement/po_form.html", {"form": form, "formset": formset, "title": "New Purchase Order (Direct)"})
 
 
-class PODetailView(LoginRequiredMixin, DetailView):
+class PODetailView(AccessMixin, DetailView):
     model = PurchaseOrder
     template_name = "procurement/po_detail.html"
     context_object_name = "po"
+
+    def get_queryset(self):
+        return perms.scoped_pos(self.request.user, PurchaseOrder.objects.all())
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
@@ -850,9 +880,9 @@ class PODeleteView(LoginRequiredMixin, DeleteView):
         return super().dispatch(request, *args, **kwargs)
 
 
-class POPdfView(LoginRequiredMixin, View):
+class POPdfView(AccessMixin, View):
     def get(self, request, pk):
-        po = get_object_or_404(PurchaseOrder, pk=pk)
+        po = get_object_or_404(perms.scoped_pos(request.user, PurchaseOrder.objects.all()), pk=pk)
         pdf = generate_po_pdf(po)
         response = HttpResponse(pdf, content_type="application/pdf")
         response["Content-Disposition"] = f'inline; filename="{po.po_number}.pdf"'
@@ -860,46 +890,53 @@ class POPdfView(LoginRequiredMixin, View):
 
 
 # ==================== Vendors ====================
-class VendorListView(LoginRequiredMixin, ListView):
+class VendorListView(AccessMixin, ListView):
+    access = staticmethod(perms.can_view_vendors)
     model = Vendor
     template_name = "procurement/vendor_list.html"
     context_object_name = "vendors"
 
 
-class VendorCreateView(LoginRequiredMixin, CreateView):
+class VendorCreateView(CatalogMixin, CreateView):
     model = Vendor
     form_class = VendorForm
     template_name = "procurement/form.html"
     success_url = reverse_lazy("procurement:vendor_list")
 
 
-class VendorDetailView(LoginRequiredMixin, DetailView):
+class VendorDetailView(AccessMixin, DetailView):
+    access = staticmethod(perms.can_view_vendors)
     model = Vendor
     template_name = "procurement/vendor_detail.html"
     context_object_name = "vendor"
 
 
-class VendorUpdateView(LoginRequiredMixin, UpdateView):
+class VendorUpdateView(CatalogMixin, UpdateView):
     model = Vendor
     form_class = VendorForm
     template_name = "procurement/form.html"
     success_url = reverse_lazy("procurement:vendor_list")
 
 
-class VendorDeleteView(LoginRequiredMixin, DeleteView):
+class VendorDeleteView(CatalogMixin, DeleteView):
     model = Vendor
     template_name = "procurement/confirm_delete.html"
     success_url = reverse_lazy("procurement:vendor_list")
 
 
 # ==================== Receipts ====================
-class POReceiptListView(LoginRequiredMixin, ListView):
+class POReceiptListView(AccessMixin, ListView):
     model = POReceipt
     template_name = "procurement/receipt_list.html"
     context_object_name = "receipts"
 
+    def get_queryset(self):
+        return POReceipt.objects.filter(po_line__po__in=perms.scoped_pos(self.request.user, PurchaseOrder.objects.all()))
 
-class POReceiptCreateView(LoginRequiredMixin, CreateView):
+
+class POReceiptCreateView(AccessMixin, CreateView):
+    access = staticmethod(perms.can_record_receipts)
+    denied_message = "Only procurement, the storekeeper or the project's site engineer record goods received."
     model = POReceipt
     form_class = POReceiptForm
     template_name = "procurement/form.html"
@@ -914,18 +951,25 @@ class POReceiptCreateView(LoginRequiredMixin, CreateView):
 
     def form_valid(self, form):
         obj = form.save(commit=False)
+        if not _can_receive_on_site(self.request.user, obj.po_line.po) and not self.request.user.is_storekeeper():
+            return HttpResponseForbidden("You cannot record receipts for this purchase order.")
         obj.received_by = self.request.user
         obj.save()
         return redirect(reverse_lazy("procurement:po_detail", kwargs={"pk": obj.po_line.po_id}))
 
 
-class POReceiptDetailView(LoginRequiredMixin, DetailView):
+class POReceiptDetailView(AccessMixin, DetailView):
     model = POReceipt
     template_name = "procurement/receipt_detail.html"
     context_object_name = "receipt"
 
+    def get_queryset(self):
+        return POReceipt.objects.filter(po_line__po__in=perms.scoped_pos(self.request.user, PurchaseOrder.objects.all()))
 
-class POReceiptUpdateView(LoginRequiredMixin, UpdateView):
+
+class POReceiptUpdateView(AccessMixin, UpdateView):
+    access = staticmethod(_can_work_procurement)
+    denied_message = "Only procurement (or an admin) can correct a receipt."
     model = POReceipt
     form_class = POReceiptForm
     template_name = "procurement/form.html"
@@ -953,13 +997,15 @@ class ProcurementAPIPermission(permissions.BasePermission):
             return True
         if request.method in permissions.SAFE_METHODS:
             return user.role in self.READ_ROLES
-        return user.role in self.WRITE_ROLES or user.role in getattr(view, "extra_write_roles", self.extra_write_roles)
+        write_roles = getattr(view, "write_roles", self.WRITE_ROLES)   # a viewset may narrow who writes (the catalogue and the vendors)
+        return user.role in write_roles or user.role in getattr(view, "extra_write_roles", self.extra_write_roles)
 
 
 class ItemViewSet(viewsets.ModelViewSet):
     queryset = ItemMaster.objects.all()
     serializer_class = ItemMasterSerializer
     permission_classes = [ProcurementAPIPermission]
+    write_roles = perms.CATALOG_ROLES   # only procurement and admin define items
     search_fields = ["barcode_value", "full_code", "short_code", "source_code", "description"]
 
     @action(detail=True, methods=["get"], url_path="pending-lines")
@@ -1000,6 +1046,7 @@ class VendorViewSet(viewsets.ModelViewSet):
     queryset = Vendor.objects.all()
     serializer_class = VendorSerializer
     permission_classes = [ProcurementAPIPermission]
+    write_roles = perms.CATALOG_ROLES
 
 
 class PRViewSet(viewsets.ModelViewSet):

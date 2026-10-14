@@ -44,7 +44,7 @@
         <td>{{ line.get_unit_display }}</td>
         <td class="text-end">₪{{ line.unit_price }}</td>
         <td class="text-end">₪{{ line.total_price }}</td>
-        <td class="text-end"><a class="btn btn-sm btn-outline-success" href="{% url 'procurement:receipt_create' %}?po_line={{ line.pk }}">+ Receipt</a></td>
+        <td class="text-end">{% if can_receive_on_site or user.is_storekeeper %}<a class="btn btn-sm btn-outline-success" href="{% url 'procurement:receipt_create' %}?po_line={{ line.pk }}">+ Receipt</a>{% endif %}</td>
       </tr>
       {% empty %}
       <tr><td colspan="7" class="text-center text-muted py-3">No items.</td></tr>

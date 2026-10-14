@@ -237,6 +237,13 @@ python manage.py send_reminders                # reports app (email reminder sys
   (vendors, BOQ, PR/PO — `models.py`, `forms.py`, `views.py`) and a material-tracking subsystem
   (`models_materials.py`, `forms_materials.py`, `serializers_materials.py`, `services_materials.py`,
   `views_materials.py`), documented separately in `MATERIAL_TRACKING_GUIDE.md`.
+  **Procurement permissions** (`procurement/permissions.py`, `AccessMixin` / `CatalogMixin` in `procurement/views.py`; the user helpers `can_manage_catalog()`,
+  `can_view_vendors()` ... are for templates): the item catalogue and the vendors are DEFINED, edited and deleted only by procurement officers and the admin
+  (web pages and the REST API; a project manager / engineer / manager asks for an existing item, never creates one). Everyone who works with procurement
+  (admin, managers, project manager, site engineer, procurement, storekeeper, accountant) reads the catalogue; an ordinary employee gets a 403. Requisitions
+  and purchase orders (list, detail, PDF, receipts) are scoped per role (`scoped_prs` / `scoped_pos`): an engineer or project manager sees only his
+  projects'; vendors and RFQs are for admin, managers, procurement (+ accountant for vendors); receipts are recorded by procurement, the storekeeper and the
+  project's engineer and corrected only by procurement / admin.
 - **Project BOQ → cost control**: pricing lives on the project's own BOQ, NOT on catalogue items. `reports.ProjectPhase`
   (main item, with an optional `section`) and `ProjectPhaseSubItem` each carry `unit`, `quantity`, `budget_unit_price`
   (cost) and `contract_unit_price` (sell), edited in "Manage BOQ" (`templates/reports/boq_editor.html`,

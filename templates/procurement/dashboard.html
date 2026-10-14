@@ -58,9 +58,11 @@
             <p class="text-muted">Manage purchase requisitions, orders, and vendors</p>
         </div>
         <div class="col-md-4 text-end">
+            {% if user.can_manage_catalog %}
             <a href="{% url 'procurement:item_create' %}" class="btn btn-primary me-2">
                 <i class="bi bi-plus-circle"></i> New Item
             </a>
+            {% endif %}
             {% if user.is_site_engineer or user.is_admin %}
             <a href="{% url 'procurement:pr_create' %}" class="btn btn-success">
                 <i class="bi bi-file-earmark-text"></i> New PR
@@ -103,6 +105,7 @@
             </div>
         </div>
 
+        {% if user.can_view_vendors %}
         <div class="col-md-3">
             <div class="stat-card red">
                 <div class="stat-icon"><i class="bi bi-building"></i></div>
@@ -111,6 +114,7 @@
                 <small>Ready to order</small>
             </div>
         </div>
+        {% endif %}
     </div>
 
     <div class="row mt-5">
@@ -214,7 +218,7 @@
             </div>
             <div class="btn-group-vertical w-100" role="group">
                 <a href="{% url 'procurement:item_list' %}" class="btn btn-outline-primary text-start py-3">
-                    <i class="bi bi-box-seam"></i> Manage Item Master
+                    <i class="bi bi-box-seam"></i> {% if user.can_manage_catalog %}Manage Item Master{% else %}Item Master (catalogue){% endif %}
                     <span class="float-end text-muted">{{ total_items }} items</span>
                 </a>
                 <a href="{% url 'procurement:pr_list' %}" class="btn btn-outline-primary text-start py-3">
@@ -225,15 +229,17 @@
                     <i class="bi bi-receipt"></i> View All POs
                     <span class="float-end text-muted">{{ total_pos }} total</span>
                 </a>
+                {% if user.can_view_vendors %}
                 <a href="{% url 'procurement:vendor_list' %}" class="btn btn-outline-primary text-start py-3">
-                    <i class="bi bi-building"></i> Manage Vendors
+                    <i class="bi bi-building"></i> {% if user.can_manage_catalog %}Manage Vendors{% else %}Vendors{% endif %}
                     <span class="float-end text-muted">{{ total_vendors }} vendors</span>
                 </a>
+                {% endif %}
                 <a href="{% url 'procurement:stock_list' %}" class="btn btn-outline-primary text-start py-3">
                     <i class="bi bi-boxes"></i> Warehouse Stock
                     <span class="float-end text-muted">{% if low_stock_count %}{{ low_stock_count }} item(s) at or below minimum{% else %}all above minimum{% endif %}</span>
                 </a>
-                {% if can_work_procurement %}
+                {% if user.can_view_rfq %}
                 <a href="{% url 'procurement:rfq_list' %}" class="btn btn-outline-primary text-start py-3">
                     <i class="bi bi-envelope"></i> Requests for Quotation
                     <span class="float-end text-muted">{{ approved_prs }} PR(s) ready for procurement</span>
