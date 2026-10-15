@@ -23,9 +23,23 @@ class DeliveryError(Exception):
     pass
 
 
-def pdf_filename(report):
+def pdf_filename(report, version=1):
     symbol = re.sub(r'[^A-Za-z0-9_-]+', '-', report.project.project_symbol or 'project')
-    return f'{symbol}_{report.report_date:%Y-%m-%d}_Daily_Report.pdf'
+    return f'{symbol}_{report.report_date:%Y-%m-%d}_Daily_Report_V{version}.pdf'
+
+
+def next_version(report):
+    """
+    The version of this delivery: 1 + how many times the report of this project and date was already delivered. A delivery counts when it
+    reached its destination (the Dropbox copy when the project has a folder, otherwise the e-mail), so retrying a failed one keeps its number,
+    while sending a report that was already delivered (resubmitted after a correction, or "Send again") makes the next version and never
+    overwrites the previous file.
+    """
+    from django.db.models import Q
+    from reports.delivery_models import ReportDelivery
+    delivered = ReportDelivery.objects.filter(report__project_id=report.project_id, report__report_date=report.report_date, finished=True).filter(
+        Q(dropbox_ok=True) | Q(dropbox_ok__isnull=True, email_ok=True))
+    return delivered.count() + 1
 
 
 def recipients(report):
@@ -143,16 +157,18 @@ def copy_photos(report, delivery, client):
 
 
 # ------------------------------------------------------------------ e-mail
-def send_notification(report, pdf, filename, to):
+def send_notification(report, pdf, filename, to, version=1):
     if settings.EMAIL_BACKEND.endswith('dummy.EmailBackend'):
         raise DeliveryError('E-mail is not set up on this server (EMAIL_HOST / EMAIL_HOST_USER / EMAIL_HOST_PASSWORD in .env).')
     link = f"{settings.SITE_URL}{reverse('reports:daily_report_detail', args=[report.pk])}"
     # a report can exist without a site engineer (created by an admin, or the engineer's account was removed)
     engineer = (report.site_engineer.get_full_name() or report.site_engineer.username) if report.site_engineer else ''
-    subject = f'[{report.project.project_symbol}] Daily report {report.report_date:%d/%m/%Y} submitted'
+    again = f' - version {version} (sent again)' if version > 1 else ''
+    subject = f'[{report.project.project_symbol}] Daily report {report.report_date:%d/%m/%Y} submitted{again}'
     body = (f'The daily report of {report.project.name} ({report.project.project_symbol}) for {report.report_date:%d/%m/%Y} '
-            f'was submitted{" by " + engineer if engineer else ""}.\n\nReport number: {report.report_number}\n\n'
-            f'Open it: {link}\n\nThe report is attached as a PDF.\n')
+            f'was submitted{" by " + engineer if engineer else ""}.\n\nReport number: {report.report_number}\n'
+            + (f'Version: V{version} - this report of the same date was sent before; this is the new version.\n' if version > 1 else '')
+            + f'\nOpen it: {link}\n\nThe report is attached as a PDF ({filename}).\n')
     message = EmailMessage(subject, body, settings.DEFAULT_FROM_EMAIL, to)
     message.attach(filename, pdf, 'application/pdf')
     message.send(fail_silently=False)
@@ -166,7 +182,8 @@ def deliver(report_id, dropbox_factory=None):
     from reports.utils import generate_daily_report_pdf
 
     report = DailyReport.all_objects.select_related('project', 'project__manager', 'site_engineer').get(pk=report_id)
-    delivery = ReportDelivery.objects.create(report=report, filename=pdf_filename(report))
+    version = next_version(report)
+    delivery = ReportDelivery.objects.create(report=report, version=version, filename=pdf_filename(report, version))
     try:
         return _run_delivery(report, delivery, dropbox_factory, generate_daily_report_pdf)
     except Exception as error:   # whatever goes wrong, the row must not stay "in progress" for ever
@@ -193,7 +210,7 @@ def _run_delivery(report, delivery, dropbox_factory, generate_daily_report_pdf):
         delivery.email_ok, delivery.email_error = False, pdf_error
     elif to:
         try:
-            send_notification(report, pdf, delivery.filename, to)
+            send_notification(report, pdf, delivery.filename, to, version=delivery.version)
             delivery.email_ok = True
         except Exception as error:
             logger.exception('Daily report e-mail failed for %s', report_id)

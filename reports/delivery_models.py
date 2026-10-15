@@ -6,6 +6,7 @@ class ReportDelivery(models.Model):
     report = models.ForeignKey('reports.DailyReport', on_delete=models.CASCADE, related_name='deliveries')
     created_at = models.DateTimeField(auto_now_add=True)
     filename = models.CharField(max_length=200, blank=True)
+    version = models.PositiveIntegerField(default=1, help_text='V1 for the first time the report of this project and date is sent, V2 the next time it is sent again, ...')
     finished = models.BooleanField(default=False, help_text='False while the background job is still working on it')
 
     email_to = models.TextField(blank=True, help_text='Addresses the notification was sent to')
