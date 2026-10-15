@@ -1,0 +1,53 @@
+{% extends 'base.html' %}
+{% block title %}Payment claims{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center flex-wrap gap-2 my-4">
+  <div>
+    <h1 class="h3 mb-0"><i class="bi bi-file-earmark-text"></i> Payment claims <span class="text-muted fs-6">المطالبات المالية</span></h1>
+    <p class="text-muted mb-0">Prepared by the project manager; each signature (finance, executive director, general manager) is the approval in the system.</p>
+  </div>
+  <div class="d-flex gap-2 flex-wrap">
+    <a href="{% url 'accounting:claims_report' %}" class="btn btn-outline-secondary"><i class="bi bi-table"></i> Claims report</a>
+    {% if can_create %}<a href="{% url 'accounting:claim_new' %}" class="btn btn-primary"><i class="bi bi-plus-circle"></i> New claim</a>{% endif %}
+  </div>
+</div>
+
+{% if waiting_for_me %}
+<div class="alert alert-warning"><strong>{{ waiting_for_me|length }}</strong> claim(s) wait for your signature:
+  {% for c in waiting_for_me %}<a href="{% url 'accounting:claim_detail' c.pk %}" class="alert-link">{{ c.number }}</a>{% if not forloop.last %}, {% endif %}{% endfor %}</div>
+{% endif %}
+{% if to_pay %}
+<div class="alert alert-success"><strong>{{ to_pay|length }}</strong> approved claim(s) are ready to pay:
+  {% for c in to_pay %}<a href="{% url 'accounting:claim_detail' c.pk %}" class="alert-link">{{ c.number }}</a>{% if not forloop.last %}, {% endif %}{% endfor %}</div>
+{% endif %}
+
+<form method="get" class="row g-2 mb-3">
+  <div class="col-md-4"><input name="q" value="{{ q }}" class="form-control" placeholder="Number, vendor or work ..."></div>
+  <div class="col-md-3"><select name="status" class="form-select" onchange="this.form.submit()"><option value="">All statuses</option><option value="open" {% if status == 'open' %}selected{% endif %}>Not paid yet</option>{% for key, label in statuses %}<option value="{{ key }}" {% if status == key %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></div>
+  <div class="col-md-3"><select name="project" class="form-select" onchange="this.form.submit()"><option value="">All projects</option><option value="main" {% if project == 'main' %}selected{% endif %}>Main office</option>{% for p in projects %}<option value="{{ p.pk }}" {% if project == p.pk|stringformat:'s' %}selected{% endif %}>{{ p.project_symbol }}</option>{% endfor %}</select></div>
+  <div class="col-md-2"><button class="btn btn-outline-primary w-100">Search</button></div>
+</form>
+
+<div class="card"><div class="table-responsive"><table class="table table-hover align-middle mb-0">
+  <thead><tr><th>Number</th><th>Date</th><th>Vendor / beneficiary</th><th>Project</th><th class="text-end">Amount due</th><th>Status</th><th></th></tr></thead><tbody>
+  {% for c in claims %}
+  <tr>
+    <td class="fw-bold text-nowrap"><a href="{% url 'accounting:claim_detail' c.pk %}" class="text-decoration-none">{{ c.number }}</a></td>
+    <td class="text-nowrap">{{ c.claim_date|date:"d/m/Y" }}</td>
+    <td>{{ c.beneficiary_name }}<div class="small text-muted">{{ c.nature_of_work }}</div></td>
+    <td>{% if c.project %}{{ c.project.project_symbol }}{% else %}<span class="text-muted">Main office</span>{% endif %}</td>
+    <td class="text-end fw-bold">{{ c.net_due|floatformat:2 }}</td>
+    <td>
+      {% if c.status == 'paid' %}<span class="badge bg-success">Paid</span>
+      {% elif c.status == 'approved' %}<span class="badge bg-primary">Ready to pay</span>
+      {% elif c.status == 'rejected' %}<span class="badge bg-danger">Sent back</span>
+      {% elif c.status == 'draft' %}<span class="badge bg-secondary">Draft</span>
+      {% else %}<span class="badge bg-warning text-dark">{{ c.get_status_display }}</span>{% endif %}
+    </td>
+    <td class="text-end text-nowrap"><a href="{% url 'accounting:claim_pdf' c.pk %}" target="_blank" class="btn btn-sm btn-outline-secondary" title="Print"><i class="bi bi-printer"></i></a></td>
+  </tr>
+  {% empty %}<tr><td colspan="7" class="text-center text-muted py-4">No claims.</td></tr>{% endfor %}
+  </tbody>
+  {% if claims %}<tfoot><tr class="table-light"><th colspan="4" class="text-end">Total of the list</th><th class="text-end">{{ sum_net|floatformat:2 }}</th><th colspan="2"></th></tr></tfoot>{% endif %}
+</table></div></div>
+{% endblock %}

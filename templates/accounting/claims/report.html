@@ -1,0 +1,37 @@
+{% extends 'base.html' %}
+{% block title %}Payment claims report{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center flex-wrap gap-2 my-4">
+  <div><h1 class="h3 mb-0"><i class="bi bi-table"></i> Payment claims report <span class="text-muted fs-6">تقرير المطالبات المالية</span></h1>
+    <p class="text-muted mb-0">Every claim with its date, number, amount and payment. Filter it, print the page or export it to Excel.</p></div>
+  <div class="d-flex gap-2 flex-wrap">
+    <a href="?{{ request.GET.urlencode }}{% if request.GET %}&{% endif %}format=xlsx" class="btn btn-success"><i class="bi bi-file-earmark-excel"></i> Export to Excel</a>
+    <button type="button" class="btn btn-outline-secondary" onclick="window.print()"><i class="bi bi-printer"></i> Print</button>
+    <a href="{% url 'accounting:claim_list' %}" class="btn btn-outline-secondary">Claims</a>
+  </div>
+</div>
+
+<form method="get" class="row g-2 mb-3 d-print-none">
+  <div class="col-md-3"><input name="vendor" value="{{ vendor }}" class="form-control" placeholder="Vendor / beneficiary"></div>
+  <div class="col-md-2"><select name="status" class="form-select"><option value="">All statuses</option><option value="unpaid" {% if status == 'unpaid' %}selected{% endif %}>Not paid yet</option>{% for key, label in statuses %}<option value="{{ key }}" {% if status == key %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></div>
+  <div class="col-md-2"><select name="project" class="form-select"><option value="">All projects</option><option value="main" {% if project == 'main' %}selected{% endif %}>Main office</option>{% for p in projects %}<option value="{{ p.pk }}" {% if project == p.pk|stringformat:'s' %}selected{% endif %}>{{ p.project_symbol }}</option>{% endfor %}</select></div>
+  <div class="col-md-2"><input type="date" name="from" value="{{ date_from }}" class="form-control" title="From"></div>
+  <div class="col-md-2"><input type="date" name="to" value="{{ date_to }}" class="form-control" title="To"></div>
+  <div class="col-md-1"><button class="btn btn-outline-primary w-100">Show</button></div>
+</form>
+
+<div class="row g-3 mb-3">
+  <div class="col-md-4"><div class="card"><div class="card-body"><div class="text-muted small">Total of the claims shown</div><div class="fs-4 fw-bold">{{ total|floatformat:2 }}</div></div></div></div>
+  <div class="col-md-4"><div class="card"><div class="card-body"><div class="text-muted small">Paid</div><div class="fs-4 fw-bold text-success">{{ paid_total|floatformat:2 }}</div></div></div></div>
+  <div class="col-md-4"><div class="card"><div class="card-body"><div class="text-muted small">Not paid yet</div><div class="fs-4 fw-bold text-danger">{{ unpaid_total|floatformat:2 }}</div></div></div></div>
+</div>
+
+<div class="card"><div class="table-responsive"><table class="table table-sm table-hover align-middle mb-0">
+  <thead><tr><th>Vendor / beneficiary</th><th>Project</th><th>Claim date</th><th>Claim no.</th><th class="text-end">Amount due</th><th>Status / payment</th></tr></thead><tbody>
+  {% for row in rows %}
+  <tr><td>{{ row.claim.beneficiary_name }}</td><td>{% if row.claim.project %}{{ row.claim.project.project_symbol }}{% else %}Main office{% endif %}</td><td class="text-nowrap">{{ row.claim.claim_date|date:"d/m/Y" }}</td>
+    <td class="text-nowrap"><a href="{% url 'accounting:claim_detail' row.claim.pk %}" class="text-decoration-none">{{ row.claim.number }}</a></td>
+    <td class="text-end">{{ row.net|floatformat:2 }}</td><td>{{ row.payment }}</td></tr>
+  {% empty %}<tr><td colspan="6" class="text-center text-muted py-4">No claims match.</td></tr>{% endfor %}
+  </tbody></table></div></div>
+{% endblock %}

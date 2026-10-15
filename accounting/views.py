@@ -16,7 +16,13 @@ from equipment.models import EquipmentClaim
 def accounting_dashboard(request):
     can_see = claims.can_see_payables(request.user)
     ready = EquipmentClaim.objects.filter(status=EquipmentClaim.POSTED, reviewed_at__isnull=False).count() if can_see else 0
+    from . import payment_claims as claim_service
+    visible = claim_service.visible_claims(request.user)
+    from .models import PaymentClaim
     return render(request, "accounting/dashboard.html", {
+        "claims_waiting_me": sum(1 for c in visible.exclude(status__in=(PaymentClaim.DRAFT, PaymentClaim.PAID, PaymentClaim.APPROVED, PaymentClaim.REJECTED)) if claim_service.can_sign(request.user, c)),
+        "claims_to_pay": sum(1 for c in visible.filter(status=PaymentClaim.APPROVED) if claim_service.can_pay(request.user, c)),
+        "claims_open": visible.exclude(status=PaymentClaim.PAID).count(),
         "module_name": "Accounting & Finance",
         "module_icon": "💰",
         "can_see_payables": can_see,

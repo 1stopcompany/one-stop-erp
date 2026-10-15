@@ -1,0 +1,99 @@
+{% extends 'base.html' %}
+{% block title %}Claim {{ claim.number }}{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-start flex-wrap gap-2 my-4">
+  <div>
+    <h1 class="h3 mb-1"><i class="bi bi-file-earmark-text"></i> {{ claim.number }}
+      {% if claim.status == 'paid' %}<span class="badge bg-success fs-6">Paid</span>
+      {% elif claim.status == 'approved' %}<span class="badge bg-primary fs-6">Approved - ready to pay</span>
+      {% elif claim.status == 'rejected' %}<span class="badge bg-danger fs-6">Sent back</span>
+      {% elif claim.status == 'draft' %}<span class="badge bg-secondary fs-6">Draft</span>
+      {% else %}<span class="badge bg-warning text-dark fs-6">{{ claim.get_status_display }}</span>{% endif %}</h1>
+    <div class="text-muted">{{ claim.get_claim_type_display }} &middot; {{ claim.claim_date|date:"d/m/Y" }} &middot; {{ claim.project_label }}</div>
+  </div>
+  <div class="d-flex gap-2 flex-wrap">
+    <a href="{% url 'accounting:claim_pdf' claim.pk %}" target="_blank" class="btn btn-success"><i class="bi bi-printer"></i> Print the claim</a>
+    {% if can_edit %}<a href="{% url 'accounting:claim_edit' claim.pk %}" class="btn btn-outline-primary"><i class="bi bi-pencil"></i> Edit</a>{% endif %}
+    {% if can_submit %}<form method="post" action="{% url 'accounting:claim_action' claim.pk 'submit' %}" class="d-inline" onsubmit="return confirm('Sign and send this claim to the finance? Your signature goes on it.');">{% csrf_token %}<button class="btn btn-primary"><i class="bi bi-pen"></i> Sign and send</button></form>{% endif %}
+    {% if can_sign %}<form method="post" action="{% url 'accounting:claim_action' claim.pk 'sign' %}" class="d-inline" onsubmit="return confirm('Approve and sign this claim as {{ step_label|lower }}?');">{% csrf_token %}<button class="btn btn-primary"><i class="bi bi-pen"></i> Approve and sign ({{ step_label }})</button></form>{% endif %}
+    {% if can_delete %}<form method="post" action="{% url 'accounting:claim_action' claim.pk 'delete' %}" class="d-inline" onsubmit="return confirm('Delete this draft?');">{% csrf_token %}<button class="btn btn-outline-danger"><i class="bi bi-trash"></i> Delete</button></form>{% endif %}
+    <a href="{% url 'accounting:claim_list' %}" class="btn btn-outline-secondary">Back</a>
+  </div>
+</div>
+
+{% if claim.status == 'rejected' %}<div class="alert alert-danger"><strong>Sent back by {{ claim.rejected_by.get_full_name|default:claim.rejected_by.username }}:</strong> {{ claim.rejection_reason }}</div>{% endif %}
+
+<div class="row g-3">
+  <div class="col-lg-8">
+    <div class="card mb-3"><div class="card-body"><div class="row g-2">
+      <div class="col-md-6"><div class="text-muted small">Vendor / beneficiary</div><div class="fw-semibold">{{ claim.beneficiary_name }}</div></div>
+      <div class="col-md-6"><div class="text-muted small">Nature of work</div><div>{{ claim.nature_of_work|default:"-" }}</div></div>
+      <div class="col-md-4"><div class="text-muted small">Original contract value</div><div>{{ claim.original_contract_value|default_if_none:"-" }}</div></div>
+      <div class="col-md-4"><div class="text-muted small">Current contract value</div><div>{{ claim.current_contract_value|default_if_none:"-" }}</div></div>
+      <div class="col-md-4"><div class="text-muted small">Previous payments</div><div>{{ claim.previous_payments|default_if_none:"-" }}</div></div>
+    </div></div></div>
+
+    <div class="card mb-3"><div class="card-header fw-semibold">Claim details</div><div class="table-responsive"><table class="table mb-0">
+      <thead><tr><th>Statement</th><th>Details</th><th class="text-end">Amount</th></tr></thead><tbody>
+      {% for line in lines %}<tr><td>{{ line.statement }}</td><td style="white-space: pre-line;">{{ line.details }}</td><td class="text-end">{{ line.amount|floatformat:2 }}</td></tr>{% endfor %}
+      </tbody><tfoot>
+        <tr><th colspan="2" class="text-end">Total</th><th class="text-end">{{ claim.total_amount|floatformat:2 }}</th></tr>
+        {% if claim.deduction_agreed %}<tr><td colspan="2" class="text-end">Agreed deduction</td><td class="text-end">- {{ claim.deduction_agreed|floatformat:2 }}</td></tr>{% endif %}
+        {% if claim.deduction_source_retention %}<tr><td colspan="2" class="text-end">Retention instead of source deduction</td><td class="text-end">- {{ claim.deduction_source_retention|floatformat:2 }}</td></tr>{% endif %}
+        {% if claim.deduction_other %}<tr><td colspan="2" class="text-end">Other retentions / deductions</td><td class="text-end">- {{ claim.deduction_other|floatformat:2 }}</td></tr>{% endif %}
+        <tr class="table-warning"><th colspan="2" class="text-end">Final amount due for payment</th><th class="text-end fs-5">{{ claim.net_due|floatformat:2 }}</th></tr>
+      </tfoot></table></div>
+      {% if claim.notes %}<div class="card-body border-top"><div class="text-muted small">Notes</div><div style="white-space: pre-line;">{{ claim.notes }}</div></div>{% endif %}
+    </div>
+
+    <div class="card mb-3"><div class="card-header fw-semibold">Requirements for submitting the claim</div><div class="card-body"><div class="row">
+      {% for key, label, ticked in claim.requirement_items %}<div class="col-md-6 mb-1">{% if ticked %}<i class="bi bi-check-square-fill text-success"></i>{% else %}<i class="bi bi-square text-muted"></i>{% endif %} {{ label }}</div>{% endfor %}
+    </div></div></div>
+  </div>
+
+  <div class="col-lg-4">
+    <div class="card mb-3"><div class="card-header fw-semibold">Signatures</div><ul class="list-group list-group-flush">
+      {% for label, person, when in signatures %}
+      <li class="list-group-item d-flex justify-content-between align-items-center">
+        <div><div class="small text-muted">{{ label }}</div>{% if person %}<strong>{{ person.get_full_name|default:person.username }}</strong>{% else %}<span class="text-muted">waiting</span>{% endif %}</div>
+        {% if when %}<span class="small text-success">{{ when|date:"d/m/Y H:i" }}</span>{% endif %}
+      </li>{% endfor %}
+    </ul></div>
+
+    {% if can_sign %}
+    <div class="card mb-3 border-danger"><div class="card-body">
+      <form method="post" action="{% url 'accounting:claim_action' claim.pk 'reject' %}">{% csrf_token %}
+        <label class="form-label small">Send back to the preparer</label>
+        <input name="reason" class="form-control form-control-sm mb-2" placeholder="Why? (required)" maxlength="300" required>
+        <button class="btn btn-sm btn-outline-danger">Send back</button>
+      </form></div></div>
+    {% endif %}
+
+    {% if can_pay %}
+    <div class="card mb-3 border-success"><div class="card-header fw-semibold">Record the payment</div><div class="card-body">
+      <form method="post" action="{% url 'accounting:claim_action' claim.pk 'pay' %}">{% csrf_token %}
+        <div class="row g-2">
+          <div class="col-7"><label class="form-label small mb-0">Cash amount</label><input name="cash_amount" class="form-control form-control-sm" inputmode="decimal"></div>
+          <div class="col-5"><label class="form-label small mb-0">Date</label><input type="date" name="cash_date" class="form-control form-control-sm"></div>
+          <div class="col-6"><label class="form-label small mb-0">Cheque no.</label><input name="cheque_no" class="form-control form-control-sm" maxlength="100"></div>
+          <div class="col-6"><label class="form-label small mb-0">Cheque amount</label><input name="cheque_amount" class="form-control form-control-sm" inputmode="decimal"></div>
+          <div class="col-12"><label class="form-label small mb-0">Cheque due date</label><input type="date" name="cheque_due_date" class="form-control form-control-sm"></div>
+          <div class="col-12"><label class="form-label small mb-0">Note</label><input name="payment_note" class="form-control form-control-sm" placeholder="e.g. paid from the account" maxlength="300"></div>
+        </div>
+        <div class="form-text mb-2">Final amount due: <strong>{{ claim.net_due|floatformat:2 }}</strong></div>
+        <button class="btn btn-success w-100">Mark as paid</button>
+      </form></div></div>
+    {% endif %}
+
+    {% if claim.status == 'paid' %}
+    <div class="card mb-3 border-success"><div class="card-header fw-semibold text-success">Paid {{ claim.paid_at|date:"d/m/Y" }} <span class="text-muted small">by {{ claim.paid_by.get_full_name|default:claim.paid_by.username }}</span></div><div class="card-body small">
+      {% if claim.cash_amount %}<div>Cash: {{ claim.cash_amount|floatformat:2 }} {% if claim.cash_date %}({{ claim.cash_date|date:"d/m/Y" }}){% endif %}</div>{% endif %}
+      {% if claim.cheque_amount %}<div>Cheque {{ claim.cheque_no }}: {{ claim.cheque_amount|floatformat:2 }} {% if claim.cheque_due_date %}due {{ claim.cheque_due_date|date:"d/m/Y" }}{% endif %}</div>{% endif %}
+      {% if claim.payment_note %}<div>{{ claim.payment_note }}</div>{% endif %}
+      {% if request.user.is_admin %}<form method="post" action="{% url 'accounting:claim_action' claim.pk 'reopen' %}" class="mt-2" onsubmit="return confirm('Reopen this payment?');">{% csrf_token %}<button class="btn btn-link btn-sm p-0">Reopen the payment</button></form>{% endif %}
+    </div></div>
+    {% endif %}
+    {% if claim.equipment_claim %}<div class="alert alert-info small">This claim pays a rental claim of {{ claim.equipment_claim.tool.code }} (paying it marks that rental claim paid).</div>{% endif %}
+  </div>
+</div>
+{% endblock %}

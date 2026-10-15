@@ -1,0 +1,97 @@
+{% extends 'base.html' %}
+{% block title %}{% if claim %}Edit {{ claim.number }}{% else %}New payment claim{% endif %}{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center flex-wrap gap-2 my-4">
+  <h1 class="h3 mb-0"><i class="bi bi-file-earmark-text"></i> {% if claim %}Edit claim {{ claim.number }}{% else %}New payment claim <span class="text-muted fs-6">مطالبة مالية</span>{% endif %}</h1>
+  <a href="{% if claim %}{% url 'accounting:claim_detail' claim.pk %}{% else %}{% url 'accounting:claim_list' %}{% endif %}" class="btn btn-outline-secondary">Cancel</a>
+</div>
+{% if claim and claim.status == 'rejected' %}<div class="alert alert-danger"><strong>Sent back:</strong> {{ claim.rejection_reason }} <span class="text-muted">- correct it and sign and send it again.</span></div>{% endif %}
+
+<form method="post" id="claimForm">
+  {% csrf_token %}
+  <div class="card mb-3"><div class="card-header fw-semibold">Beneficiary and project</div><div class="card-body"><div class="row g-3">
+    {% if not claim %}
+    <div class="col-md-6"><label class="form-label">Project <span class="text-muted">اسم المشروع</span> *</label>
+      <select name="project" class="form-select" required>
+        <option value="" disabled {% if not v.project %}selected{% endif %}>- choose -</option>
+        {% if can_main_office %}<option value="main" {% if v.project == 'main' %}selected{% endif %}>Main office (الإدارة العامة)</option>{% endif %}
+        {% for p in projects %}<option value="{{ p.pk }}" {% if v.project|stringformat:'s' == p.pk|stringformat:'s' %}selected{% endif %}>{{ p.project_symbol }} - {{ p.name }}</option>{% endfor %}
+      </select><div class="form-text">The claim number comes from this project's series (e.g. TAB-010).</div></div>
+    {% else %}<div class="col-md-6"><label class="form-label">Project</label><div class="form-control-plaintext fw-semibold">{{ claim.project_label }}</div></div>{% endif %}
+    <div class="col-md-6"><label class="form-label">Vendor from the list <span class="text-muted">المورد</span></label>
+      <select name="vendor" id="vendorSelect" class="form-select"><option value="">- not in the list -</option>
+        {% for vendor in vendors %}<option value="{{ vendor.pk }}" {% if v.vendor|stringformat:'s' == vendor.pk|stringformat:'s' %}selected{% endif %}>{{ vendor.name }}</option>{% endfor %}</select></div>
+    <div class="col-md-6"><label class="form-label">Beneficiary name <span class="text-muted">اسم المورد/المستفيد</span> *</label>
+      <input name="beneficiary_name" id="beneficiaryName" class="form-control" value="{{ v.beneficiary_name }}" maxlength="200" required>
+      <div class="form-text">Filled from the vendor above; write it yourself for someone who is not on the list (a driver, an individual).</div></div>
+    <div class="col-md-3"><label class="form-label">Claim type <span class="text-muted">نوع المطالبة</span></label>
+      <select name="claim_type" class="form-select">{% for key, label in types %}<option value="{{ key }}" {% if v.claim_type == key %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></div>
+    <div class="col-md-3"><label class="form-label">Date <span class="text-muted">التاريخ</span></label><input type="date" name="claim_date" class="form-control" value="{{ v.claim_date }}"></div>
+    <div class="col-md-12"><label class="form-label">Nature of work <span class="text-muted">طبيعة العمل</span></label><input name="nature_of_work" class="form-control" value="{{ v.nature_of_work }}" maxlength="200"></div>
+    <div class="col-md-4"><label class="form-label">Original contract value <span class="text-muted">قيمة العقد الابتدائية</span></label><input name="original_contract_value" class="form-control" inputmode="decimal" value="{{ v.original_contract_value }}"></div>
+    <div class="col-md-4"><label class="form-label">Current contract value <span class="text-muted">قيمة العقد الحالية</span></label><input name="current_contract_value" class="form-control" inputmode="decimal" value="{{ v.current_contract_value }}"></div>
+    <div class="col-md-4"><label class="form-label">Previous payments <span class="text-muted">الدفعات السابقة</span></label><input name="previous_payments" class="form-control" inputmode="decimal" value="{{ v.previous_payments }}"></div>
+  </div></div></div>
+
+  <div class="card mb-3"><div class="card-header d-flex justify-content-between align-items-center"><span class="fw-semibold">Claim details <span class="text-muted">تفاصيل المطالبة</span></span>
+    <button type="button" class="btn btn-sm btn-outline-primary" id="addLine"><i class="bi bi-plus"></i> Add line</button></div>
+    <div class="card-body" id="lines">
+      {% for row in line_rows %}
+      <div class="row g-2 mb-2 claim-line">
+        <div class="col-md-3"><input name="line_statement" class="form-control" placeholder="Statement / البيان" value="{{ row.statement }}" maxlength="200"></div>
+        <div class="col-md-6"><textarea name="line_details" class="form-control" rows="2" placeholder="Details / التفاصيل">{{ row.details }}</textarea></div>
+        <div class="col-8 col-md-2"><input name="line_amount" class="form-control line-amount" inputmode="decimal" placeholder="Amount / المبلغ" value="{{ row.amount }}"></div>
+        <div class="col-4 col-md-1"><button type="button" class="btn btn-outline-danger w-100 remove-line" title="Remove"><i class="bi bi-trash"></i></button></div>
+      </div>{% endfor %}
+    </div></div>
+
+  <div class="card mb-3"><div class="card-header fw-semibold">Notes and deductions <span class="text-muted">ملاحظات وخصومات</span></div><div class="card-body"><div class="row g-3">
+    <div class="col-12"><label class="form-label">Notes <span class="text-muted">ملاحظات</span></label><textarea name="notes" class="form-control" rows="2">{{ v.notes }}</textarea></div>
+    <div class="col-md-4"><label class="form-label">Agreed deduction <span class="text-muted">خصم متفق عليه</span></label><input name="deduction_agreed" class="form-control deduction" inputmode="decimal" value="{{ v.deduction_agreed }}"></div>
+    <div class="col-md-4"><label class="form-label">Retention instead of a source-deduction certificate <span class="text-muted">حجز بدل خصم مصدر</span></label><input name="deduction_source_retention" class="form-control deduction" inputmode="decimal" value="{{ v.deduction_source_retention }}"></div>
+    <div class="col-md-4"><label class="form-label">Other retentions / deductions <span class="text-muted">حجوزات / خصومات أخرى</span></label><input name="deduction_other" class="form-control deduction" inputmode="decimal" value="{{ v.deduction_other }}"></div>
+    <div class="col-12"><div class="d-flex justify-content-between bg-light rounded p-3"><span>Total of the lines: <strong id="sumLines">0</strong></span><span>Final amount due for payment <span class="text-muted">المبلغ النهائي المستحق للدفع</span>: <strong id="netDue" class="fs-5">0</strong></span></div></div>
+  </div></div></div>
+
+  <div class="card mb-3"><div class="card-header fw-semibold">Requirements for submitting the claim <span class="text-muted">متطلبات تقديم المطالبة للصرف</span></div><div class="card-body"><div class="row">
+    {% for key, label in requirements %}<div class="col-md-4"><div class="form-check mb-2"><input class="form-check-input" type="checkbox" name="req_{{ key }}" id="req_{{ key }}" {% if key in ticked %}checked{% endif %}><label class="form-check-label" for="req_{{ key }}">{{ label }}</label></div></div>{% endfor %}
+  </div></div></div>
+
+  <div class="d-flex gap-2 mb-5"><button class="btn btn-primary"><i class="bi bi-save"></i> Save</button><a href="{% if claim %}{% url 'accounting:claim_detail' claim.pk %}{% else %}{% url 'accounting:claim_list' %}{% endif %}" class="btn btn-outline-secondary">Cancel</a></div>
+</form>
+
+<template id="lineTemplate">
+  <div class="row g-2 mb-2 claim-line">
+    <div class="col-md-3"><input name="line_statement" class="form-control" placeholder="Statement / البيان" maxlength="200"></div>
+    <div class="col-md-6"><textarea name="line_details" class="form-control" rows="2" placeholder="Details / التفاصيل"></textarea></div>
+    <div class="col-8 col-md-2"><input name="line_amount" class="form-control line-amount" inputmode="decimal" placeholder="Amount / المبلغ"></div>
+    <div class="col-4 col-md-1"><button type="button" class="btn btn-outline-danger w-100 remove-line" title="Remove"><i class="bi bi-trash"></i></button></div>
+  </div>
+</template>
+{% endblock %}
+{% block extra_js %}
+<script>
+(function () {
+  const lines = document.getElementById('lines');
+  const money = (n) => (isNaN(n) ? 0 : n).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+  const num = (el) => parseFloat((el.value || '0').replace(/,/g, '')) || 0;
+  function recompute() {
+    let sum = 0;
+    document.querySelectorAll('.line-amount').forEach((el) => { sum += num(el); });
+    let deductions = 0;
+    document.querySelectorAll('.deduction').forEach((el) => { deductions += num(el); });
+    document.getElementById('sumLines').textContent = money(sum);
+    document.getElementById('netDue').textContent = money(sum - deductions);
+  }
+  document.getElementById('addLine').addEventListener('click', () => { lines.appendChild(document.getElementById('lineTemplate').content.cloneNode(true)); });
+  lines.addEventListener('click', (e) => {
+    const button = e.target.closest('.remove-line');
+    if (button && lines.querySelectorAll('.claim-line').length > 1) { button.closest('.claim-line').remove(); recompute(); }
+  });
+  document.getElementById('claimForm').addEventListener('input', recompute);
+  const vendor = document.getElementById('vendorSelect'), name = document.getElementById('beneficiaryName');
+  vendor.addEventListener('change', () => { if (vendor.value) name.value = vendor.options[vendor.selectedIndex].text; });
+  recompute();
+})();
+</script>
+{% endblock %}

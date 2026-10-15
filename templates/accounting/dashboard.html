@@ -26,6 +26,13 @@
     </div>
   </div>
 
+  <div class="card border-0 shadow-sm mb-3"><div class="card-body d-flex justify-content-between align-items-center flex-wrap gap-2">
+    <div><h5 class="mb-1"><i class="bi bi-file-earmark-text"></i> Payment claims <span class="text-muted fs-6">المطالبات المالية</span></h5>
+      <div class="text-muted">The claim form with its signatures and the payment.
+        {% if claims_waiting_me %}<strong class="text-warning">{{ claims_waiting_me }} wait for your signature.</strong>{% endif %}
+        {% if claims_to_pay %}<strong class="text-success">{{ claims_to_pay }} ready to pay.</strong>{% endif %}
+        {% if claims_open %} {{ claims_open }} not paid yet.{% endif %}</div></div>
+    <div class="d-flex gap-2"><a href="{% url 'accounting:claims_report' %}" class="btn btn-outline-secondary">Report</a><a href="{% url 'accounting:claim_list' %}" class="btn btn-primary">Open claims</a></div></div></div>
   {% if can_see_payables %}
   <div class="card border-0 shadow-sm mb-3"><div class="card-body d-flex justify-content-between align-items-center flex-wrap gap-2">
     <div><h5 class="mb-1"><i class="bi bi-cash-stack"></i> Payables</h5><div class="text-muted">Rented heavy equipment claims posted for payment{% if payables_ready %}: <strong>{{ payables_ready }}</strong> ready to pay{% endif %}.</div></div>

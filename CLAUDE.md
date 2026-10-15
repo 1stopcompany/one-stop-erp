@@ -248,6 +248,14 @@ python manage.py send_reminders                # reports app (email reminder sys
   (Procurement read-only + Accounting, plus the equipment rental-claim pages `/equipment/claims/` he reads from Payables). `ModuleAccessMiddleware` refuses the pages of any other
   module (redirect to the dashboard for a page, 403 for POST / ajax), and the `modules` template variable (context processor) hides the menu entries and home cards; token
   calls from the phone and the admin are not limited. To restrict another role, add it to `ROLE_MODULES`.
+- **Payment claims** (`accounting/models.py` `PaymentClaim`, rules in `accounting/payment_claims.py`, pages `accounting:claim_*`, PDF `accounting/claim_pdf.py`): the company's claim form
+  (مطالبة مالية: beneficiary, project, claim type, details lines, deductions, final amount due, cash / cheque payment, 12 requirement ticks, signatures) as a record. The project
+  manager prepares it; submitting is his signature, then finance (accountant) -> executive director -> general manager each sign by approving (name and date print on the form);
+  any signer can send it back with a reason (signatures reset); the accountant records the payment last (`status` draft -> submitted -> finance_approved -> executive_approved ->
+  approved -> paid). The number comes from `PaymentClaimSequence` (one series per project symbol, `MAIN OFFICE SUP-0015` for no project; seeded with the last numbers found in the
+  1.11 Payments folders -- edit them in the admin). Who signs each step is `payment_claims.SIGNER_ROLES` (settings `PAYMENT_CLAIM_SIGNER_ROLES` overrides; the executive director is
+  assumed to be an `engineering_manager`). A reviewed equipment rental claim becomes a formal claim from the Payables page (`from_equipment_claim`) and paying the formal claim pays the
+  rental claim. `accounting:claims_report` is the claims report ("payment sheet"; Excel export).
 - **Project BOQ → cost control**: pricing lives on the project's own BOQ, NOT on catalogue items. `reports.ProjectPhase`
   (main item, with an optional `section`) and `ProjectPhaseSubItem` each carry `unit`, `quantity`, `budget_unit_price`
   (cost) and `contract_unit_price` (sell), edited in "Manage BOQ" (`templates/reports/boq_editor.html`,

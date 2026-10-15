@@ -33,7 +33,13 @@
         {% if c.status == 'paid' %}<span class="badge bg-success">Paid {{ c.payment_date|date:"d/m/Y" }}</span>{% if c.payment_reference %}<div class="small text-muted">{{ c.payment_reference }}</div>{% endif %}
           {% if request.user.is_admin %}<form method="post" action="{% url 'accounting:payable_reopen' c.pk %}" class="d-inline" onsubmit="return confirm('Reopen this payment?');">{% csrf_token %}<button class="btn btn-link btn-sm p-0">reopen</button></form>{% endif %}
         {% elif can_pay and c.reviewed_at %}
-          <form method="post" action="{% url 'accounting:payable_pay' c.pk %}" class="d-flex gap-1">{% csrf_token %}<input name="reference" class="form-control form-control-sm" placeholder="cheque / transfer no." maxlength="100"><button class="btn btn-sm btn-success text-nowrap">Mark paid</button></form>
+          {% if c.payment_claim %}
+            <a href="{% url 'accounting:claim_detail' c.payment_claim.pk %}" class="btn btn-sm btn-outline-primary">Claim {{ c.payment_claim.number }}</a>
+            <div class="small text-muted mt-1">{{ c.payment_claim.get_status_display }}</div>
+          {% else %}
+            <form method="post" action="{% url 'accounting:claim_from_equipment' c.pk %}" class="d-inline">{% csrf_token %}<button class="btn btn-sm btn-primary text-nowrap"><i class="bi bi-file-earmark-text"></i> Make the payment claim</button></form>
+            <form method="post" action="{% url 'accounting:payable_pay' c.pk %}" class="d-flex gap-1 mt-1">{% csrf_token %}<input name="reference" class="form-control form-control-sm" placeholder="or pay now: cheque / transfer no." maxlength="100"><button class="btn btn-sm btn-outline-success text-nowrap">Mark paid</button></form>
+          {% endif %}
         {% else %}<span class="text-muted small">{% if not c.reviewed_at %}after the engineer's review{% else %}-{% endif %}</span>{% endif %}
       </td></tr>
   {% empty %}<tr><td colspan="8" class="text-center text-muted py-4">No claims.</td></tr>{% endfor %}</tbody></table></div></div>

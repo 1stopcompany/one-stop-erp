@@ -33,6 +33,8 @@ EXEMPT = {
     "timesheets.EmployeeProjectHours",
     # Tools register: where a tool is / was; moving a tool never depends on the project being ready.
     "equipment.Tool", "equipment.ToolTransfer", "equipment.EquipmentClaim",
+    # Accounting payment claims (the claim form): money owed does not wait for the project to be ready.
+    "accounting.PaymentClaim",
 }
 
 # model -> path to its project
