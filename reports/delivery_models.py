@@ -27,5 +27,12 @@ class ReportDelivery(models.Model):
         return f'{self.report_id} delivery {self.created_at:%Y-%m-%d %H:%M}'
 
     @property
+    def is_stale(self):
+        """Still "in progress" long after it started: the job died with the server process (or hung) and will never finish by itself."""
+        from datetime import timedelta
+        from django.utils import timezone
+        return not self.finished and timezone.now() - self.created_at > timedelta(minutes=4)
+
+    @property
     def all_ok(self):
         return self.email_ok is not False and self.dropbox_ok is not False and not self.photos_error

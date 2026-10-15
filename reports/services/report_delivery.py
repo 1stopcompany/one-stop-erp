@@ -54,7 +54,7 @@ def dropbox_client():
     import dropbox
     if not (settings.DROPBOX_APP_KEY and settings.DROPBOX_APP_SECRET and settings.DROPBOX_OAUTH2_REFRESH_TOKEN):
         raise DeliveryError('Dropbox is not set up on this server (DROPBOX_APP_KEY / DROPBOX_APP_SECRET / DROPBOX_OAUTH2_REFRESH_TOKEN in .env).')
-    return dropbox.Dropbox(oauth2_refresh_token=settings.DROPBOX_OAUTH2_REFRESH_TOKEN, app_key=settings.DROPBOX_APP_KEY, app_secret=settings.DROPBOX_APP_SECRET)
+    return dropbox.Dropbox(oauth2_refresh_token=settings.DROPBOX_OAUTH2_REFRESH_TOKEN, app_key=settings.DROPBOX_APP_KEY, app_secret=settings.DROPBOX_APP_SECRET, timeout=60)
 
 
 def resolve_folder(client, value):

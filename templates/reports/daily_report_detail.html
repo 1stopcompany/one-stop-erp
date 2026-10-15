@@ -40,9 +40,12 @@
 
     {% if report.status != 'draft' %}
     {% with d=report.deliveries.first %}
-    <div class="alert {% if d and not d.finished %}alert-info{% elif d and d.all_ok %}alert-success{% elif d %}alert-warning{% else %}alert-secondary{% endif %} d-flex justify-content-between align-items-center flex-wrap gap-2 py-2">
+    <div class="alert {% if d and d.is_stale %}alert-danger{% elif d and not d.finished %}alert-info{% elif d and d.all_ok %}alert-success{% elif d %}alert-warning{% else %}alert-secondary{% endif %} d-flex justify-content-between align-items-center flex-wrap gap-2 py-2">
         <div class="small">
-            {% if d and not d.finished %}
+            {% if d and d.is_stale %}
+                <i class="fas fa-exclamation-triangle"></i>
+                <strong>The sending did not finish</strong> ({{ d.created_at|date:"d/m/Y H:i" }}): the server stopped the background job or it hung, so neither the e-mail nor the Dropbox copy is confirmed. Press <strong>Send again</strong>; it runs right now and shows the real result.
+            {% elif d and not d.finished %}
                 <span class="spinner-border spinner-border-sm" role="status"></span>
                 Sending the notification and saving the copy to Dropbox... this page refreshes by itself.
                 <script>
