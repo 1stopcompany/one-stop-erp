@@ -336,6 +336,10 @@ python manage.py send_reminders                # reports app (email reminder sys
   figures computed from the BOQ (overall, this month, BOQ breakdown) follow the new dates by themselves, and the Progress Summary rows whose value is a bare
   percentage ("12.5%", matched to the BOQ phase by name) are refreshed; hand-written values stay. Photos, attachments, consultant review comments, revision history
   and the photo-album link are not copied; a second copy of an existing period is refused.
+- **Carrying monthly reports to another installation** (`reports/services/monthly_package.py`, commands `export_monthly_reports` / `import_monthly_reports`): the reports prepared locally reach the
+  server through a zip (data as JSON + attachment files), never by touching the server database: `export_monthly_reports --project TAB --months 2026-08,2026-09 --out x.zip` locally, then
+  on the server `import_monthly_reports x.zip` previews (nothing written) and `--apply` creates DRAFTS (author = the project manager). A project is found by its symbol, a report whose project and
+  period already exist is never touched, floors are matched by number; review comments, photographic-record photos, signatures and the report number are not carried.
 - **A project's own Reports page** (`projects:project_reports`, `projects/views.py::ProjectReportsView`, "Reports" button
   on the project page): every Daily/Monthly/Owner Financial report on that one project in one paginated, filterable
   (type, status) list, instead of only the top-10 preview on the project page or filtering the site-wide Reports list by
