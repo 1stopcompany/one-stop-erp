@@ -36,11 +36,23 @@ class ProjectForm(forms.ModelForm):
         self.fields['site_engineer'].empty_label = '— none (the project manager writes the daily reports) —'
         for name in ('manager', 'site_engineer'):
             self.fields[name].label_from_instance = lambda user: f'{user.get_full_name() or user.username} ({user.get_role_display()})'
+            # Whoever is assigned now stays a valid choice even when his role is not one the picker offers (an old assignment, an admin account):
+            # otherwise saving anything else on the project (a Dropbox link, a date) is refused with "Select a valid choice".
+            current = getattr(self.instance, f'{name}_id', None)
+            if current:
+                from django.db.models import Q
+                field = self.fields[name]
+                field.queryset = field.queryset.model.objects.filter(Q(pk__in=field.queryset.values('pk')) | Q(pk=current)).order_by('first_name', 'username')
         if not self.instance.pk:
             # A new project always starts in Planning and only becomes Active by finishing the
             # start-up flow (insurance -> tender documents -> approved drawings): see projects.workflow.
             del self.fields['status']
             self.instance.status = 'planning'
+
+    def _get_validation_exclusions(self):
+        # The pickers above already limit the choices (and keep the current assignee valid); the model fields' own limit_choices_to check
+        # would refuse that current assignee again, so it is skipped for these two.
+        return super()._get_validation_exclusions() | {'manager', 'site_engineer'}
 
     def clean_report_notify_emails(self):
         import re
