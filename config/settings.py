@@ -281,6 +281,9 @@ EMAIL_BACKEND = os.getenv(
 EMAIL_PORT = int(os.getenv('EMAIL_PORT', '587'))
 # A mail server that does not answer must end in an error, not hang the delivery job for ever (Django waits without limit by default).
 EMAIL_TIMEOUT = int(os.getenv('EMAIL_TIMEOUT', '30'))
+# The "report submitted" delivery (e-mail + Dropbox) runs on a background thread by default. On a host that stops a worker's threads once the page
+# has been sent, set REPORT_DELIVERY_IN_BACKGROUND=False in .env: the delivery then runs inside the submit request (the engineer waits a few seconds longer).
+REPORT_DELIVERY_IN_BACKGROUND = env_bool('REPORT_DELIVERY_IN_BACKGROUND', True)
 EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER', '')
 EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD', '')
 # Port 465 means "SSL from the first byte" (what cPanel's Connect Devices page lists as the secure SMTP port); 587 is STARTTLS.
